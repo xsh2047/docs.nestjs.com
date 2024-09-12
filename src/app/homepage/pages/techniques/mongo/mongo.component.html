@@ -1,0 +1,488 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/techniques/mongo.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="mongo">Mongo</h3>
+<p>Nest supports two methods for integrating with the <a rel='nofollow' target='_blank' href="https://www.mongodb.com/">MongoDB</a> database. You can either use the built-in <a rel='nofollow' target='_blank' href="https://github.com/typeorm/typeorm">TypeORM</a> module described <a routerLink="/techniques/database">here</a>, which has a connector for MongoDB, or use <a rel='nofollow' target='_blank' href="https://mongoosejs.com">Mongoose</a>, the most popular MongoDB object modeling tool. In this chapter we&#39;ll describe the latter, using the dedicated <code>@nestjs/mongoose</code> package.</p>
+<p>Start by installing the <a rel='nofollow' target='_blank' href="https://github.com/Automattic/mongoose">required dependencies</a>:</p>
+<pre><code class="language-bash">
+$ npm i @nestjs/mongoose mongoose
+</code></pre>
+<p>Once the installation process is complete, we can import the <code>MongooseModule</code> into the root <code>AppModule</code>.</p>
+
+<span class="filename">
+  {{ 'app.module' | extension: app217d5b291de12a72ce4fd0c700dbed557f23f66e.isJsActive }}
+<app-tabs #app217d5b291de12a72ce4fd0c700dbed557f23f66e></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; MongooseModule &#125; from &#39;@nestjs/mongoose&#39;;
+
+@Module(&#123;
+  imports: [MongooseModule.forRoot(&#39;mongodb://localhost/nest&#39;)],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><p>The <code>forRoot()</code> method accepts the same configuration object as <code>mongoose.connect()</code> from the Mongoose package, as described <a rel='nofollow' target='_blank' href="https://mongoosejs.com/docs/connections.html">here</a>.</p>
+<h4 appAnchor id="model-injection"><span>Model injection</span></h4>
+<p>With Mongoose, everything is derived from a <a rel='nofollow' target='_blank' href="http://mongoosejs.com/docs/guide.html">Schema</a>. Each schema maps to a MongoDB collection and defines the shape of the documents within that collection. Schemas are used to define <a rel='nofollow' target='_blank' href="https://mongoosejs.com/docs/models.html">Models</a>. Models are responsible for creating and reading documents from the underlying MongoDB database.</p>
+<p>Schemas can be created with NestJS decorators, or with Mongoose itself manually. Using decorators to create schemas greatly reduces boilerplate and improves overall code readability.</p>
+<p>Let&#39;s define the <code>CatSchema</code>:</p>
+
+<span class="filename">
+  {{ 'schemas/cat.schema' | extension: appbc7f05ec5e3f70bc7b1c3157ba66c42dbbf587d4.isJsActive }}
+<app-tabs #appbc7f05ec5e3f70bc7b1c3157ba66c42dbbf587d4></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Prop, Schema, SchemaFactory &#125; from &#39;@nestjs/mongoose&#39;;
+import &#123; HydratedDocument &#125; from &#39;mongoose&#39;;
+
+export type CatDocument = HydratedDocument&lt;Cat&gt;;
+
+@Schema()
+export class Cat &#123;
+  @Prop()
+  name: string;
+
+  @Prop()
+  age: number;
+
+  @Prop()
+  breed: string;
+&#125;
+
+export const CatSchema = SchemaFactory.createForClass(Cat);
+</code></pre><blockquote class="
+info "><strong>Hint</strong> Note you can also generate a raw schema definition using the <code>DefinitionsFactory</code> class (from the <code>nestjs/mongoose</code>). This allows you to manually modify the schema definition generated based on the metadata you provided. This is useful for certain edge-cases where it may be hard to represent everything with decorators.
+</blockquote>
+<p>The <code>@Schema()</code> decorator marks a class as a schema definition. It maps our <code>Cat</code> class to a MongoDB collection of the same name, but with an additional “s” at the end - so the final mongo collection name will be <code>cats</code>. This decorator accepts a single optional argument which is a schema options object. Think of it as the object you would normally pass as a second argument of the <code>mongoose.Schema</code> class&#39; constructor (e.g., <code>new mongoose.Schema(_, options)</code>)). To learn more about available schema options, see <a rel='nofollow' target='_blank' href="https://mongoosejs.com/docs/guide.html#options">this</a> chapter.</p>
+<p>The <code>@Prop()</code> decorator defines a property in the document. For example, in the schema definition above, we defined three properties: <code>name</code>, <code>age</code>, and <code>breed</code>. The <a rel='nofollow' target='_blank' href="https://mongoosejs.com/docs/schematypes.html">schema types</a> for these properties are automatically inferred thanks to TypeScript metadata (and reflection) capabilities. However, in more complex scenarios in which types cannot be implicitly reflected (for example, arrays or nested object structures), types must be indicated explicitly, as follows:</p>
+<pre><code class="language-typescript">
+@Prop([String])
+tags: string[];
+</code></pre>
+<p>Alternatively, the <code>@Prop()</code> decorator accepts an options object argument (<a rel='nofollow' target='_blank' href="https://mongoosejs.com/docs/schematypes.html#schematype-options">read more</a> about the available options). With this, you can indicate whether a property is required or not, specify a default value, or mark it as immutable. For example:</p>
+<pre><code class="language-typescript">
+@Prop(&#123; required: true &#125;)
+name: string;
+</code></pre>
+<p>In case you want to specify relation to another model, later for populating, you can use <code>@Prop()</code> decorator as well. For example, if <code>Cat</code> has <code>Owner</code> which is stored in a different collection called <code>owners</code>, the property should have type and ref. For example:</p>
+<pre><code class="language-typescript">
+import * as mongoose from &#39;mongoose&#39;;
+import &#123; Owner &#125; from &#39;../owners/schemas/owner.schema&#39;;
+
+// inside the class definition
+@Prop(&#123; type: mongoose.Schema.Types.ObjectId, ref: &#39;Owner&#39; &#125;)
+owner: Owner;
+</code></pre>
+<p>In case there are multiple owners, your property configuration should look as follows:</p>
+<pre><code class="language-typescript">
+@Prop(&#123; type: [&#123; type: mongoose.Schema.Types.ObjectId, ref: &#39;Owner&#39; &#125;] &#125;)
+owners: Owner[];
+</code></pre>
+<p>Finally, the <strong>raw</strong> schema definition can also be passed to the decorator. This is useful when, for example, a property represents a nested object which is not defined as a class. For this, use the <code>raw()</code> function from the <code>@nestjs/mongoose</code> package, as follows:</p>
+<pre><code class="language-typescript">
+@Prop(raw(&#123;
+  firstName: &#123; type: String &#125;,
+  lastName: &#123; type: String &#125;
+&#125;))
+details: Record&lt;string, any&gt;;
+</code></pre>
+<p>Alternatively, if you prefer <strong>not using decorators</strong>, you can define a schema manually. For example:</p>
+<pre><code class="language-typescript">
+export const CatSchema = new mongoose.Schema(&#123;
+  name: String,
+  age: Number,
+  breed: String,
+&#125;);
+</code></pre>
+<p>The <code>cat.schema</code> file resides in a folder in the <code>cats</code> directory, where we also define the <code>CatsModule</code>. While you can store schema files wherever you prefer, we recommend storing them near their related <strong>domain</strong> objects, in the appropriate module directory.</p>
+<p>Let&#39;s look at the <code>CatsModule</code>:</p>
+
+<span class="filename">
+  {{ 'cats.module' | extension: app1c7ba407139dfd5c074ade55da1604463be80632.isJsActive }}
+<app-tabs #app1c7ba407139dfd5c074ade55da1604463be80632></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; MongooseModule &#125; from &#39;@nestjs/mongoose&#39;;
+import &#123; CatsController &#125; from &#39;./cats.controller&#39;;
+import &#123; CatsService &#125; from &#39;./cats.service&#39;;
+import &#123; Cat, CatSchema &#125; from &#39;./schemas/cat.schema&#39;;
+
+@Module(&#123;
+  imports: [MongooseModule.forFeature([&#123; name: Cat.name, schema: CatSchema &#125;])],
+  controllers: [CatsController],
+  providers: [CatsService],
+&#125;)
+export class CatsModule &#123;&#125;
+</code></pre><p>The <code>MongooseModule</code> provides the <code>forFeature()</code> method to configure the module, including defining which models should be registered in the current scope. If you also want to use the models in another module, add MongooseModule to the <code>exports</code> section of <code>CatsModule</code> and import <code>CatsModule</code> in the other module.</p>
+<p>Once you&#39;ve registered the schema, you can inject a <code>Cat</code> model into the <code>CatsService</code> using the <code>@InjectModel()</code> decorator:</p>
+
+<span class="filename">
+  {{ 'cats.service' | extension: appa5ed5d1afd8b1dc25819fbe1e7cfdb28d9f0cf8c.isJsActive }}
+<app-tabs #appa5ed5d1afd8b1dc25819fbe1e7cfdb28d9f0cf8c></app-tabs>
+</span><pre [class.hide]="appa5ed5d1afd8b1dc25819fbe1e7cfdb28d9f0cf8c.isJsActive"><code class="language-typescript">
+import &#123; Model &#125; from &#39;mongoose&#39;;
+import &#123; Injectable &#125; from &#39;@nestjs/common&#39;;
+import &#123; InjectModel &#125; from &#39;@nestjs/mongoose&#39;;
+import &#123; Cat &#125; from &#39;./schemas/cat.schema&#39;;
+import &#123; CreateCatDto &#125; from &#39;./dto/create-cat.dto&#39;;
+
+@Injectable()
+export class CatsService &#123;
+  constructor(@InjectModel(Cat.name) private catModel: Model&lt;Cat&gt;) &#123;&#125;
+
+  async create(createCatDto: CreateCatDto): Promise&lt;Cat&gt; &#123;
+    const createdCat = new this.catModel(createCatDto);
+    return createdCat.save();
+  &#125;
+
+  async findAll(): Promise&lt;Cat[]&gt; &#123;
+    return this.catModel.find().exec();
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!appa5ed5d1afd8b1dc25819fbe1e7cfdb28d9f0cf8c.isJsActive"><code class="language-typescript">
+import &#123; Model &#125; from &#39;mongoose&#39;;
+import &#123; Injectable, Dependencies &#125; from &#39;@nestjs/common&#39;;
+import &#123; getModelToken &#125; from &#39;@nestjs/mongoose&#39;;
+import &#123; Cat &#125; from &#39;./schemas/cat.schema&#39;;
+
+@Injectable()
+@Dependencies(getModelToken(Cat.name))
+export class CatsService &#123;
+  constructor(catModel) &#123;
+    this.catModel = catModel;
+  &#125;
+
+  async create(createCatDto) &#123;
+    const createdCat = new this.catModel(createCatDto);
+    return createdCat.save();
+  &#125;
+
+  async findAll() &#123;
+    return this.catModel.find().exec();
+  &#125;
+&#125;
+</code></pre><h4 appAnchor id="connection"><span>Connection</span></h4>
+<p>At times you may need to access the native <a rel='nofollow' target='_blank' href="https://mongoosejs.com/docs/api.html#Connection">Mongoose Connection</a> object. For example, you may want to make native API calls on the connection object. You can inject the Mongoose Connection by using the <code>@InjectConnection()</code> decorator as follows:</p>
+<pre><code class="language-typescript">
+import &#123; Injectable &#125; from &#39;@nestjs/common&#39;;
+import &#123; InjectConnection &#125; from &#39;@nestjs/mongoose&#39;;
+import &#123; Connection &#125; from &#39;mongoose&#39;;
+
+@Injectable()
+export class CatsService &#123;
+  constructor(@InjectConnection() private connection: Connection) &#123;&#125;
+&#125;
+</code></pre>
+<h4 appAnchor id="multiple-databases"><span>Multiple databases</span></h4>
+<p>Some projects require multiple database connections. This can also be achieved with this module. To work with multiple connections, first create the connections. In this case, connection naming becomes <strong>mandatory</strong>.</p>
+
+<span class="filename">
+  {{ 'app.module' | extension: app28dde97e733085cc65d166e03d890e20521eee69.isJsActive }}
+<app-tabs #app28dde97e733085cc65d166e03d890e20521eee69></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; MongooseModule &#125; from &#39;@nestjs/mongoose&#39;;
+
+@Module(&#123;
+  imports: [
+    MongooseModule.forRoot(&#39;mongodb://localhost/test&#39;, &#123;
+      connectionName: &#39;cats&#39;,
+    &#125;),
+    MongooseModule.forRoot(&#39;mongodb://localhost/users&#39;, &#123;
+      connectionName: &#39;users&#39;,
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><blockquote class="
+warning "><strong>Notice</strong> Please note that you shouldn&#39;t have multiple connections without a name, or with the same name, otherwise they will get overridden.
+</blockquote>
+<p>With this setup, you have to tell the <code>MongooseModule.forFeature()</code> function which connection should be used.</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    MongooseModule.forFeature([&#123; name: Cat.name, schema: CatSchema &#125;], &#39;cats&#39;),
+  ],
+&#125;)
+export class CatsModule &#123;&#125;
+</code></pre>
+<p>You can also inject the <code>Connection</code> for a given connection:</p>
+<pre><code class="language-typescript">
+import &#123; Injectable &#125; from &#39;@nestjs/common&#39;;
+import &#123; InjectConnection &#125; from &#39;@nestjs/mongoose&#39;;
+import &#123; Connection &#125; from &#39;mongoose&#39;;
+
+@Injectable()
+export class CatsService &#123;
+  constructor(@InjectConnection(&#39;cats&#39;) private connection: Connection) &#123;&#125;
+&#125;
+</code></pre>
+<p>To inject a given <code>Connection</code> to a custom provider (for example, factory provider), use the <code>getConnectionToken()</code> function passing the name of the connection as an argument.</p>
+<pre><code class="language-typescript">
+&#123;
+  provide: CatsService,
+  useFactory: (catsConnection: Connection) =&gt; &#123;
+    return new CatsService(catsConnection);
+  &#125;,
+  inject: [getConnectionToken(&#39;cats&#39;)],
+&#125;
+</code></pre>
+<p>If you are just looking to inject the model from a named database, you can use the connection name as a second parameter to the <code>@InjectModel()</code> decorator.</p>
+
+<span class="filename">
+  {{ 'cats.service' | extension: app328095d5b18547d6deeae27d2e59dbc6cb85e840.isJsActive }}
+<app-tabs #app328095d5b18547d6deeae27d2e59dbc6cb85e840></app-tabs>
+</span><pre [class.hide]="app328095d5b18547d6deeae27d2e59dbc6cb85e840.isJsActive"><code class="language-typescript">
+@Injectable()
+export class CatsService &#123;
+  constructor(@InjectModel(Cat.name, &#39;cats&#39;) private catModel: Model&lt;Cat&gt;) &#123;&#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app328095d5b18547d6deeae27d2e59dbc6cb85e840.isJsActive"><code class="language-typescript">
+@Injectable()
+@Dependencies(getModelToken(Cat.name, &#39;cats&#39;))
+export class CatsService &#123;
+  constructor(catModel) &#123;
+    this.catModel = catModel;
+  &#125;
+&#125;
+</code></pre><h4 appAnchor id="hooks-middleware"><span>Hooks (middleware)</span></h4>
+<p>Middleware (also called pre and post hooks) are functions which are passed control during execution of asynchronous functions. Middleware is specified on the schema level and is useful for writing plugins (<a rel='nofollow' target='_blank' href="https://mongoosejs.com/docs/middleware.html">source</a>). Calling <code>pre()</code> or <code>post()</code> after compiling a model does not work in Mongoose. To register a hook <strong>before</strong> model registration, use the <code>forFeatureAsync()</code> method of the <code>MongooseModule</code> along with a factory provider (i.e., <code>useFactory</code>). With this technique, you can access a schema object, then use the <code>pre()</code> or <code>post()</code> method to register a hook on that schema. See example below:</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    MongooseModule.forFeatureAsync([
+      &#123;
+        name: Cat.name,
+        useFactory: () =&gt; &#123;
+          const schema = CatsSchema;
+          schema.pre(&#39;save&#39;, function () &#123;
+            console.log(&#39;Hello from pre save&#39;);
+          &#125;);
+          return schema;
+        &#125;,
+      &#125;,
+    ]),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>Like other <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/fundamentals/custom-providers#factory-providers-usefactory">factory providers</a>, our factory function can be <code>async</code> and can inject dependencies through <code>inject</code>.</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    MongooseModule.forFeatureAsync([
+      &#123;
+        name: Cat.name,
+        imports: [ConfigModule],
+        useFactory: (configService: ConfigService) =&gt; &#123;
+          const schema = CatsSchema;
+          schema.pre(&#39;save&#39;, function() &#123;
+            console.log(
+              `$&#123;configService.get(&#39;APP_NAME&#39;)&#125;: Hello from pre save`,
+            ),
+          &#125;);
+          return schema;
+        &#125;,
+        inject: [ConfigService],
+      &#125;,
+    ]),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<h4 appAnchor id="plugins"><span>Plugins</span></h4>
+<p>To register a <a rel='nofollow' target='_blank' href="https://mongoosejs.com/docs/plugins.html">plugin</a> for a given schema, use the <code>forFeatureAsync()</code> method.</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    MongooseModule.forFeatureAsync([
+      &#123;
+        name: Cat.name,
+        useFactory: () =&gt; &#123;
+          const schema = CatsSchema;
+          schema.plugin(require(&#39;mongoose-autopopulate&#39;));
+          return schema;
+        &#125;,
+      &#125;,
+    ]),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>To register a plugin for all schemas at once, call the <code>.plugin()</code> method of the <code>Connection</code> object. You should access the connection before models are created; to do this, use the <code>connectionFactory</code>:</p>
+
+<span class="filename">
+  {{ 'app.module' | extension: appd23d06fbb5e791e8a9c5aad4cef21186d4a570a2.isJsActive }}
+<app-tabs #appd23d06fbb5e791e8a9c5aad4cef21186d4a570a2></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; MongooseModule &#125; from &#39;@nestjs/mongoose&#39;;
+
+@Module(&#123;
+  imports: [
+    MongooseModule.forRoot(&#39;mongodb://localhost/test&#39;, &#123;
+      connectionFactory: (connection) =&gt; &#123;
+        connection.plugin(require(&#39;mongoose-autopopulate&#39;));
+        return connection;
+      &#125;
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><h4 appAnchor id="discriminators"><span>Discriminators</span></h4>
+<p><a rel='nofollow' target='_blank' href="https://mongoosejs.com/docs/discriminators.html">Discriminators</a> are a schema inheritance mechanism. They enable you to have multiple models with overlapping schemas on top of the same underlying MongoDB collection.</p>
+<p>Suppose you wanted to track different types of events in a single collection. Every event will have a timestamp.</p>
+
+<span class="filename">
+  {{ 'event.schema' | extension: app538bbdd473fd79cedb58a3a0c877e14195c9241b.isJsActive }}
+<app-tabs #app538bbdd473fd79cedb58a3a0c877e14195c9241b></app-tabs>
+</span><pre><code class="language-typescript">
+@Schema(&#123; discriminatorKey: &#39;kind&#39; &#125;)
+export class Event &#123;
+  @Prop(&#123;
+    type: String,
+    required: true,
+    enum: [ClickedLinkEvent.name, SignUpEvent.name],
+  &#125;)
+  kind: string;
+
+  @Prop(&#123; type: Date, required: true &#125;)
+  time: Date;
+&#125;
+
+export const EventSchema = SchemaFactory.createForClass(Event);
+</code></pre><blockquote class="
+info "><strong>Hint</strong> The way mongoose tells the difference between the different discriminator models is by the &quot;discriminator key&quot;, which is <code>__t</code> by default. Mongoose adds a String path called <code>__t</code> to your schemas that it uses to track which discriminator this document is an instance of.
+You may also use the <code>discriminatorKey</code> option to define the path for discrimination.
+</blockquote>
+<p><code>SignedUpEvent</code> and <code>ClickedLinkEvent</code> instances will be stored in the same collection as generic events.</p>
+<p>Now, let&#39;s define the <code>ClickedLinkEvent</code> class, as follows:</p>
+
+<span class="filename">
+  {{ 'click-link-event.schema' | extension: appacf266dc05a8eafc1adaf142baae0c9303692598.isJsActive }}
+<app-tabs #appacf266dc05a8eafc1adaf142baae0c9303692598></app-tabs>
+</span><pre><code class="language-typescript">
+@Schema()
+export class ClickedLinkEvent &#123;
+  kind: string;
+  time: Date;
+
+  @Prop(&#123; type: String, required: true &#125;)
+  url: string;
+&#125;
+
+export const ClickedLinkEventSchema = SchemaFactory.createForClass(ClickedLinkEvent);
+</code></pre><p>And <code>SignUpEvent</code> class:</p>
+
+<span class="filename">
+  {{ 'sign-up-event.schema' | extension: app02514de6aea05127e81c3c4d940e89932977de92.isJsActive }}
+<app-tabs #app02514de6aea05127e81c3c4d940e89932977de92></app-tabs>
+</span><pre><code class="language-typescript">
+@Schema()
+export class SignUpEvent &#123;
+  kind: string;
+  time: Date;
+
+  @Prop(&#123; type: String, required: true &#125;)
+  user: string;
+&#125;
+
+export const SignUpEventSchema = SchemaFactory.createForClass(SignUpEvent);
+</code></pre><p>With this in place, use the <code>discriminators</code> option to register a discriminator for a given schema. It works on both <code>MongooseModule.forFeature</code> and <code>MongooseModule.forFeatureAsync</code>:</p>
+
+<span class="filename">
+  {{ 'event.module' | extension: app33d64e55e4a45fabb19790b048ccca546705d449.isJsActive }}
+<app-tabs #app33d64e55e4a45fabb19790b048ccca546705d449></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; MongooseModule &#125; from &#39;@nestjs/mongoose&#39;;
+
+@Module(&#123;
+  imports: [
+    MongooseModule.forFeature([
+      &#123;
+        name: Event.name,
+        schema: EventSchema,
+        discriminators: [
+          &#123; name: ClickedLinkEvent.name, schema: ClickedLinkEventSchema &#125;,
+          &#123; name: SignUpEvent.name, schema: SignUpEventSchema &#125;,
+        ],
+      &#125;,
+    ]),
+  ]
+&#125;)
+export class EventsModule &#123;&#125;
+</code></pre><h4 appAnchor id="testing"><span>Testing</span></h4>
+<p>When unit testing an application, we usually want to avoid any database connection, making our test suites simpler to set up and faster to execute. But our classes might depend on models that are pulled from the connection instance. How do we resolve these classes? The solution is to create mock models.</p>
+<p>To make this easier, the <code>@nestjs/mongoose</code> package exposes a <code>getModelToken()</code> function that returns a prepared <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/fundamentals/custom-providers#di-fundamentals">injection token</a> based on a token name. Using this token, you can easily provide a mock implementation using any of the standard <a routerLink="/fundamentals/custom-providers">custom provider</a> techniques, including <code>useClass</code>, <code>useValue</code>, and <code>useFactory</code>. For example:</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  providers: [
+    CatsService,
+    &#123;
+      provide: getModelToken(Cat.name),
+      useValue: catModel,
+    &#125;,
+  ],
+&#125;)
+export class CatsModule &#123;&#125;
+</code></pre>
+<p>In this example, a hardcoded <code>catModel</code> (object instance) will be provided whenever any consumer injects a <code>Model&lt;Cat&gt;</code> using an <code>@InjectModel()</code> decorator.</p>
+<p><app-banner-courses></app-banner-courses></p>
+<h4 appAnchor id="async-configuration"><span>Async configuration</span></h4>
+<p>When you need to pass module options asynchronously instead of statically, use the <code>forRootAsync()</code> method. As with most dynamic modules, Nest provides several techniques to deal with async configuration.</p>
+<p>One technique is to use a factory function:</p>
+<pre><code class="language-typescript">
+MongooseModule.forRootAsync(&#123;
+  useFactory: () =&gt; (&#123;
+    uri: &#39;mongodb://localhost/nest&#39;,
+  &#125;),
+&#125;);
+</code></pre>
+<p>Like other <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/fundamentals/custom-providers#factory-providers-usefactory">factory providers</a>, our factory function can be <code>async</code> and can inject dependencies through <code>inject</code>.</p>
+<pre><code class="language-typescript">
+MongooseModule.forRootAsync(&#123;
+  imports: [ConfigModule],
+  useFactory: async (configService: ConfigService) =&gt; (&#123;
+    uri: configService.get&lt;string&gt;(&#39;MONGODB_URI&#39;),
+  &#125;),
+  inject: [ConfigService],
+&#125;);
+</code></pre>
+<p>Alternatively, you can configure the <code>MongooseModule</code> using a class instead of a factory, as shown below:</p>
+<pre><code class="language-typescript">
+MongooseModule.forRootAsync(&#123;
+  useClass: MongooseConfigService,
+&#125;);
+</code></pre>
+<p>The construction above instantiates <code>MongooseConfigService</code> inside <code>MongooseModule</code>, using it to create the required options object. Note that in this example, the <code>MongooseConfigService</code> has to implement the <code>MongooseOptionsFactory</code> interface, as shown below. The <code>MongooseModule</code> will call the <code>createMongooseOptions()</code> method on the instantiated object of the supplied class.</p>
+<pre><code class="language-typescript">
+@Injectable()
+export class MongooseConfigService implements MongooseOptionsFactory &#123;
+  createMongooseOptions(): MongooseModuleOptions &#123;
+    return &#123;
+      uri: &#39;mongodb://localhost/nest&#39;,
+    &#125;;
+  &#125;
+&#125;
+</code></pre>
+<p>If you want to reuse an existing options provider instead of creating a private copy inside the <code>MongooseModule</code>, use the <code>useExisting</code> syntax.</p>
+<pre><code class="language-typescript">
+MongooseModule.forRootAsync(&#123;
+  imports: [ConfigModule],
+  useExisting: ConfigService,
+&#125;);
+</code></pre>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>A working example is available <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/tree/master/sample/06-mongoose">here</a>.</p>
+
+</div>
+

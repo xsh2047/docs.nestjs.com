@@ -1,0 +1,274 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/openapi/cli-plugin.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="cli-plugin">CLI Plugin</h3>
+<p><a rel='nofollow' target='_blank' href="https://www.typescriptlang.org/docs/handbook/decorators.html">TypeScript</a>&#39;s metadata reflection system has several limitations which make it impossible to, for instance, determine what properties a class consists of or recognize whether a given property is optional or required. However, some of these constraints can be addressed at compilation time. Nest provides a plugin that enhances the TypeScript compilation process to reduce the amount of boilerplate code required.</p>
+<blockquote class="
+info "><strong>Hint</strong> This plugin is <strong>opt-in</strong>. If you prefer, you can declare all decorators manually, or only specific decorators where you need them.
+</blockquote>
+<h4 appAnchor id="overview"><span>Overview</span></h4>
+<p>The Swagger plugin will automatically:</p>
+<ul>
+<li>annotate all DTO properties with <code>@ApiProperty</code> unless <code>@ApiHideProperty</code> is used</li>
+<li>set the <code>required</code> property depending on the question mark (e.g. <code>name?: string</code> will set <code>required: false</code>)</li>
+<li>set the <code>type</code> or <code>enum</code> property depending on the type (supports arrays as well)</li>
+<li>set the <code>default</code> property based on the assigned default value</li>
+<li>set several validation rules based on <code>class-validator</code> decorators (if <code>classValidatorShim</code> set to <code>true</code>)</li>
+<li>add a response decorator to every endpoint with a proper status and <code>type</code> (response model)</li>
+<li>generate descriptions for properties and endpoints based on comments (if <code>introspectComments</code> set to <code>true</code>)</li>
+<li>generate example values for properties based on comments (if <code>introspectComments</code> set to <code>true</code>)</li>
+</ul>
+<p>Please, note that your filenames <strong>must have</strong> one of the following suffixes: <code>[&#39;.dto.ts&#39;, &#39;.entity.ts&#39;]</code> (e.g., <code>create-user.dto.ts</code>) in order to be analysed by the plugin.</p>
+<p>If you are using a different suffix, you can adjust the plugin&#39;s behavior by specifying the <code>dtoFileNameSuffix</code> option (see below).</p>
+<p>Previously, if you wanted to provide an interactive experience with the Swagger UI,
+you had to duplicate a lot of code to let the package know how your models/components should be declared in the specification. For example, you could define a simple <code>CreateUserDto</code> class as follows:</p>
+<pre><code class="language-typescript">
+export class CreateUserDto &#123;
+  @ApiProperty()
+  email: string;
+
+  @ApiProperty()
+  password: string;
+
+  @ApiProperty(&#123; enum: RoleEnum, default: [], isArray: true &#125;)
+  roles: RoleEnum[] = [];
+
+  @ApiProperty(&#123; required: false, default: true &#125;)
+  isEnabled?: boolean = true;
+&#125;
+</code></pre>
+<p>While not a significant issue with medium-sized projects, it becomes verbose &amp; hard to maintain once you have a large set of classes.</p>
+<p>By <a href="/openapi/cli-plugin#using-the-cli-plugin">enabling the Swagger plugin</a>, the above class definition can be declared simply:</p>
+<pre><code class="language-typescript">
+export class CreateUserDto &#123;
+  email: string;
+  password: string;
+  roles: RoleEnum[] = [];
+  isEnabled?: boolean = true;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Note</strong> The Swagger plugin will derive the @ApiProperty() annotations from the TypeScript types and class-validator decorators. This helps in clearly describing your API for the generated Swagger UI documentation. However, the validation at runtime would still be handled by class-validator decorators. So, it is required to continue using validators like <code>IsEmail()</code>, <code>IsNumber()</code>, etc.
+</blockquote>
+<p>Hence, if you intend to relay on automatic annotations for generating documentations and still wish for runtime validations, then the class-validator decorators are still necessary.</p>
+<blockquote class="
+info "><strong>Hint</strong> When using <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/openapi/mapped-types">mapped types utilities</a> (like <code>PartialType</code>) in DTOs import them from <code>@nestjs/swagger</code> instead of <code>@nestjs/mapped-types</code> for the plugin to pick up the schema.
+</blockquote>
+<p>The plugin adds appropriate decorators on the fly based on the <strong>Abstract Syntax Tree</strong>. Thus you won&#39;t have to struggle with <code>@ApiProperty</code> decorators scattered throughout the code.</p>
+<blockquote class="
+info "><strong>Hint</strong> The plugin will automatically generate any missing swagger properties, but if you need to override them, you simply set them explicitly via <code>@ApiProperty()</code>.
+</blockquote>
+<h4 appAnchor id="comments-introspection"><span>Comments introspection</span></h4>
+<p>With the comments introspection feature enabled, CLI plugin will generate descriptions and example values for properties based on comments.</p>
+<p>For example, given an example <code>roles</code> property:</p>
+<pre><code class="language-typescript">
+/**
+ * A list of user&#39;s roles
+ * @example [&#39;admin&#39;]
+ */
+@ApiProperty(&#123;
+  description: `A list of user&#39;s roles`,
+  example: [&#39;admin&#39;],
+&#125;)
+roles: RoleEnum[] = [];
+</code></pre>
+<p>You must duplicate both description and example values. With <code>introspectComments</code> enabled, the CLI plugin can extract these comments and automatically provide descriptions (and examples, if defined) for properties. Now, the above property can be declared simply as follows:</p>
+<pre><code class="language-typescript">
+/**
+ * A list of user&#39;s roles
+ * @example [&#39;admin&#39;]
+ */
+roles: RoleEnum[] = [];
+</code></pre>
+<p>There are <code>dtoKeyOfComment</code> and <code>controllerKeyOfComment</code> plugin options that you can use to customize how the plugin will set the value for <code>ApiProperty</code> and <code>ApiOperation</code> decorators respectively. Take a look at the following example:</p>
+<pre><code class="language-typescript">
+export class SomeController &#123;
+  /**
+   * Create some resource
+   */
+  @Post()
+  create() &#123;&#125;
+&#125;
+</code></pre>
+<p>By default, these options are set to <code>&quot;description&quot;</code>. This means the plugin will assign <code>&quot;Create some resource&quot;</code> to <code>description</code> key on the <code>ApiOperation</code> operator. Like so:</p>
+<pre><code class="language-ts">
+@ApiOperation(&#123; description: &quot;Create some resource&quot; &#125;)
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> For models, the same logic applies but to <code>ApiProperty</code> decorator instead.
+</blockquote>
+<h4 appAnchor id="using-the-cli-plugin"><span>Using the CLI plugin</span></h4>
+<p>To enable the plugin, open <code>nest-cli.json</code> (if you use <a routerLink="/cli/overview">Nest CLI</a>) and add the following <code>plugins</code> configuration:</p>
+<pre><code class="language-javascript">
+&#123;
+  &quot;collection&quot;: &quot;@nestjs/schematics&quot;,
+  &quot;sourceRoot&quot;: &quot;src&quot;,
+  &quot;compilerOptions&quot;: &#123;
+    &quot;plugins&quot;: [&quot;@nestjs/swagger&quot;]
+  &#125;
+&#125;
+</code></pre>
+<p>You can use the <code>options</code> property to customize the behavior of the plugin.</p>
+<pre><code class="language-javascript">
+&quot;plugins&quot;: [
+  &#123;
+    &quot;name&quot;: &quot;@nestjs/swagger&quot;,
+    &quot;options&quot;: &#123;
+      &quot;classValidatorShim&quot;: false,
+      &quot;introspectComments&quot;: true
+    &#125;
+  &#125;
+]
+</code></pre>
+<p>The <code>options</code> property has to fulfill the following interface:</p>
+<pre><code class="language-typescript">
+export interface PluginOptions &#123;
+  dtoFileNameSuffix?: string[];
+  controllerFileNameSuffix?: string[];
+  classValidatorShim?: boolean;
+  dtoKeyOfComment?: string;
+  controllerKeyOfComment?: string;
+  introspectComments?: boolean;
+&#125;
+</code></pre>
+<table>
+  <tr>
+    <th>Option</th>
+    <th>Default</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>dtoFileNameSuffix</code></td>
+    <td><code>['.dto.ts', '.entity.ts']</code></td>
+    <td>DTO (Data Transfer Object) files suffix</td>
+  </tr>
+  <tr>
+    <td><code>controllerFileNameSuffix</code></td>
+    <td><code>.controller.ts</code></td>
+    <td>Controller files suffix</td>
+  </tr>
+  <tr>
+    <td><code>classValidatorShim</code></td>
+    <td><code>true</code></td>
+    <td>If set to true, the module will reuse <code>class-validator</code> validation decorators (e.g. <code>@Max(10)</code> will add <code>max: 10</code> to schema definition) </td>
+  </tr>
+  <tr>
+    <td><code>dtoKeyOfComment</code></td>
+    <td><code>'description'</code></td>
+    <td>The property key to set the comment text to on <code>ApiProperty</code>.</td>
+  </tr>
+  <tr>
+    <td><code>controllerKeyOfComment</code></td>
+    <td><code>'description'</code></td>
+    <td>The property key to set the comment text to on <code>ApiOperation</code>.</td>
+  </tr>
+  <tr>
+  <td><code>introspectComments</code></td>
+    <td><code>false</code></td>
+    <td>If set to true, plugin will generate descriptions and example values for properties based on comments</td>
+  </tr>
+</table>
+
+<p>Make sure to delete the <code>/dist</code> folder and rebuild your application whenever plugin options are updated.
+If you don&#39;t use the CLI but instead have a custom <code>webpack</code> configuration, you can use this plugin in combination with <code>ts-loader</code>:</p>
+<pre><code class="language-javascript">
+getCustomTransformers: (program: any) =&gt; (&#123;
+  before: [require(&#39;@nestjs/swagger/plugin&#39;).before(&#123;&#125;, program)]
+&#125;),
+</code></pre>
+<h4 appAnchor id="swc-builder"><span>SWC builder</span></h4>
+<p>For standard setups (non-monorepo), to use CLI Plugins with the SWC builder, you need to enable type checking, as described <a href="/recipes/swc#type-checking">here</a>.</p>
+<pre><code class="language-bash">
+$ nest start -b swc --type-check
+</code></pre>
+<p>For monorepo setups, follow the instructions <a href="/recipes/swc#monorepo-and-cli-plugins">here</a>.</p>
+<pre><code class="language-bash">
+$ npx ts-node src/generate-metadata.ts
+# OR npx ts-node apps/&#123;YOUR_APP&#125;/src/generate-metadata.ts
+</code></pre>
+<p>Now, the serialized metadata file must be loaded by the <code>SwaggerModule#loadPluginMetadata</code> method, as shown below:</p>
+<pre><code class="language-typescript">
+import metadata from &#39;./metadata&#39;; // &lt;-- file auto-generated by the &quot;PluginMetadataGenerator&quot;
+
+await SwaggerModule.loadPluginMetadata(metadata); // &lt;-- here
+const document = SwaggerModule.createDocument(app, config);
+</code></pre>
+<h4 appAnchor id="integration-with-ts-jest-e2e-tests"><span>Integration with <code>ts-jest</code> (e2e tests)</span></h4>
+<p>To run e2e tests, <code>ts-jest</code> compiles your source code files on the fly, in memory. This means, it doesn&#39;t use Nest CLI compiler and does not apply any plugins or perform AST transformations.</p>
+<p>To enable the plugin, create the following file in your e2e tests directory:</p>
+<pre><code class="language-javascript">
+const transformer = require(&#39;@nestjs/swagger/plugin&#39;);
+
+module.exports.name = &#39;nestjs-swagger-transformer&#39;;
+// you should change the version number anytime you change the configuration below - otherwise, jest will not detect changes
+module.exports.version = 1;
+
+module.exports.factory = (cs) =&gt; &#123;
+  return transformer.before(
+    &#123;
+      // @nestjs/swagger/plugin options (can be empty)
+    &#125;,
+    cs.program, // &quot;cs.tsCompiler.program&quot; for older versions of Jest (&lt;= v27)
+  );
+&#125;;
+</code></pre>
+<p>With this in place, import AST transformer within your <code>jest</code> configuration file. By default (in the starter application), e2e tests configuration file is located under the <code>test</code> folder and is named <code>jest-e2e.json</code>.</p>
+<pre><code class="language-json">
+&#123;
+  ... // other configuration
+  &quot;globals&quot;: &#123;
+    &quot;ts-jest&quot;: &#123;
+      &quot;astTransformers&quot;: &#123;
+        &quot;before&quot;: [&quot;&lt;path to the file created above&gt;&quot;]
+      &#125;
+    &#125;
+  &#125;
+&#125;
+</code></pre>
+<p>If you use <code>jest@^29</code>, then use the snippet below, as the previous approach got deprecated.</p>
+<pre><code class="language-json">
+&#123;
+  ... // other configuration
+  &quot;transform&quot;: &#123;
+    &quot;^.+\\.(t|j)s$&quot;: [
+      &quot;ts-jest&quot;,
+      &#123;
+        &quot;astTransformers&quot;: &#123;
+          &quot;before&quot;: [&quot;&lt;path to the file created above&gt;&quot;]
+        &#125;
+      &#125;
+    ]
+  &#125;
+&#125;
+</code></pre>
+<h4 appAnchor id="troubleshooting-jest-e2e-tests"><span>Troubleshooting <code>jest</code> (e2e tests)</span></h4>
+<p>In case <code>jest</code> does not seem to pick up your configuration changes, it&#39;s possible that Jest has already <strong>cached</strong> the build result. To apply the new configuration, you need to clear Jest&#39;s cache directory.</p>
+<p>To clear the cache directory, run the following command in your NestJS project folder:</p>
+<pre><code class="language-bash">
+$ npx jest --clearCache
+</code></pre>
+<p>In case the automatic cache clearance fails, you can still manually remove the cache folder with the following commands:</p>
+<pre><code class="language-bash">
+# Find jest cache directory (usually /tmp/jest_rs)
+# by running the following command in your NestJS project root
+$ npx jest --showConfig | grep cache
+# ex result:
+#   &quot;cache&quot;: true,
+#   &quot;cacheDirectory&quot;: &quot;/tmp/jest_rs&quot;
+
+# Remove or empty the Jest cache directory
+$ rm -rf  &lt;cacheDirectory value&gt;
+# ex:
+# rm -rf /tmp/jest_rs
+</code></pre>
+
+</div>
+

@@ -1,0 +1,317 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/techniques/versioning.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="versioning">Versioning</h3>
+<blockquote class="
+info "><strong>Hint</strong> This chapter is only relevant to HTTP-based applications.
+</blockquote>
+<p>Versioning allows you to have <strong>different versions</strong> of your controllers or individual routes running within the same application. Applications change very often and it is not unusual that there are breaking changes that you need to make while still needing to support the previous version of the application.</p>
+<p>There are 4 types of versioning that are supported:</p>
+<table>
+  <tr>
+    <td><a href='techniques/versioning#uri-versioning-type'><code>URI Versioning</code></a></td>
+    <td>The version will be passed within the URI of the request (default)</td>
+  </tr>
+  <tr>
+    <td><a href='techniques/versioning#header-versioning-type'><code>Header Versioning</code></a></td>
+    <td>A custom request header will specify the version</td>
+  </tr>
+  <tr>
+    <td><a href='techniques/versioning#media-type-versioning-type'><code>Media Type Versioning</code></a></td>
+    <td>The <code>Accept</code> header of the request will specify the version</td>
+  </tr>
+  <tr>
+    <td><a href='techniques/versioning#custom-versioning-type'><code>Custom Versioning</code></a></td>
+    <td>Any aspect of the request may be used to specify the version(s). A custom function is provided to extract said version(s).</td>
+  </tr>
+</table>
+
+<h4 appAnchor id="uri-versioning-type"><span>URI Versioning Type</span></h4>
+<p>URI Versioning uses the version passed within the URI of the request, such as <code>https://example.com/v1/route</code> and <code>https://example.com/v2/route</code>.</p>
+<blockquote class="
+warning "><strong>Notice</strong> With URI Versioning the version will be automatically added to the URI after the <a href="faq/global-prefix">global path prefix</a> (if one exists), and before any controller or route paths.
+</blockquote>
+<p>To enable URI Versioning for your application, do the following:</p>
+
+<span class="filename">
+  {{ 'main' | extension: appe1f8ac81f3b716c05366396fcc0204f586073d3c.isJsActive }}
+<app-tabs #appe1f8ac81f3b716c05366396fcc0204f586073d3c></app-tabs>
+</span><pre><code class="language-typescript">
+const app = await NestFactory.create(AppModule);
+// or &quot;app.enableVersioning()&quot;
+app.enableVersioning(&#123;
+  type: VersioningType.URI,
+&#125;);
+await app.listen(3000);
+</code></pre><blockquote class="
+warning "><strong>Notice</strong> The version in the URI will be automatically prefixed with <code>v</code> by default, however the prefix value can be configured by setting the <code>prefix</code> key to your desired prefix or <code>false</code> if you wish to disable it.
+</blockquote>
+<blockquote class="
+info "><strong>Hint</strong> The <code>VersioningType</code> enum is available to use for the <code>type</code> property and is imported from the <code>@nestjs/common</code> package.
+</blockquote>
+<h4 appAnchor id="header-versioning-type"><span>Header Versioning Type</span></h4>
+<p>Header Versioning uses a custom, user specified, request header to specify the version where the value of the header will be the version to use for the request.</p>
+<p>Example HTTP Requests for Header Versioning:</p>
+<p>To enable <strong>Header Versioning</strong> for your application, do the following:</p>
+
+<span class="filename">
+  {{ 'main' | extension: app72faf38eb59a9de1a2b1494c0c2088a8e213f100.isJsActive }}
+<app-tabs #app72faf38eb59a9de1a2b1494c0c2088a8e213f100></app-tabs>
+</span><pre><code class="language-typescript">
+const app = await NestFactory.create(AppModule);
+app.enableVersioning(&#123;
+  type: VersioningType.HEADER,
+  header: &#39;Custom-Header&#39;,
+&#125;);
+await app.listen(3000);
+</code></pre><p>The <code>header</code> property should be the name of the header that will contain the version of the request.</p>
+<blockquote class="
+info "><strong>Hint</strong> The <code>VersioningType</code> enum is available to use for the <code>type</code> property and is imported from the <code>@nestjs/common</code> package.
+</blockquote>
+<h4 appAnchor id="media-type-versioning-type"><span>Media Type Versioning Type</span></h4>
+<p>Media Type Versioning uses the <code>Accept</code> header of the request to specify the version.</p>
+<p>Within the <code>Accept</code> header, the version will be separated from the media type with a semi-colon, <code>;</code>. It should then contain a key-value pair that represents the version to use for the request, such as <code>Accept: application/json;v=2</code>. They key is treated more as a prefix when determining the version will to be configured to include the key and separator.</p>
+<p>To enable <strong>Media Type Versioning</strong> for your application, do the following:</p>
+
+<span class="filename">
+  {{ 'main' | extension: appba005dc8eea59f891c0eb2ea8717531a236f5950.isJsActive }}
+<app-tabs #appba005dc8eea59f891c0eb2ea8717531a236f5950></app-tabs>
+</span><pre><code class="language-typescript">
+const app = await NestFactory.create(AppModule);
+app.enableVersioning(&#123;
+  type: VersioningType.MEDIA_TYPE,
+  key: &#39;v=&#39;,
+&#125;);
+await app.listen(3000);
+</code></pre><p>The <code>key</code> property should be the key and separator of the key-value pair that contains the version. For the example <code>Accept: application/json;v=2</code>, the <code>key</code> property would be set to <code>v=</code>.</p>
+<blockquote class="
+info "><strong>Hint</strong> The <code>VersioningType</code> enum is available to use for the <code>type</code> property and is imported from the <code>@nestjs/common</code> package.
+</blockquote>
+<h4 appAnchor id="custom-versioning-type"><span>Custom Versioning Type</span></h4>
+<p>Custom Versioning uses any aspect of the request to specify the version (or versions). The incoming request is analyzed
+using an <code>extractor</code> function that returns a string or array of strings.</p>
+<p>If multiple versions are provided by the requester, the extractor function can return an array of strings, sorted in
+order of greatest/highest version to smallest/lowest version. Versions are matched to routes in order from highest to
+lowest.</p>
+<p>If an empty string or array is returned from the <code>extractor</code>, no routes are matched and a 404 is returned.</p>
+<p>For example, if an incoming request specifies it supports versions <code>1</code>, <code>2</code>, and <code>3</code>, the <code>extractor</code> <strong>MUST</strong> return <code>[3, 2, 1]</code>. This ensures that the highest possible route version is selected first.</p>
+<p>If versions <code>[3, 2, 1]</code> are extracted, but routes only exist for version <code>2</code> and <code>1</code>, the route that matches version <code>2</code>
+is selected (version <code>3</code> is automatically ignored).</p>
+<blockquote class="
+warning "><strong>Notice</strong> Selecting the highest matching version based on the array returned from <code>extractor</code> &gt; <strong>does not reliably work</strong> with the Express adapter due to design limitations. A single version (either a string or
+array of 1 element) works just fine in Express. Fastify correctly supports both highest matching version
+selection and single version selection.
+</blockquote>
+<p>To enable <strong>Custom Versioning</strong> for your application, create an <code>extractor</code> function and pass it into your application
+like so:</p>
+
+<span class="filename">
+  {{ 'main' | extension: app786a69f4eefb0fcc7238adb6cf32f23b49027844.isJsActive }}
+<app-tabs #app786a69f4eefb0fcc7238adb6cf32f23b49027844></app-tabs>
+</span><pre><code class="language-typescript">
+// Example extractor that pulls out a list of versions from a custom header and turns it into a sorted array.
+// This example uses Fastify, but Express requests can be processed in a similar way.
+const extractor = (request: FastifyRequest): string | string[] =&gt;
+  [request.headers[&#39;custom-versioning-field&#39;] ?? &#39;&#39;]
+     .flatMap(v =&gt; v.split(&#39;,&#39;))
+     .filter(v =&gt; !!v)
+     .sort()
+     .reverse()
+
+const app = await NestFactory.create(AppModule);
+app.enableVersioning(&#123;
+  type: VersioningType.CUSTOM,
+  extractor,
+&#125;);
+await app.listen(3000);
+</code></pre><h4 appAnchor id="usage"><span>Usage</span></h4>
+<p>Versioning allows you to version controllers, individual routes, and also provides a way for certain resources to opt-out of versioning. The usage of versioning is the same regardless of the Versioning Type your application uses.</p>
+<blockquote class="
+warning "><strong>Notice</strong> If versioning is enabled for the application but the controller or route does not specify the version, any requests to that controller/route will be returned a <code>404</code> response status. Similarly, if a request is received containing a version that does not have a corresponding controller or route, it will also be returned a <code>404</code> response status.
+</blockquote>
+<h4 appAnchor id="controller-versions"><span>Controller versions</span></h4>
+<p>A version can be applied to a controller, setting the version for all routes within the controller.</p>
+<p>To add a version to a controller do the following:</p>
+
+<span class="filename">
+  {{ 'cats.controller' | extension: app60b6942ff8a7c3aa0c718015809a48de5b57e16f.isJsActive }}
+<app-tabs #app60b6942ff8a7c3aa0c718015809a48de5b57e16f></app-tabs>
+</span><pre [class.hide]="app60b6942ff8a7c3aa0c718015809a48de5b57e16f.isJsActive"><code class="language-typescript">
+@Controller(&#123;
+  version: &#39;1&#39;,
+&#125;)
+export class CatsControllerV1 &#123;
+  @Get(&#39;cats&#39;)
+  findAll(): string &#123;
+    return &#39;This action returns all cats for version 1&#39;;
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app60b6942ff8a7c3aa0c718015809a48de5b57e16f.isJsActive"><code class="language-typescript">
+@Controller(&#123;
+  version: &#39;1&#39;,
+&#125;)
+export class CatsControllerV1 &#123;
+  @Get(&#39;cats&#39;)
+  findAll() &#123;
+    return &#39;This action returns all cats for version 1&#39;;
+  &#125;
+&#125;
+</code></pre><h4 appAnchor id="route-versions"><span>Route versions</span></h4>
+<p>A version can be applied to an individual route. This version will override any other version that would effect the route, such as the Controller Version.</p>
+<p>To add a version to an individual route do the following:</p>
+
+<span class="filename">
+  {{ 'cats.controller' | extension: app9110cbcaa48ef3e6f3ba07104dd59f908df82a79.isJsActive }}
+<app-tabs #app9110cbcaa48ef3e6f3ba07104dd59f908df82a79></app-tabs>
+</span><pre [class.hide]="app9110cbcaa48ef3e6f3ba07104dd59f908df82a79.isJsActive"><code class="language-typescript">
+import &#123; Controller, Get, Version &#125; from &#39;@nestjs/common&#39;;
+
+@Controller()
+export class CatsController &#123;
+  @Version(&#39;1&#39;)
+  @Get(&#39;cats&#39;)
+  findAllV1(): string &#123;
+    return &#39;This action returns all cats for version 1&#39;;
+  &#125;
+
+  @Version(&#39;2&#39;)
+  @Get(&#39;cats&#39;)
+  findAllV2(): string &#123;
+    return &#39;This action returns all cats for version 2&#39;;
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app9110cbcaa48ef3e6f3ba07104dd59f908df82a79.isJsActive"><code class="language-typescript">
+import &#123; Controller, Get, Version &#125; from &#39;@nestjs/common&#39;;
+
+@Controller()
+export class CatsController &#123;
+  @Version(&#39;1&#39;)
+  @Get(&#39;cats&#39;)
+  findAllV1() &#123;
+    return &#39;This action returns all cats for version 1&#39;;
+  &#125;
+
+  @Version(&#39;2&#39;)
+  @Get(&#39;cats&#39;)
+  findAllV2() &#123;
+    return &#39;This action returns all cats for version 2&#39;;
+  &#125;
+&#125;
+</code></pre><h4 appAnchor id="multiple-versions"><span>Multiple versions</span></h4>
+<p>Multiple versions can be applied to a controller or route. To use multiple versions, you would set the version to be an Array.</p>
+<p>To add multiple versions do the following:</p>
+
+<span class="filename">
+  {{ 'cats.controller' | extension: app1a0bc3ca8cae1c25bbcf465729ba25e141768eff.isJsActive }}
+<app-tabs #app1a0bc3ca8cae1c25bbcf465729ba25e141768eff></app-tabs>
+</span><pre [class.hide]="app1a0bc3ca8cae1c25bbcf465729ba25e141768eff.isJsActive"><code class="language-typescript">
+@Controller(&#123;
+  version: [&#39;1&#39;, &#39;2&#39;],
+&#125;)
+export class CatsController &#123;
+  @Get(&#39;cats&#39;)
+  findAll(): string &#123;
+    return &#39;This action returns all cats for version 1 or 2&#39;;
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app1a0bc3ca8cae1c25bbcf465729ba25e141768eff.isJsActive"><code class="language-typescript">
+@Controller(&#123;
+  version: [&#39;1&#39;, &#39;2&#39;],
+&#125;)
+export class CatsController &#123;
+  @Get(&#39;cats&#39;)
+  findAll() &#123;
+    return &#39;This action returns all cats for version 1 or 2&#39;;
+  &#125;
+&#125;
+</code></pre><h4 appAnchor id="version-neutral"><span>Version &quot;Neutral&quot;</span></h4>
+<p>Some controllers or routes may not care about the version and would have the same functionality regardless of the version. To accommodate this, the version can be set to <code>VERSION_NEUTRAL</code> symbol.</p>
+<p>An incoming request will be mapped to a <code>VERSION_NEUTRAL</code> controller or route regardless of the version sent in the request in addition to if the request does not contain a version at all.</p>
+<blockquote class="
+warning "><strong>Notice</strong> For URI Versioning, a <code>VERSION_NEUTRAL</code> resource would not have the version present in the URI.
+</blockquote>
+<p>To add a version neutral controller or route do the following:</p>
+
+<span class="filename">
+  {{ 'cats.controller' | extension: appd9842a7152fd26f6340a6078ea9e0b6c920f5621.isJsActive }}
+<app-tabs #appd9842a7152fd26f6340a6078ea9e0b6c920f5621></app-tabs>
+</span><pre [class.hide]="appd9842a7152fd26f6340a6078ea9e0b6c920f5621.isJsActive"><code class="language-typescript">
+import &#123; Controller, Get, VERSION_NEUTRAL &#125; from &#39;@nestjs/common&#39;;
+
+@Controller(&#123;
+  version: VERSION_NEUTRAL,
+&#125;)
+export class CatsController &#123;
+  @Get(&#39;cats&#39;)
+  findAll(): string &#123;
+    return &#39;This action returns all cats regardless of version&#39;;
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!appd9842a7152fd26f6340a6078ea9e0b6c920f5621.isJsActive"><code class="language-typescript">
+import &#123; Controller, Get, VERSION_NEUTRAL &#125; from &#39;@nestjs/common&#39;;
+
+@Controller(&#123;
+  version: VERSION_NEUTRAL,
+&#125;)
+export class CatsController &#123;
+  @Get(&#39;cats&#39;)
+  findAll() &#123;
+    return &#39;This action returns all cats regardless of version&#39;;
+  &#125;
+&#125;
+</code></pre><h4 appAnchor id="global-default-version"><span>Global default version</span></h4>
+<p>If you do not want to provide a version for each controller/or individual routes, or if you want to have a specific version set as the default version for every controller/route that don&#39;t have the version specified, you could set the <code>defaultVersion</code> as follows:</p>
+
+<span class="filename">
+  {{ 'main' | extension: app4a86453bbe5ce96f83b1bbd3b445008b5455f9d7.isJsActive }}
+<app-tabs #app4a86453bbe5ce96f83b1bbd3b445008b5455f9d7></app-tabs>
+</span><pre><code class="language-typescript">
+app.enableVersioning(&#123;
+  // ...
+  defaultVersion: &#39;1&#39;
+  // or
+  defaultVersion: [&#39;1&#39;, &#39;2&#39;]
+  // or
+  defaultVersion: VERSION_NEUTRAL
+&#125;);
+</code></pre><h4 appAnchor id="middleware-versioning"><span>Middleware versioning</span></h4>
+<p><a rel='nofollow' target='_blank' href="https://docs.nestjs.com/middleware">Middlewares</a> can also use versioning metadata to configure the middleware for a specific route&#39;s version. To do so, provide the version number as one of the parameters for the <code>MiddlewareConsumer.forRoutes()</code> method:</p>
+
+<span class="filename">
+  {{ 'app.module' | extension: app474951ba1057390175bca078dd02e46c510ab015.isJsActive }}
+<app-tabs #app474951ba1057390175bca078dd02e46c510ab015></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module, NestModule, MiddlewareConsumer &#125; from &#39;@nestjs/common&#39;;
+import &#123; LoggerMiddleware &#125; from &#39;./common/middleware/logger.middleware&#39;;
+import &#123; CatsModule &#125; from &#39;./cats/cats.module&#39;;
+import &#123; CatsController &#125; from &#39;./cats/cats.controller&#39;;
+
+@Module(&#123;
+  imports: [CatsModule],
+&#125;)
+export class AppModule implements NestModule &#123;
+  configure(consumer: MiddlewareConsumer) &#123;
+    consumer
+      .apply(LoggerMiddleware)
+      .forRoutes(&#123; path: &#39;cats&#39;, method: RequestMethod.GET, version: &#39;2&#39; &#125;);
+  &#125;
+&#125;
+</code></pre><p>With the code above, the <code>LoggerMiddleware</code> will only be applied to the version &#39;2&#39; of <code>/cats</code> endpoint.</p>
+<blockquote class="
+info "><strong>Notice</strong> Middlewares work with any versioning type described in the this section: <code>URI</code>, <code>Header</code>, <code>Media Type</code> or <code>Custom</code>.
+</blockquote>
+
+</div>
+

@@ -1,0 +1,177 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/devtools/overview.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="overview">Overview</h3>
+<blockquote class="
+info "><strong>Hint</strong> This chapter covers the Nest Devtools integration with the Nest framework. If you are looking for the Devtools application, please visit the <a rel='nofollow' target='_blank' href="https://devtools.nestjs.com">Devtools</a> website.
+</blockquote>
+<p>To start debugging your local application, open up the <code>main.ts</code> file and make sure to set the <code>snapshot</code> attribute to <code>true</code> in the application options object, as follows:</p>
+<pre><code class="language-typescript">
+async function bootstrap() &#123;
+  const app = await NestFactory.create(AppModule, &#123;
+    snapshot: true,
+  &#125;);
+  await app.listen(3000);
+&#125;
+</code></pre>
+<p>This will instruct the framework to collect necessary metadata that will let Nest Devtools visualize your application&#39;s graph.</p>
+<p>Next up, let&#39;s install the required dependency:</p>
+<pre><code class="language-bash">
+$ npm i @nestjs/devtools-integration
+</code></pre>
+<blockquote class="
+warning "><strong>Warning</strong> If you&#39;re using <code>@nestjs/graphql</code> package in your application, make sure to install the latest version (<code>npm i @nestjs/graphql@11</code>).
+</blockquote>
+<p>With this dependency in place, let&#39;s open up the <code>app.module.ts</code> file and import the <code>DevtoolsModule</code> that we just installed:</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    DevtoolsModule.register(&#123;
+      http: process.env.NODE_ENV !== &#39;production&#39;,
+    &#125;),
+  ],
+  controllers: [AppController],
+  providers: [AppService],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<blockquote class="
+warning "><strong>Warning</strong> The reason we are checking the <code>NODE_ENV</code> environment variable here is that you should never use this module in production!
+</blockquote>
+<p>Once the <code>DevtoolsModule</code> is imported and your application is up and running (<code>npm run start:dev</code>), you should be able to navigate to <a rel='nofollow' target='_blank' href="https://devtools.nestjs.com">Devtools</a> URL and see the instrospected graph.</p>
+<figure><img src="/assets/devtools/modules-graph.png" /></figure>
+
+<blockquote class="
+info "><strong>Hint</strong> As you can see on the screenshot above, every module connects to the <code>InternalCoreModule</code>. <code>InternalCoreModule</code> is a global module that is always imported into the root module. Since it&#39;s registered as a global node, Nest automatically creates edges between all of the modules and the <code>InternalCoreModule</code> node. Now, if you want to hide global modules from the graph, you can use the &quot;<strong>Hide global modules</strong>&quot; checkbox (in the sidebar).
+</blockquote>
+<p>So as we can see, <code>DevtoolsModule</code> makes your application expose an additional HTTP server (on port 8000) that the Devtools application will use to introspect your app.</p>
+<p>Just to double-check that everything works as expected, change the graph view to &quot;Classes&quot;. You should see the following screen:</p>
+<figure><img src="/assets/devtools/classes-graph.png" /></figure>
+
+<p>To focus on a specific node, click on the rectangle and the graph will show a popup window with the <strong>&quot;Focus&quot;</strong> button. You can also use the search bar (located in the sidebar) to find a specific node.</p>
+<blockquote class="
+info "><strong>Hint</strong> If you click on the <strong>Inspect</strong> button, application will take you to the <code>/debug</code> page with that specific node selected.
+</blockquote>
+<figure><img src="/assets/devtools/node-popup.png" /></figure>
+
+<blockquote class="
+info "><strong>Hint</strong> To export a graph as an image, click on the <strong>Export as PNG</strong> button in the right corner of the graph.
+</blockquote>
+<p>Using the form controls located in the sidebar (on the left), you can control edges proximity to, for example, visualize a specific application sub-tree:</p>
+<figure><img src="/assets/devtools/subtree-view.png" /></figure>
+
+<p>This can be particularly useful when you have <strong>new developers</strong> on your team and you want to show them how your application is structured. You can also use this feature to visualize a specific module (e.g. <code>TasksModule</code>) and all of its dependencies, which can come in handy when you&#39;re breaking down a large application into smaller modules (for example, individual micro-services).</p>
+<p>You can watch this video to see the <strong>Graph Explorer</strong> feature in action:</p>
+<figure>
+  <iframe
+    width="1000"
+    height="565"
+    src="https://www.youtube.com/embed/bW8V-ssfnvM"
+    title="YouTube video player"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowFullScreen
+  ></iframe>
+</figure>
+
+<h4 appAnchor id="investigating-the-cannot-resolve-dependency-error"><span>Investigating the &quot;Cannot resolve dependency&quot; error</span></h4>
+<blockquote class="
+info "><strong>Note</strong> This feature is supported for <code>@nestjs/core</code> &gt;= <code>v9.3.10</code>.
+</blockquote>
+<p>Probably the most common error message you might have seen is about Nest not being able to resolve dependencies of a provider. Using Nest Devtools, you can effortlessly identify the issue and learn how to resolve it.</p>
+<p>First, open up the <code>main.ts</code> file and update the <code>bootstrap()</code> call, as follows:</p>
+<pre><code class="language-typescript">
+bootstrap().catch((err) =&gt; &#123;
+  fs.writeFileSync(&#39;graph.json&#39;, PartialGraphHost.toString() ?? &#39;&#39;);
+  process.exit(1);
+&#125;);
+</code></pre>
+<p>Also, make sure to set the <code>abortOnError</code> to <code>false</code>:</p>
+<pre><code class="language-typescript">
+const app = await NestFactory.create(AppModule, &#123;
+  snapshot: true,
+  abortOnError: false, // &lt;--- THIS
+&#125;);
+</code></pre>
+<p>Now every time your application fails to bootstrap due to the <strong>&quot;Cannot resolve dependency&quot;</strong> error, you&#39;ll find the <code>graph.json</code> (that represents a partial graph) file in the root directory. You can then drag &amp; drop this file into Devtools (make sure to switch the current mode from &quot;Interactive&quot; to &quot;Preview&quot;):</p>
+<figure><img src="/assets/devtools/drag-and-drop.png" /></figure>
+
+<p>Upon successful upload, you should see the following graph &amp; dialog window:</p>
+<figure><img src="/assets/devtools/partial-graph-modules-view.png" /></figure>
+
+<p>As you can see, the highlighted <code>TasksModule</code> is the one we should look into. Also, in the dialog window you can already see some instructions on how to fix this issue.</p>
+<p>If we switch to the &quot;Classes&quot; view instead, that&#39;s what we&#39;ll see:</p>
+<figure><img src="/assets/devtools/partial-graph-classes-view.png" /></figure>
+
+<p>This graph illustrates that the <code>DiagnosticsService</code> which we want to inject into the <code>TasksService</code> was not found in the context of the <code>TasksModule</code> module, and we should likely just import the <code>DiagnosticsModule</code> into the <code>TasksModule</code> module to fix this up!</p>
+<h4 appAnchor id="routes-explorer"><span>Routes explorer</span></h4>
+<p>When you navigate to the <strong>Routes explorer</strong> page, you should see all of the registered entrypoints:</p>
+<figure><img src="/assets/devtools/routes.png" /></figure>
+
+<blockquote class="
+info "><strong>Hint</strong> This page shows not only HTTP routes, but also all of the other entrypoints (e.g. WebSockets, gRPC, GraphQL resolvers etc.).
+</blockquote>
+<p>Entrypoints are grouped by their host controllers. You can also use the search bar to find a specific entrypoint.</p>
+<p>If you click on a specific entrypoint, <strong>a flow graph</strong> will be displayed. This graph shows the execution flow of the entrypoint (e.g. guards, interceptors, pipes, etc. bound to this route). This is particularly useful when you want to understand how the request/response cycle looks for a specific route, or when troubleshooting why a specific guard/interceptor/pipe is not being executed.</p>
+<h4 appAnchor id="sandbox"><span>Sandbox</span></h4>
+<p>To execute JavaScript code on the fly &amp; interact with your application in real-time, navigate to the <strong>Sandbox</strong> page:</p>
+<figure><img src="/assets/devtools/sandbox.png" /></figure>
+
+<p>The playground can be used to test and debug API endpoints in <strong>real-time</strong>, allowing developers to quickly identify and fix issues without using, for example, an HTTP client. We can also bypass the authentication layer, and so we no longer need that extra step of logging in, or even a special user account for testing purposes. For event-driven applications, we can also trigger events directly from the playground, and see how the application reacts to them.</p>
+<p>Anything that gets logged down is streamlined to the playground&#39;s console, so we can easily see what&#39;s going on.</p>
+<p>Just execute the code <strong>on the fly</strong> and see the results instantly, without having to rebuild the application and restart the server.</p>
+<figure><img src="/assets/devtools/sandbox-table.png" /></figure>
+
+<blockquote class="
+info "><strong>Hint</strong> To pretty display an array of objects, use the <code>console.table()</code> (or just <code>table()</code>) function.
+</blockquote>
+<p>You can watch this video to see the <strong>Interactive Playground</strong> feature in action:</p>
+<figure>
+  <iframe
+    width="1000"
+    height="565"
+    src="https://www.youtube.com/embed/liSxEN_VXKM"
+    title="YouTube video player"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowFullScreen
+  ></iframe>
+</figure>
+
+<h4 appAnchor id="bootstrap-performance-analyzer"><span>Bootstrap performance analyzer</span></h4>
+<p>To see a list of all class nodes (controllers, providers, enhancers, etc.) and their corresponding instantiation times, navigate to the <strong>Bootstrap performance</strong> page:</p>
+<figure><img src="/assets/devtools/bootstrap-performance.png" /></figure>
+
+<p>This page is particularly useful when you want to identify the slowest parts of your application&#39;s bootstrap process (e.g. when you want to optimize the application&#39;s startup time which is crucial for, for example, serverless environments).</p>
+<h4 appAnchor id="audit"><span>Audit</span></h4>
+<p>To see the auto-generated audit - errors/warnings/hints that the application came up with while analyzing your serialized graph, navigate to the <strong>Audit</strong> page:</p>
+<figure><img src="/assets/devtools/audit.png" /></figure>
+
+<blockquote class="
+info "><strong>Hint</strong> The screenshot above doesn&#39;t show all of the available audit rules.
+</blockquote>
+<p>This page comes in handy when you want to identify potential issues in your application.</p>
+<h4 appAnchor id="preview-static-files"><span>Preview static files</span></h4>
+<p>To save a serialized graph to a file, use the following code:</p>
+<pre><code class="language-typescript">
+await app.listen(3000); // OR await app.init()
+fs.writeFileSync(&#39;./graph.json&#39;, app.get(SerializedGraph).toString());
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> <code>SerializedGraph</code> is exported from the <code>@nestjs/core</code> package.
+</blockquote>
+<p>Then you can drag and drop/upload this file:</p>
+<figure><img src="/assets/devtools/drag-and-drop.png" /></figure>
+
+<p>This is helpful when you want to share your graph with someone else (e.g., co-worker), or when you want to analyze it offline.</p>
+
+</div>
+

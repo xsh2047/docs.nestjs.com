@@ -1,0 +1,73 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/recipes/router-module.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="router-module">Router module</h3>
+<blockquote class="
+info "><strong>Hint</strong> This chapter is only relevant to HTTP-based applications.
+</blockquote>
+<p>In an HTTP application (for example, REST API), the route path for a handler is determined by concatenating the (optional) prefix declared for the controller (inside the <code>@Controller</code> decorator),
+and any path specified in the method&#39;s decorator (e.g, <code>@Get(&#39;users&#39;)</code>). You can learn more about that in <a href="/controllers#routing">this section</a>. Additionally,
+you can define a <a routerLink="/faq/global-prefix">global prefix</a> for all routes registered in your application, or enable <a routerLink="/techniques/versioning">versioning</a>.</p>
+<p>Also, there are edge-cases when defining a prefix at a module-level (and so for all controllers registered inside that module) may come in handy.
+For example, imagine a REST application that exposes several different endpoints being used by a specific portion of your application called &quot;Dashboard&quot;.
+In such a case, instead of repeating the <code>/dashboard</code> prefix within each controller, you could use a utility <code>RouterModule</code> module, as follows:</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    DashboardModule,
+    RouterModule.register([
+      &#123;
+        path: &#39;dashboard&#39;,
+        module: DashboardModule,
+      &#125;,
+    ]),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>RouterModule</code> class is exported from the <code>@nestjs/core</code> package.
+</blockquote>
+<p>In addition, you can define hierarchical structures. This means each module can have <code>children</code> modules.
+The children modules will inherit their parent&#39;s prefix. In the following example, we&#39;ll register the <code>AdminModule</code> as a parent module of <code>DashboardModule</code> and <code>MetricsModule</code>.</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    AdminModule,
+    DashboardModule,
+    MetricsModule,
+    RouterModule.register([
+      &#123;
+        path: &#39;admin&#39;,
+        module: AdminModule,
+        children: [
+          &#123;
+            path: &#39;dashboard&#39;,
+            module: DashboardModule,
+          &#125;,
+          &#123;
+            path: &#39;metrics&#39;,
+            module: MetricsModule,
+          &#125;,
+        ],
+      &#125;,
+    ])
+  ],
+&#125;);
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> This feature should be used very carefully, as overusing it can make code difficult to maintain over time.
+</blockquote>
+<p>In the example above, any controller registered inside the <code>DashboardModule</code> will have an extra <code>/admin/dashboard</code> prefix (as the module concatenates paths from top to bottom - recursively - parent to children).
+Likewise, each controller defined inside the <code>MetricsModule</code> will have an additional module-level prefix <code>/admin/metrics</code>.</p>
+
+</div>
+

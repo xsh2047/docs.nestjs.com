@@ -1,0 +1,96 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/application-context.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="standalone-applications">Standalone applications</h3>
+<p>There are several ways of mounting a Nest application. You can create a web app, a microservice or just a bare Nest <strong>standalone application</strong> (without any network listeners). The Nest standalone application is a wrapper around the Nest <strong>IoC container</strong>, which holds all instantiated classes. We can obtain a reference to any existing instance from within any imported module directly using the standalone application object. Thus, you can take advantage of the Nest framework anywhere, including, for example, scripted <strong>CRON</strong> jobs. You can even build a <strong>CLI</strong> on top of it.</p>
+<h4 appAnchor id="getting-started"><span>Getting started</span></h4>
+<p>To create a Nest standalone application, use the following construction:</p>
+
+<span class="filename">
+<app-tabs #app2312f326826f3fe88a81a582b847e1526ddc824e></app-tabs>
+</span><pre><code class="language-typescript">
+async function bootstrap() &#123;
+  const app = await NestFactory.createApplicationContext(AppModule);
+  // your application logic here ...
+&#125;
+bootstrap();
+</code></pre><h4 appAnchor id="retrieving-providers-from-static-modules"><span>Retrieving providers from static modules</span></h4>
+<p>The standalone application object allows you to obtain a reference to any instance registered within the Nest application.  Let&#39;s imagine that we have a <code>TasksService</code> provider in the <code>TasksModule</code> module that was imported by our <code>AppModule</code> module. This class provides a set of methods that we want to call from within a CRON job.</p>
+
+<span class="filename">
+<app-tabs #app78b73e9129e141716d807ea0f0d2b4bbbe05dedb></app-tabs>
+</span><pre><code class="language-typescript">
+const tasksService = app.get(TasksService);
+</code></pre><p>To access the <code>TasksService</code> instance we use the <code>get()</code> method.  The <code>get()</code> method acts like a <strong>query</strong> that searches for an instance in each registered module. You can pass any provider&#39;s token to it. Alternatively, for strict context checking, pass an options object with the <code>strict: true</code> property. With this option in effect, you have to navigate through specific modules to obtain a particular instance from the selected context.</p>
+
+<span class="filename">
+<app-tabs #appcc6a30e70f52fe29ed07264a4334384d1f5c9c41></app-tabs>
+</span><pre><code class="language-typescript">
+const tasksService = app.select(TasksModule).get(TasksService, &#123; strict: true &#125;);
+</code></pre><p>Following is a summary of the methods available for retrieving instance references from the standalone application object.</p>
+<table>
+  <tr>
+    <td>
+      <code>get()</code>
+    </td>
+    <td>
+      Retrieves an instance of a controller or provider (including guards, filters, and so on) available in the application context.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <code>select()</code>
+    </td>
+    <td>
+      Navigates through the module's graph to pull out a specific instance of the selected module (used together with strict mode as described above).
+    </td>
+  </tr>
+</table>
+
+<blockquote class="
+info "><strong>Hint</strong> In non-strict mode, the root module is selected by default. To select any other module, you need to navigate the modules graph manually, step by step.
+</blockquote>
+<h4 appAnchor id="retrieving-providers-from-dynamic-modules"><span>Retrieving providers from dynamic modules</span></h4>
+<p>When dealing with <a routerLink="./fundamentals/dynamic-modules.md">dynamic modules</a>, we should supply the same object that represents the registered dynamic module in the application to <code>app.select</code>. For example:</p>
+
+<span class="filename">
+<app-tabs #app444508244f8b897d34df7353b2ce5992a2908c16></app-tabs>
+</span><pre><code class="language-typescript">
+export const dynamicConfigModule = ConfigModule.register(&#123; folder: &#39;./config&#39; &#125;);
+
+@Module(&#123;
+  imports: [dynamicConfigModule],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><p>Then you can select that module later on:</p>
+
+<span class="filename">
+<app-tabs #app320c48270b947d1b13306161f04e1787ef52f189></app-tabs>
+</span><pre><code class="language-typescript">
+const configService = app.select(dynamicConfigModule).get(ConfigService, &#123; strict: true &#125;);
+</code></pre><h4 appAnchor id="terminating-phase"><span>Terminating phase</span></h4>
+<p>If you want the Node application to close after the script finishes (e.g., for a script running CRON jobs), you must call the <code>app.close()</code> method in the end of your <code>bootstrap</code> function like this:</p>
+
+<span class="filename">
+<app-tabs #app645fcadd48014fa738e72deff0a1f224aa98ef38></app-tabs>
+</span><pre><code class="language-typescript">
+async function bootstrap() &#123;
+  const app = await NestFactory.createApplicationContext(AppModule);
+  // application logic...
+  await app.close();
+&#125;
+bootstrap();
+</code></pre><p>And as mentioned in the <a routerLink="./fundamentals/lifecycle-events.md">Lifecycle events</a> chapter, that will trigger lifecycle hooks.</p>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>A working example is available <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/tree/master/sample/18-context">here</a>.</p>
+
+</div>
+

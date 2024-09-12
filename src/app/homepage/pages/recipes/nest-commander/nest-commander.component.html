@@ -1,0 +1,149 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/recipes/nest-commander.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="nest-commander">Nest Commander</h3>
+<p>Expanding on the <a routerLink="/standalone-applications">standalone application</a> docs there&#39;s also the <a rel='nofollow' target='_blank' href="https://jmcdo29.github.io/nest-commander">nest-commander</a> package for writing command line applications in a structure similar to your typical Nest application.</p>
+<blockquote class="
+info "><strong>info</strong> <code>nest-commander</code> is a third party package and is not managed by the entirety of the NestJS core team. Please, report any issues found with the library in the <a rel='nofollow' target='_blank' href="https://github.com/jmcdo29/nest-commander/issues/new/choose">appropriate repository</a>
+</blockquote>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>Just like any other package, you&#39;ve got to install it before you can use it.</p>
+<pre><code class="language-bash">
+$ npm i nest-commander
+</code></pre>
+<h4 appAnchor id="a-command-file"><span>A Command file</span></h4>
+<p><code>nest-commander</code> makes it easy to write new command-line applications with <a rel='nofollow' target='_blank' href="https://www.typescriptlang.org/docs/handbook/decorators.html">decorators</a> via the <code>@Command()</code> decorator for classes and the <code>@Option()</code> decorator for methods of that class. Every command file should implement the <code>CommandRunner</code> abstract class and should be decorated with a <code>@Command()</code> decorator.</p>
+<p>Every command is seen as an <code>@Injectable()</code> by Nest, so your normal Dependency Injection still works as you would expect it to. The only thing to take note of is the abstract class <code>CommandRunner</code>, which should be implemented by each command. The <code>CommandRunner</code> abstract class ensures that all commands have a <code>run</code> method that returns a <code>Promise&lt;void&gt;</code> and takes in the parameters <code>string[], Record&lt;string, any&gt;</code>. The <code>run</code> command is where you can kick all of your logic off from, it will take in whatever parameters did not match option flags and pass them in as an array, just in case you are really meaning to work with multiple parameters. As for the options, the <code>Record&lt;string, any&gt;</code>, the names of these properties match the <code>name</code> property given to the <code>@Option()</code> decorators, while their value matches the return of the option handler. If you&#39;d like better type safety, you are welcome to create an interface for your options as well.</p>
+<h4 appAnchor id="running-the-command"><span>Running the Command</span></h4>
+<p>Similar to how in a NestJS application we can use the <code>NestFactory</code> to create a server for us, and run it using <code>listen</code>, the <code>nest-commander</code> package exposes a simple to use API to run your server. Import the <code>CommandFactory</code> and use the <code>static</code> method <code>run</code> and pass in the root module of your application. This would probably look like below</p>
+<pre><code class="language-ts">
+import &#123; CommandFactory &#125; from &#39;nest-commander&#39;;
+import &#123; AppModule &#125; from &#39;./app.module&#39;;
+
+async function bootstrap() &#123;
+  await CommandFactory.run(AppModule);
+&#125;
+
+bootstrap();
+</code></pre>
+<p>By default, Nest&#39;s logger is disabled when using the <code>CommandFactory</code>. It&#39;s possible to provide it though, as the second argument to the <code>run</code> function. You can either provide a custom NestJS logger, or an array of log levels you want to keep - it might be useful to at least provide <code>[&#39;error&#39;]</code> here, if you only want to print out Nest&#39;s error logs.</p>
+<pre><code class="language-ts">
+import &#123; CommandFactory &#125; from &#39;nest-commander&#39;;
+import &#123; AppModule &#125; from &#39;./app.module&#39;;
+import &#123; LogService &#125; &#39;./log.service&#39;;
+
+async function bootstrap() &#123;
+  await CommandFactory.run(AppModule, new LogService());
+
+  // or, if you only want to print Nest&#39;s warnings and errors
+  await CommandFactory.run(AppModule, [&#39;warn&#39;, &#39;error&#39;]);
+&#125;
+
+bootstrap();
+</code></pre>
+<p>And that&#39;s it. Under the hood, <code>CommandFactory</code> will worry about calling <code>NestFactory</code> for you and calling <code>app.close()</code> when necessary, so you shouldn&#39;t need to worry about memory leaks there. If you need to add in some error handling, there&#39;s always <code>try/catch</code> wrapping the <code>run</code> command, or you can chain on some <code>.catch()</code> method to the <code>bootstrap()</code> call.</p>
+<h4 appAnchor id="testing"><span>Testing</span></h4>
+<p>So what&#39;s the use of writing a super awesome command line script if you can&#39;t test it super easily, right? Fortunately, <code>nest-commander</code> has some utilities you can make use of that fits in perfectly with the NestJS ecosystem, it&#39;ll feel right at home to any Nestlings out there. Instead of using the <code>CommandFactory</code> for building the command in test mode, you can use <code>CommandTestFactory</code> and pass in your metadata, very similarly to how <code>Test.createTestingModule</code> from <code>@nestjs/testing</code> works. In fact, it uses this package under the hood. You&#39;re also still able to chain on the <code>overrideProvider</code> methods before calling <code>compile()</code> so you can swap out DI pieces right in the test.</p>
+<h4 appAnchor id="putting-it-all-together"><span>Putting it all together</span></h4>
+<p>The following class would equate to having a CLI command that can take in the subcommand <code>basic</code> or be called directly, with <code>-n</code>, <code>-s</code>, and <code>-b</code> (along with their long flags) all being supported and with custom parsers for each option. The <code>--help</code> flag is also supported, as is customary with commander.</p>
+<pre><code class="language-ts">
+import &#123; Command, CommandRunner, Option &#125; from &#39;nest-commander&#39;;
+import &#123; LogService &#125; from &#39;./log.service&#39;;
+
+interface BasicCommandOptions &#123;
+  string?: string;
+  boolean?: boolean;
+  number?: number;
+&#125;
+
+@Command(&#123; name: &#39;basic&#39;, description: &#39;A parameter parse&#39; &#125;)
+export class BasicCommand extends CommandRunner &#123;
+  constructor(private readonly logService: LogService) &#123;
+    super()
+  &#125;
+
+  async run(
+    passedParam: string[],
+    options?: BasicCommandOptions,
+  ): Promise&lt;void&gt; &#123;
+    if (options?.boolean !== undefined &amp;&amp; options?.boolean !== null) &#123;
+      this.runWithBoolean(passedParam, options.boolean);
+    &#125; else if (options?.number) &#123;
+      this.runWithNumber(passedParam, options.number);
+    &#125; else if (options?.string) &#123;
+      this.runWithString(passedParam, options.string);
+    &#125; else &#123;
+      this.runWithNone(passedParam);
+    &#125;
+  &#125;
+
+  @Option(&#123;
+    flags: &#39;-n, --number [number]&#39;,
+    description: &#39;A basic number parser&#39;,
+  &#125;)
+  parseNumber(val: string): number &#123;
+    return Number(val);
+  &#125;
+
+  @Option(&#123;
+    flags: &#39;-s, --string [string]&#39;,
+    description: &#39;A string return&#39;,
+  &#125;)
+  parseString(val: string): string &#123;
+    return val;
+  &#125;
+
+  @Option(&#123;
+    flags: &#39;-b, --boolean [boolean]&#39;,
+    description: &#39;A boolean parser&#39;,
+  &#125;)
+  parseBoolean(val: string): boolean &#123;
+    return JSON.parse(val);
+  &#125;
+
+  runWithString(param: string[], option: string): void &#123;
+    this.logService.log(&#123; param, string: option &#125;);
+  &#125;
+
+  runWithNumber(param: string[], option: number): void &#123;
+    this.logService.log(&#123; param, number: option &#125;);
+  &#125;
+
+  runWithBoolean(param: string[], option: boolean): void &#123;
+    this.logService.log(&#123; param, boolean: option &#125;);
+  &#125;
+
+  runWithNone(param: string[]): void &#123;
+    this.logService.log(&#123; param &#125;);
+  &#125;
+&#125;
+</code></pre>
+<p>Make sure the command class is added to a module</p>
+<pre><code class="language-ts">
+@Module(&#123;
+  providers: [LogService, BasicCommand],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>And now to be able to run the CLI in your main.ts you can do the following</p>
+<pre><code class="language-ts">
+async function bootstrap() &#123;
+  await CommandFactory.run(AppModule);
+&#125;
+
+bootstrap();
+</code></pre>
+<p>And just like that, you&#39;ve got a command line application.</p>
+<h4 appAnchor id="more-information"><span>More Information</span></h4>
+<p>Visit the <a rel='nofollow' target='_blank' href="https://jmcdo29.github.io/nest-commander">nest-commander docs site</a> for more information, examples, and API documentation.</p>
+
+</div>
+

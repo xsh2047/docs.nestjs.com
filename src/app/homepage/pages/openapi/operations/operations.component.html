@@ -1,0 +1,288 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/openapi/operations.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="operations">Operations</h3>
+<p>In OpenAPI terms, paths are endpoints (resources), such as <code>/users</code> or <code>/reports/summary</code>, that your API exposes, and operations are the HTTP methods used to manipulate these paths, such as <code>GET</code>, <code>POST</code> or <code>DELETE</code>.</p>
+<h4 appAnchor id="tags"><span>Tags</span></h4>
+<p>To attach a controller to a specific tag, use the <code>@ApiTags(...tags)</code> decorator.</p>
+<pre><code class="language-typescript">
+@ApiTags(&#39;cats&#39;)
+@Controller(&#39;cats&#39;)
+export class CatsController &#123;&#125;
+</code></pre>
+<h4 appAnchor id="headers"><span>Headers</span></h4>
+<p>To define custom headers that are expected as part of the request, use <code>@ApiHeader()</code>.</p>
+<pre><code class="language-typescript">
+@ApiHeader(&#123;
+  name: &#39;X-MyHeader&#39;,
+  description: &#39;Custom header&#39;,
+&#125;)
+@Controller(&#39;cats&#39;)
+export class CatsController &#123;&#125;
+</code></pre>
+<h4 appAnchor id="responses"><span>Responses</span></h4>
+<p>To define a custom HTTP response, use the <code>@ApiResponse()</code> decorator.</p>
+<pre><code class="language-typescript">
+@Post()
+@ApiResponse(&#123; status: 201, description: &#39;The record has been successfully created.&#39;&#125;)
+@ApiResponse(&#123; status: 403, description: &#39;Forbidden.&#39;&#125;)
+async create(@Body() createCatDto: CreateCatDto) &#123;
+  this.catsService.create(createCatDto);
+&#125;
+</code></pre>
+<p>Nest provides a set of short-hand <strong>API response</strong> decorators that inherit from the <code>@ApiResponse</code> decorator:</p>
+<ul>
+<li><code>@ApiOkResponse()</code></li>
+<li><code>@ApiCreatedResponse()</code></li>
+<li><code>@ApiAcceptedResponse()</code></li>
+<li><code>@ApiNoContentResponse()</code></li>
+<li><code>@ApiMovedPermanentlyResponse()</code></li>
+<li><code>@ApiFoundResponse()</code></li>
+<li><code>@ApiBadRequestResponse()</code></li>
+<li><code>@ApiUnauthorizedResponse()</code></li>
+<li><code>@ApiNotFoundResponse()</code></li>
+<li><code>@ApiForbiddenResponse()</code></li>
+<li><code>@ApiMethodNotAllowedResponse()</code></li>
+<li><code>@ApiNotAcceptableResponse()</code></li>
+<li><code>@ApiRequestTimeoutResponse()</code></li>
+<li><code>@ApiConflictResponse()</code></li>
+<li><code>@ApiPreconditionFailedResponse()</code></li>
+<li><code>@ApiTooManyRequestsResponse()</code></li>
+<li><code>@ApiGoneResponse()</code></li>
+<li><code>@ApiPayloadTooLargeResponse()</code></li>
+<li><code>@ApiUnsupportedMediaTypeResponse()</code></li>
+<li><code>@ApiUnprocessableEntityResponse()</code></li>
+<li><code>@ApiInternalServerErrorResponse()</code></li>
+<li><code>@ApiNotImplementedResponse()</code></li>
+<li><code>@ApiBadGatewayResponse()</code></li>
+<li><code>@ApiServiceUnavailableResponse()</code></li>
+<li><code>@ApiGatewayTimeoutResponse()</code></li>
+<li><code>@ApiDefaultResponse()</code></li>
+</ul>
+<pre><code class="language-typescript">
+@Post()
+@ApiCreatedResponse(&#123; description: &#39;The record has been successfully created.&#39;&#125;)
+@ApiForbiddenResponse(&#123; description: &#39;Forbidden.&#39;&#125;)
+async create(@Body() createCatDto: CreateCatDto) &#123;
+  this.catsService.create(createCatDto);
+&#125;
+</code></pre>
+<p>To specify a return model for a request, we must create a class and annotate all properties with the <code>@ApiProperty()</code> decorator.</p>
+<pre><code class="language-typescript">
+export class Cat &#123;
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  age: number;
+
+  @ApiProperty()
+  breed: string;
+&#125;
+</code></pre>
+<p>Then the <code>Cat</code> model can be used in combination with the <code>type</code> property of the response decorator.</p>
+<pre><code class="language-typescript">
+@ApiTags(&#39;cats&#39;)
+@Controller(&#39;cats&#39;)
+export class CatsController &#123;
+  @Post()
+  @ApiCreatedResponse(&#123;
+    description: &#39;The record has been successfully created.&#39;,
+    type: Cat,
+  &#125;)
+  async create(@Body() createCatDto: CreateCatDto): Promise&lt;Cat&gt; &#123;
+    return this.catsService.create(createCatDto);
+  &#125;
+&#125;
+</code></pre>
+<p>Let&#39;s open the browser and verify the generated <code>Cat</code> model:</p>
+<figure><img src="/assets/swagger-response-type.png" /></figure>
+
+<h4 appAnchor id="file-upload"><span>File upload</span></h4>
+<p>You can enable file upload for a specific method with the <code>@ApiBody</code> decorator together with <code>@ApiConsumes()</code>. Here&#39;s a full example using the <a routerLink="/techniques/file-upload">File Upload</a> technique:</p>
+<pre><code class="language-typescript">
+@UseInterceptors(FileInterceptor(&#39;file&#39;))
+@ApiConsumes(&#39;multipart/form-data&#39;)
+@ApiBody(&#123;
+  description: &#39;List of cats&#39;,
+  type: FileUploadDto,
+&#125;)
+uploadFile(@UploadedFile() file) &#123;&#125;
+</code></pre>
+<p>Where <code>FileUploadDto</code> is defined as follows:</p>
+<pre><code class="language-typescript">
+class FileUploadDto &#123;
+  @ApiProperty(&#123; type: &#39;string&#39;, format: &#39;binary&#39; &#125;)
+  file: any;
+&#125;
+</code></pre>
+<p>To handle multiple files uploading, you can define <code>FilesUploadDto</code> as follows:</p>
+<pre><code class="language-typescript">
+class FilesUploadDto &#123;
+  @ApiProperty(&#123; type: &#39;array&#39;, items: &#123; type: &#39;string&#39;, format: &#39;binary&#39; &#125; &#125;)
+  files: any[];
+&#125;
+</code></pre>
+<h4 appAnchor id="extensions"><span>Extensions</span></h4>
+<p>To add an Extension to a request use the <code>@ApiExtension()</code> decorator. The extension name must be prefixed with <code>x-</code>.</p>
+<pre><code class="language-typescript">
+@ApiExtension(&#39;x-foo&#39;, &#123; hello: &#39;world&#39; &#125;)
+</code></pre>
+<h4 appAnchor id="advanced-generic-apiresponse"><span>Advanced: Generic <code>ApiResponse</code></span></h4>
+<p>With the ability to provide <a href="/openapi/types-and-parameters#raw-definitions">Raw Definitions</a>, we can define Generic schema for Swagger UI. Assume we have the following DTO:</p>
+<pre><code class="language-ts">
+export class PaginatedDto&lt;TData&gt; &#123;
+  @ApiProperty()
+  total: number;
+
+  @ApiProperty()
+  limit: number;
+
+  @ApiProperty()
+  offset: number;
+
+  results: TData[];
+&#125;
+</code></pre>
+<p>We skip decorating <code>results</code> as we will be providing a raw definition for it later. Now, let&#39;s define another DTO and name it, for example, <code>CatDto</code>, as follows:</p>
+<pre><code class="language-ts">
+export class CatDto &#123;
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  age: number;
+
+  @ApiProperty()
+  breed: string;
+&#125;
+</code></pre>
+<p>With this in place, we can define a <code>PaginatedDto&lt;CatDto&gt;</code> response, as follows:</p>
+<pre><code class="language-ts">
+@ApiOkResponse(&#123;
+  schema: &#123;
+    allOf: [
+      &#123; $ref: getSchemaPath(PaginatedDto) &#125;,
+      &#123;
+        properties: &#123;
+          results: &#123;
+            type: &#39;array&#39;,
+            items: &#123; $ref: getSchemaPath(CatDto) &#125;,
+          &#125;,
+        &#125;,
+      &#125;,
+    ],
+  &#125;,
+&#125;)
+async findAll(): Promise&lt;PaginatedDto&lt;CatDto&gt;&gt; &#123;&#125;
+</code></pre>
+<p>In this example, we specify that the response will have allOf <code>PaginatedDto</code> and the <code>results</code> property will be of type <code>Array&lt;CatDto&gt;</code>.</p>
+<ul>
+<li><code>getSchemaPath()</code> function that returns the OpenAPI Schema path from within the OpenAPI Spec File for a given model.</li>
+<li><code>allOf</code> is a concept that OAS 3 provides to cover various Inheritance related use-cases.</li>
+</ul>
+<p>Lastly, since <code>PaginatedDto</code> is not directly referenced by any controller, the <code>SwaggerModule</code> will not be able to generate a corresponding model definition just yet. In this case, we must add it as an <a href="/openapi/types-and-parameters#extra-models">Extra Model</a>. For example, we can use the <code>@ApiExtraModels()</code> decorator on the controller level, as follows:</p>
+<pre><code class="language-ts">
+@Controller(&#39;cats&#39;)
+@ApiExtraModels(PaginatedDto)
+export class CatsController &#123;&#125;
+</code></pre>
+<p>If you run Swagger now, the generated <code>swagger.json</code> for this specific endpoint should have the following response defined:</p>
+<pre><code class="language-json">
+&quot;responses&quot;: &#123;
+  &quot;200&quot;: &#123;
+    &quot;description&quot;: &quot;&quot;,
+    &quot;content&quot;: &#123;
+      &quot;application/json&quot;: &#123;
+        &quot;schema&quot;: &#123;
+          &quot;allOf&quot;: [
+            &#123;
+              &quot;$ref&quot;: &quot;#/components/schemas/PaginatedDto&quot;
+            &#125;,
+            &#123;
+              &quot;properties&quot;: &#123;
+                &quot;results&quot;: &#123;
+                  &quot;$ref&quot;: &quot;#/components/schemas/CatDto&quot;
+                &#125;
+              &#125;
+            &#125;
+          ]
+        &#125;
+      &#125;
+    &#125;
+  &#125;
+&#125;
+</code></pre>
+<p>To make it reusable, we can create a custom decorator for <code>PaginatedDto</code>, as follows:</p>
+<pre><code class="language-ts">
+export const ApiPaginatedResponse = &lt;TModel extends Type&lt;any&gt;&gt;(
+  model: TModel,
+) =&gt; &#123;
+  return applyDecorators(
+    ApiExtraModels(PaginatedDto, model),
+    ApiOkResponse(&#123;
+      schema: &#123;
+        allOf: [
+          &#123; $ref: getSchemaPath(PaginatedDto) &#125;,
+          &#123;
+            properties: &#123;
+              results: &#123;
+                type: &#39;array&#39;,
+                items: &#123; $ref: getSchemaPath(model) &#125;,
+              &#125;,
+            &#125;,
+          &#125;,
+        ],
+      &#125;,
+    &#125;),
+  );
+&#125;;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> <code>Type&lt;any&gt;</code> interface and <code>applyDecorators</code> function are imported from the <code>@nestjs/common</code> package.
+</blockquote>
+<p>To ensure that <code>SwaggerModule</code> will generate a definition for our model, we must add it as an extra model, like we did earlier with the <code>PaginatedDto</code> in the controller.</p>
+<p>With this in place, we can use the custom <code>@ApiPaginatedResponse()</code> decorator on our endpoint:</p>
+<pre><code class="language-ts">
+@ApiPaginatedResponse(CatDto)
+async findAll(): Promise&lt;PaginatedDto&lt;CatDto&gt;&gt; &#123;&#125;
+</code></pre>
+<p>For client generation tools, this approach poses an ambiguity in how the <code>PaginatedResponse&lt;TModel&gt;</code> is being generated for the client. The following snippet is an example of a client generator result for the above <code>GET /</code> endpoint.</p>
+<pre><code class="language-typescript">
+// Angular
+findAll(): Observable&lt;&#123; total: number, limit: number, offset: number, results: CatDto[] &#125;&gt;
+</code></pre>
+<p>As you can see, the <strong>Return Type</strong> here is ambiguous. To workaround this issue, you can add a <code>title</code> property to the <code>schema</code> for <code>ApiPaginatedResponse</code>:</p>
+<pre><code class="language-typescript">
+export const ApiPaginatedResponse = &lt;TModel extends Type&lt;any&gt;&gt;(model: TModel) =&gt; &#123;
+  return applyDecorators(
+    ApiOkResponse(&#123;
+      schema: &#123;
+        title: `PaginatedResponseOf$&#123;model.name&#125;`,
+        allOf: [
+          // ...
+        ],
+      &#125;,
+    &#125;),
+  );
+&#125;;
+</code></pre>
+<p>Now the result of the client generator tool will become:</p>
+<pre><code class="language-ts">
+// Angular
+findAll(): Observable&lt;PaginatedResponseOfCatDto&gt;
+</code></pre>
+
+</div>
+

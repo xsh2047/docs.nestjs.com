@@ -1,0 +1,180 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/microservices/nats.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="nats">NATS</h3>
+<p><a rel='nofollow' target='_blank' href="https://nats.io">NATS</a> is a simple, secure and high performance open source messaging system for cloud native applications, IoT messaging, and microservices architectures. The NATS server is written in the Go programming language, but client libraries to interact with the server are available for dozens of major programming languages. NATS supports both <strong>At Most Once</strong> and <strong>At Least Once</strong> delivery. It can run anywhere, from large servers and cloud instances, through edge gateways and even Internet of Things devices.</p>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>To start building NATS-based microservices, first install the required package:</p>
+<pre><code class="language-bash">
+$ npm i --save nats
+</code></pre>
+<h4 appAnchor id="overview"><span>Overview</span></h4>
+<p>To use the NATS transporter, pass the following options object to the <code>createMicroservice()</code> method:</p>
+
+<span class="filename">
+  {{ 'main' | extension: app400d7c7b7b8500c265dfaf732ae7430fbcc6ce48.isJsActive }}
+<app-tabs #app400d7c7b7b8500c265dfaf732ae7430fbcc6ce48></app-tabs>
+</span><pre [class.hide]="app400d7c7b7b8500c265dfaf732ae7430fbcc6ce48.isJsActive"><code class="language-typescript">
+const app = await NestFactory.createMicroservice&lt;MicroserviceOptions&gt;(AppModule, &#123;
+  transport: Transport.NATS,
+  options: &#123;
+    servers: [&#39;nats://localhost:4222&#39;],
+  &#125;,
+&#125;);
+</code></pre>
+<pre [class.hide]="!app400d7c7b7b8500c265dfaf732ae7430fbcc6ce48.isJsActive"><code class="language-typescript">
+const app = await NestFactory.createMicroservice(AppModule, &#123;
+  transport: Transport.NATS,
+  options: &#123;
+    servers: [&#39;nats://localhost:4222&#39;],
+  &#125;,
+&#125;);
+</code></pre><blockquote class="
+info "><strong>Hint</strong> The <code>Transport</code> enum is imported from the <code>@nestjs/microservices</code> package.
+</blockquote>
+<h4 appAnchor id="options"><span>Options</span></h4>
+<p>The <code>options</code> object is specific to the chosen transporter. The <strong>NATS</strong> transporter exposes the properties described <a rel='nofollow' target='_blank' href="https://github.com/nats-io/node-nats#connection-options">here</a>.
+Additionally, there is a <code>queue</code> property which allows you to specify the name of the queue that your server should subscribe to (leave <code>undefined</code> to ignore this setting). Read more about NATS queue groups <a href="https://docs.nestjs.com/microservices/nats#queue-groups">below</a>.</p>
+<h4 appAnchor id="client"><span>Client</span></h4>
+<p>Like other microservice transporters, you have <a href="https://docs.nestjs.com/microservices/basics#client">several options</a> for creating a NATS <code>ClientProxy</code> instance.</p>
+<p>One method for creating an instance is to use the <code>ClientsModule</code>. To create a client instance with the <code>ClientsModule</code>, import it and use the <code>register()</code> method to pass an options object with the same properties shown above in the <code>createMicroservice()</code> method, as well as a <code>name</code> property to be used as the injection token. Read more about <code>ClientsModule</code> <a href="https://docs.nestjs.com/microservices/basics#client">here</a>.</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    ClientsModule.register([
+      &#123;
+        name: &#39;MATH_SERVICE&#39;,
+        transport: Transport.NATS,
+        options: &#123;
+          servers: [&#39;nats://localhost:4222&#39;],
+        &#125;
+      &#125;,
+    ]),
+  ]
+  ...
+&#125;)
+</code></pre>
+<p>Other options to create a client (either <code>ClientProxyFactory</code> or <code>@Client()</code>) can be used as well. You can read about them <a href="https://docs.nestjs.com/microservices/basics#client">here</a>.</p>
+<h4 appAnchor id="request-response"><span>Request-response</span></h4>
+<p>For the <strong>request-response</strong> message style (<a rel='nofollow' target='_blank' href="https://docs.nestjs.com/microservices/basics#request-response">read more</a>), the NATS transporter does not use the NATS built-in <a rel='nofollow' target='_blank' href="https://docs.nats.io/nats-concepts/reqreply">Request-Reply</a> mechanism. Instead, a &quot;request&quot; is published on a given subject using the <code>publish()</code> method with a unique reply subject name, and responders listen on that subject and send responses to the reply subject. Reply subjects are directed back to the requestor dynamically, regardless of location of either party.</p>
+<h4 appAnchor id="event-based"><span>Event-based</span></h4>
+<p>For the <strong>event-based</strong> message style (<a rel='nofollow' target='_blank' href="https://docs.nestjs.com/microservices/basics#event-based">read more</a>), the NATS transporter uses NATS built-in <a rel='nofollow' target='_blank' href="https://docs.nats.io/nats-concepts/pubsub">Publish-Subscribe</a> mechanism. A publisher sends a message on a subject and any active subscriber listening on that subject receives the message. Subscribers can also register interest in wildcard subjects that work a bit like a regular expression. This one-to-many pattern is sometimes called fan-out.</p>
+<h4 appAnchor id="queue-groups"><span>Queue groups</span></h4>
+<p>NATS provides a built-in load balancing feature called <a rel='nofollow' target='_blank' href="https://docs.nats.io/nats-concepts/queue">distributed queues</a>. To create a queue subscription, use the <code>queue</code> property as follows:</p>
+
+<span class="filename">
+  {{ 'main' | extension: app809d379667e38292971227977079fa7827062625.isJsActive }}
+<app-tabs #app809d379667e38292971227977079fa7827062625></app-tabs>
+</span><pre><code class="language-typescript">
+const app = await NestFactory.createMicroservice&lt;MicroserviceOptions&gt;(AppModule, &#123;
+  transport: Transport.NATS,
+  options: &#123;
+    servers: [&#39;nats://localhost:4222&#39;],
+    queue: &#39;cats_queue&#39;,
+  &#125;,
+&#125;);
+</code></pre><h4 appAnchor id="context"><span>Context</span></h4>
+<p>In more sophisticated scenarios, you may want to access more information about the incoming request. When using the NATS transporter, you can access the <code>NatsContext</code> object.</p>
+
+<span class="filename">
+<app-tabs #appa3516e157c3896b0cc4fd14588953ed5f8541de6></app-tabs>
+</span><pre [class.hide]="appa3516e157c3896b0cc4fd14588953ed5f8541de6.isJsActive"><code class="language-typescript">
+@MessagePattern(&#39;notifications&#39;)
+getNotifications(@Payload() data: number[], @Ctx() context: NatsContext) &#123;
+  console.log(`Subject: $&#123;context.getSubject()&#125;`);
+&#125;
+</code></pre>
+<pre [class.hide]="!appa3516e157c3896b0cc4fd14588953ed5f8541de6.isJsActive"><code class="language-typescript">
+@Bind(Payload(), Ctx())
+@MessagePattern(&#39;notifications&#39;)
+getNotifications(data, context) &#123;
+  console.log(`Subject: $&#123;context.getSubject()&#125;`);
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> <code>@Payload()</code>, <code>@Ctx()</code> and <code>NatsContext</code> are imported from the <code>@nestjs/microservices</code> package.
+</blockquote>
+<h4 appAnchor id="wildcards"><span>Wildcards</span></h4>
+<p>A subscription may be to an explicit subject, or it may include wildcards.</p>
+
+<span class="filename">
+<app-tabs #appb26253ea8525d1caf18908eddfe527e74d0f99e3></app-tabs>
+</span><pre [class.hide]="appb26253ea8525d1caf18908eddfe527e74d0f99e3.isJsActive"><code class="language-typescript">
+@MessagePattern(&#39;time.us.*&#39;)
+getDate(@Payload() data: number[], @Ctx() context: NatsContext) &#123;
+  console.log(`Subject: $&#123;context.getSubject()&#125;`); // e.g. &quot;time.us.east&quot;
+  return new Date().toLocaleTimeString(...);
+&#125;
+</code></pre>
+<pre [class.hide]="!appb26253ea8525d1caf18908eddfe527e74d0f99e3.isJsActive"><code class="language-typescript">
+@Bind(Payload(), Ctx())
+@MessagePattern(&#39;time.us.*&#39;)
+getDate(data, context) &#123;
+  console.log(`Subject: $&#123;context.getSubject()&#125;`); // e.g. &quot;time.us.east&quot;
+  return new Date().toLocaleTimeString(...);
+&#125;
+</code></pre><h4 appAnchor id="record-builders"><span>Record builders</span></h4>
+<p>To configure message options, you can use the <code>NatsRecordBuilder</code> class (note: this is doable for event-based flows as well). For example, to add <code>x-version</code> header, use the <code>setHeaders</code> method, as follows:</p>
+<pre><code class="language-typescript">
+import * as nats from &#39;nats&#39;;
+
+// somewhere in your code
+const headers = nats.headers();
+headers.set(&#39;x-version&#39;, &#39;1.0.0&#39;);
+
+const record = new NatsRecordBuilder(&#39;:cat:&#39;).setHeaders(headers).build();
+this.client.send(&#39;replace-emoji&#39;, record).subscribe(...);
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> <code>NatsRecordBuilder</code> class is exported from the <code>@nestjs/microservices</code> package.
+</blockquote>
+<p>And you can read these headers on the server-side as well, by accessing the <code>NatsContext</code>, as follows:</p>
+
+<span class="filename">
+<app-tabs #app0c06efb62e10f187cb968dc213770eb40b321757></app-tabs>
+</span><pre [class.hide]="app0c06efb62e10f187cb968dc213770eb40b321757.isJsActive"><code class="language-typescript">
+@MessagePattern(&#39;replace-emoji&#39;)
+replaceEmoji(@Payload() data: string, @Ctx() context: NatsContext): string &#123;
+  const headers = context.getHeaders();
+  return headers[&#39;x-version&#39;] === &#39;1.0.0&#39; ? &#39;🐱&#39; : &#39;🐈&#39;;
+&#125;
+</code></pre>
+<pre [class.hide]="!app0c06efb62e10f187cb968dc213770eb40b321757.isJsActive"><code class="language-typescript">
+@Bind(Payload(), Ctx())
+@MessagePattern(&#39;replace-emoji&#39;)
+replaceEmoji(data, context) &#123;
+  const headers = context.getHeaders();
+  return headers[&#39;x-version&#39;] === &#39;1.0.0&#39; ? &#39;🐱&#39; : &#39;🐈&#39;;
+&#125;
+</code></pre><p>In some cases you might want to configure headers for multiple requests, you can pass these as options to the <code>ClientProxyFactory</code>:</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; ClientProxyFactory, Transport &#125; from &#39;@nestjs/microservices&#39;;
+
+@Module(&#123;
+  providers: [
+    &#123;
+      provide: &#39;API_v1&#39;,
+      useFactory: () =&gt;
+        ClientProxyFactory.create(&#123;
+          transport: Transport.NATS,
+          options: &#123;
+            servers: [&#39;nats://localhost:4222&#39;],
+            headers: &#123; &#39;x-version&#39;: &#39;1.0.0&#39; &#125;,
+          &#125;,
+        &#125;),
+    &#125;,
+  ],
+&#125;)
+export class ApiModule &#123;&#125;
+</code></pre>
+
+</div>
+

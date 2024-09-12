@@ -1,0 +1,34 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/graphql/sharing-models.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="sharing-models">Sharing models</h3>
+<blockquote class="
+warning "><strong>Warning</strong> This chapter applies only to the code first approach.
+</blockquote>
+<p>One of the biggest advantages of using Typescript for the backend of your project is the ability to reuse the same models in a Typescript-based frontend application, by using a common Typescript package.    </p>
+<p>But there&#39;s a problem: the models created using the code first approach are heavily decorated with GraphQL related decorators. Those decorators are irrelevant in the frontend, negatively impacting performance.</p>
+<h4 appAnchor id="using-the-model-shim"><span>Using the model shim</span></h4>
+<p>To solve this issue, NestJS provides a &quot;shim&quot; which allows you to replace the original decorators with inert code by using a <code>webpack</code> (or similar) configuration.
+To use this shim, configure an alias between the <code>@nestjs/graphql</code> package and the shim.</p>
+<p>For example, for webpack this is resolved this way:</p>
+<pre><code class="language-typescript">
+resolve: &#123; // see: https://webpack.js.org/configuration/resolve/
+  alias: &#123;
+      &quot;@nestjs/graphql&quot;: path.resolve(__dirname, &quot;../node_modules/@nestjs/graphql/dist/extra/graphql-model-shim&quot;)
+  &#125;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <a routerLink="/techniques/database">TypeORM</a> package has a similar shim that can be found <a rel='nofollow' target='_blank' href="https://github.com/typeorm/typeorm/blob/master/extra/typeorm-model-shim.js">here</a>.
+</blockquote>
+
+</div>
+

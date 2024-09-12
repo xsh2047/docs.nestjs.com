@@ -1,0 +1,30 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/migration.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="migration-guide">Migration guide</h3>
+<p>This article provides a set of guidelines for migrating from Nest version 9 to version 10.
+To learn more about the new features we&#39;ve added in v10, check out this <a rel='nofollow' target='_blank' href="https://trilon.io/blog/nestjs-10-is-now-available">article</a>.
+There were some very minor breaking changes that shouldn&#39;t affect most users - you can find the full list of them <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/releases/tag/v10.0.0">here</a>.</p>
+<h4 appAnchor id="upgrading-packages"><span>Upgrading packages</span></h4>
+<p>While you can upgrade your packages manually, we recommend using <a rel='nofollow' target='_blank' href="https://npmjs.com/package/npm-check-updates">ncu (npm check updates)</a>.</p>
+<h4 appAnchor id="cache-module"><span>Cache module</span></h4>
+<p>The <code>CacheModule</code> has been removed from the <code>@nestjs/common</code> package and is now available as a standalone package - <code>@nestjs/cache-manager</code>. This change was made to avoid unnecessary dependencies in the <code>@nestjs/common</code> package. You can learn more about the <code>@nestjs/cache-manager</code> package <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/techniques/caching">here</a>.</p>
+<h4 appAnchor id="deprecations"><span>Deprecations</span></h4>
+<p>All deprecated methods &amp; modules have been removed.</p>
+<h4 appAnchor id="cli-plugins-and-typescript--48"><span>CLI Plugins and TypeScript &gt;= 4.8</span></h4>
+<p>NestJS CLI Plugins (available for <code>@nestjs/swagger</code> and <code>@nestjs/graphql</code> packages) will now require TypeScript &gt;= v4.8 and so older versions of TypeScript will no longer be supported. The reason for this change is that in <a rel='nofollow' target='_blank' href="https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-8.html#decorators-are-placed-on-modifiers-on-typescripts-syntax-trees">TypeScript v4.8 introduced several breaking changes</a> in its Abstract Syntax Tree (AST) which we use to auto-generate OpenAPI and GraphQL schemas.</p>
+<h4 appAnchor id="dropping-support-for-nodejs-v12"><span>Dropping support for Node.js v12</span></h4>
+<p>As of NestJS 10, we no longer support Node.js v12, as <a rel='nofollow' target='_blank' href="https://twitter.com/nodejs/status/1524081123579596800">v12 went EOL</a> on April 30, 2022. This means that NestJS 10 requires Node.js v16 or higher. This decision was made to allow us to finally set target to <code>ES2021</code> in our TypeScript configuration, instead of shipping polyfills as we did in the past.</p>
+<p>From now on, every official NestJS package will be compiled to <code>ES2021</code> by default, which should result in a smaller library size and sometimes even (slightly) better performance.</p>
+<p>We also strongly recommend using the latest LTS version.</p>
+
+</div>
+

@@ -1,0 +1,51 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/techniques/server-sent-events.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="server-sent-events">Server-Sent Events</h3>
+<p>Server-Sent Events (SSE) is a server push technology enabling a client to receive automatic updates from a server via HTTP connection. Each notification is sent as a block of text terminated by a pair of newlines (learn more <a rel='nofollow' target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events">here</a>).</p>
+<h4 appAnchor id="usage"><span>Usage</span></h4>
+<p>To enable Server-Sent events on a route (route registered within a <strong>controller class</strong>), annotate the method handler with the <code>@Sse()</code> decorator.</p>
+<pre><code class="language-typescript">
+@Sse(&#39;sse&#39;)
+sse(): Observable&lt;MessageEvent&gt; &#123;
+  return interval(1000).pipe(map((_) =&gt; (&#123; data: &#123; hello: &#39;world&#39; &#125; &#125;)));
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>@Sse()</code> decorator and <code>MessageEvent</code> interface are imported from the <code>@nestjs/common</code>, while <code>Observable</code>, <code>interval</code>, and <code>map</code> are imported from the <code>rxjs</code> package.
+</blockquote>
+<blockquote class="
+warning "><strong>Warning</strong> Server-Sent Events routes must return an <code>Observable</code> stream.
+</blockquote>
+<p>In the example above, we defined a route named <code>sse</code> that will allow us to propagate real-time updates. These events can be listened to using the <a rel='nofollow' target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/API/EventSource">EventSource API</a>.</p>
+<p>The <code>sse</code> method returns an <code>Observable</code> that emits multiple <code>MessageEvent</code> (in this example, it emits a new <code>MessageEvent</code> every second). The <code>MessageEvent</code> object should respect the following interface to match the specification:</p>
+<pre><code class="language-typescript">
+export interface MessageEvent &#123;
+  data: string | object;
+  id?: string;
+  type?: string;
+  retry?: number;
+&#125;
+</code></pre>
+<p>With this in place, we can now create an instance of the <code>EventSource</code> class in our client-side application, passing the <code>/sse</code> route (which matches the endpoint we have passed into the <code>@Sse()</code> decorator above) as a constructor argument.</p>
+<p><code>EventSource</code> instance opens a persistent connection to an HTTP server, which sends events in <code>text/event-stream</code> format. The connection remains open until closed by calling <code>EventSource.close()</code>.</p>
+<p>Once the connection is opened, incoming messages from the server are delivered to your code in the form of events. If there is an event field in the incoming message, the triggered event is the same as the event field value. If no event field is present, then a generic <code>message</code> event is fired (<a rel='nofollow' target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/API/EventSource">source</a>).</p>
+<pre><code class="language-javascript">
+const eventSource = new EventSource(&#39;/sse&#39;);
+eventSource.onmessage = (&#123; data &#125;) =&gt; &#123;
+  console.log(&#39;New message&#39;, JSON.parse(data));
+&#125;;
+</code></pre>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>A working example is available <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/tree/master/sample/28-sse">here</a>.</p>
+
+</div>
+

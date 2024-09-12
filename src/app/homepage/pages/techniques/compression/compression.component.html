@@ -1,0 +1,52 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/techniques/compression.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="compression">Compression</h3>
+<p>Compression can greatly decrease the size of the response body, thereby increasing the speed of a web app.</p>
+<p>For <strong>high-traffic</strong> websites in production, it is strongly recommended to offload compression from the application server - typically in a reverse proxy (e.g., Nginx). In that case, you should not use compression middleware.</p>
+<h4 appAnchor id="use-with-express-default"><span>Use with Express (default)</span></h4>
+<p>Use the <a rel='nofollow' target='_blank' href="https://github.com/expressjs/compression">compression</a> middleware package to enable gzip compression.</p>
+<p>First install the required package:</p>
+<pre><code class="language-bash">
+$ npm i --save compression
+</code></pre>
+<p>Once the installation is complete, apply the compression middleware as global middleware.</p>
+<pre><code class="language-typescript">
+import * as compression from &#39;compression&#39;;
+// somewhere in your initialization file
+app.use(compression());
+</code></pre>
+<h4 appAnchor id="use-with-fastify"><span>Use with Fastify</span></h4>
+<p>If using the <code>FastifyAdapter</code>, you&#39;ll want to use <a rel='nofollow' target='_blank' href="https://github.com/fastify/fastify-compress">fastify-compress</a>:</p>
+<pre><code class="language-bash">
+$ npm i --save @fastify/compress
+</code></pre>
+<p>Once the installation is complete, apply the <code>@fastify/compress</code> middleware as global middleware.</p>
+<pre><code class="language-typescript">
+import compression from &#39;@fastify/compress&#39;;
+// somewhere in your initialization file
+await app.register(compression);
+</code></pre>
+<p>By default, <code>@fastify/compress</code> will use Brotli compression (on Node &gt;= 11.7.0) when browsers indicate support for the encoding. While Brotli can be quite efficient in terms of compression ratio, it can also be quite slow. By default, Brotli sets a maximum compression quality of 11, although it can be adjusted to reduce compression time in lieu of compression quality by adjusting the <code>BROTLI_PARAM_QUALITY</code> between 0 min and 11 max. This will require fine tuning to optimize space/time performance. An example with quality 4: </p>
+<pre><code class="language-typescript">
+import &#123; constants &#125; from &#39;zlib&#39;;
+// somewhere in your initialization file
+await app.register(compression, &#123; brotliOptions: &#123; params: &#123; [constants.BROTLI_PARAM_QUALITY]: 4 &#125; &#125; &#125;);
+</code></pre>
+<p>To simplify, you may want to tell <code>fastify-compress</code> to only use deflate and gzip to compress responses; you&#39;ll end up with potentially larger responses but they&#39;ll be delivered much more quickly.</p>
+<p>To specify encodings, provide a second argument to <code>app.register</code>:</p>
+<pre><code class="language-typescript">
+await app.register(compression, &#123; encodings: [&#39;gzip&#39;, &#39;deflate&#39;] &#125;);
+</code></pre>
+<p>The above tells <code>fastify-compress</code> to only use gzip and deflate encodings, preferring gzip if the client supports both.</p>
+
+</div>
+

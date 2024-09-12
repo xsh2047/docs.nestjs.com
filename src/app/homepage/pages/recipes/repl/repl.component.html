@@ -1,0 +1,150 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/recipes/repl.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="read-eval-print-loop-repl">Read-Eval-Print-Loop (REPL)</h3>
+<p>REPL is a simple interactive environment that takes single user inputs, executes them, and returns the result to the user.
+The REPL feature lets you inspect your dependency graph and call methods on your providers (and controllers) directly from your terminal.</p>
+<h4 appAnchor id="usage"><span>Usage</span></h4>
+<p>To run your NestJS application in REPL mode, create a new <code>repl.ts</code> file (alongside the existing <code>main.ts</code> file) and add the following code inside:</p>
+
+<span class="filename">
+  {{ 'repl' | extension: appd16bec1eb8e2df98e8704c4aa09795981791ddb2.isJsActive }}
+<app-tabs #appd16bec1eb8e2df98e8704c4aa09795981791ddb2></app-tabs>
+</span><pre [class.hide]="appd16bec1eb8e2df98e8704c4aa09795981791ddb2.isJsActive"><code class="language-typescript">
+import &#123; repl &#125; from &#39;@nestjs/core&#39;;
+import &#123; AppModule &#125; from &#39;./src/app.module&#39;;
+
+async function bootstrap() &#123;
+  await repl(AppModule);
+&#125;
+bootstrap();
+</code></pre>
+<pre [class.hide]="!appd16bec1eb8e2df98e8704c4aa09795981791ddb2.isJsActive"><code class="language-typescript">
+import &#123; repl &#125; from &#39;@nestjs/core&#39;;
+import &#123; AppModule &#125; from &#39;./src/app.module&#39;;
+
+async function bootstrap() &#123;
+  await repl(AppModule);
+&#125;
+bootstrap();
+</code></pre><p>Now in your terminal, start the REPL with the following command:</p>
+<pre><code class="language-bash">
+$ npm run start -- --entryFile repl
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> <code>repl</code> returns a <a rel='nofollow' target='_blank' href="https://nodejs.org/api/repl.html">Node.js REPL server</a> object.
+</blockquote>
+<p>Once it&#39;s up and running, you should see the following message in your console:</p>
+<pre><code class="language-bash">
+LOG [NestFactory] Starting Nest application...
+LOG [InstanceLoader] AppModule dependencies initialized
+LOG REPL initialized
+</code></pre>
+<p>And now you can start interacting with your dependencies graph. For instance, you can retrieve an <code>AppService</code> (we are using the starter project as an example here) and call the <code>getHello()</code> method:</p>
+<pre><code class="language-typescript">
+&gt; get(AppService).getHello()
+&#39;Hello World!&#39;
+</code></pre>
+<p>You can execute any JavaScript code from within your terminal, for example, assign an instance of the <code>AppController</code> to a local variable, and use <code>await</code> to call an asynchronous method:</p>
+<pre><code class="language-typescript">
+&gt; appController = get(AppController)
+AppController &#123; appService: AppService &#123;&#125; &#125;
+&gt; await appController.getHello()
+&#39;Hello World!&#39;
+</code></pre>
+<p>To display all public methods available on a given provider or controller, use the <code>methods()</code> function, as follows:</p>
+<pre><code class="language-typescript">
+&gt; methods(AppController)
+
+Methods:
+ ◻ getHello
+</code></pre>
+<p>To print all registered modules as a list together with their controllers and providers, use <code>debug()</code>.</p>
+<pre><code class="language-typescript">
+&gt; debug()
+
+AppModule:
+ - controllers:
+  ◻ AppController
+ - providers:
+  ◻ AppService
+</code></pre>
+<p>Quick demo:</p>
+<figure><img src="/assets/repl.gif" alt="REPL example" /></figure>
+
+<p>You can find more information about the existing, predefined native methods in the section below.</p>
+<h4 appAnchor id="native-functions"><span>Native functions</span></h4>
+<p>The built-in NestJS REPL comes with a few native functions that are globally available when you start REPL. You can call <code>help()</code> to list them out.</p>
+<p>If you don&#39;t recall what&#39;s the signature (ie: expected parameters and a return type) of a function, you can call <code>&lt;function_name&gt;.help</code>.
+For instance:</p>
+<pre><code class="language-text">
+&gt; $.help
+Retrieves an instance of either injectable or controller, otherwise, throws exception.
+Interface: $(token: InjectionToken) =&gt; any
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Those function interfaces are written in <a rel='nofollow' target='_blank' href="https://www.typescriptlang.org/docs/handbook/2/functions.html#function-type-expressions">TypeScript function type expression syntax</a>.
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+<th>Signature</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>debug</code></td>
+<td>Print all registered modules as a list together with their controllers and providers.</td>
+<td><code>debug(moduleCls?: ClassRef | string) =&gt; void</code></td>
+</tr>
+<tr>
+<td><code>get</code> or <code>$</code></td>
+<td>Retrieves an instance of either injectable or controller, otherwise, throws exception.</td>
+<td><code>get(token: InjectionToken) =&gt; any</code></td>
+</tr>
+<tr>
+<td><code>methods</code></td>
+<td>Display all public methods available on a given provider or controller.</td>
+<td><code>methods(token: ClassRef | string) =&gt; void</code></td>
+</tr>
+<tr>
+<td><code>resolve</code></td>
+<td>Resolves transient or request-scoped instance of either injectable or controller, otherwise, throws exception.</td>
+<td><code>resolve(token: InjectionToken, contextId: any) =&gt; Promise&lt;any&gt;</code></td>
+</tr>
+<tr>
+<td><code>select</code></td>
+<td>Allows navigating through the modules tree, for example, to pull out a specific instance from the selected module.</td>
+<td><code>select(token: DynamicModule | ClassRef) =&gt; INestApplicationContext</code></td>
+</tr>
+</tbody></table>
+<h4 appAnchor id="watch-mode"><span>Watch mode</span></h4>
+<p>During development it is useful to run REPL in a watch mode to reflect all the code changes automatically:</p>
+<pre><code class="language-bash">
+$ npm run start -- --watch --entryFile repl
+</code></pre>
+<p>This has one flaw, the REPL&#39;s command history is discarded after each reload which might be cumbersome.
+Fortunately, there is a very simple solution. Modify your <code>bootstrap</code> function like this:</p>
+<pre><code class="language-typescript">
+async function bootstrap() &#123;
+  const replServer = await repl(AppModule);
+  replServer.setupHistory(&quot;.nestjs_repl_history&quot;, (err) =&gt; &#123;
+    if (err) &#123;
+      console.error(err);
+    &#125;
+  &#125;);
+&#125;
+</code></pre>
+<p>Now the history is preserved between the runs/reloads.</p>
+
+</div>
+

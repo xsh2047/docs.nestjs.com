@@ -1,0 +1,59 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/graphql/schema-generator.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="generating-sdl">Generating SDL</h3>
+<blockquote class="
+warning "><strong>Warning</strong> This chapter applies only to the code first approach.
+</blockquote>
+<p>To manually generate a GraphQL SDL schema (i.e., without running an application, connecting to the database, hooking up resolvers, etc.), use the <code>GraphQLSchemaBuilderModule</code>.</p>
+<pre><code class="language-typescript">
+async function generateSchema() &#123;
+  const app = await NestFactory.create(GraphQLSchemaBuilderModule);
+  await app.init();
+
+  const gqlSchemaFactory = app.get(GraphQLSchemaFactory);
+  const schema = await gqlSchemaFactory.create([RecipesResolver]);
+  console.log(printSchema(schema));
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>GraphQLSchemaBuilderModule</code> and <code>GraphQLSchemaFactory</code> are imported from the <code>@nestjs/graphql</code> package. The <code>printSchema</code> function is imported from the <code>graphql</code> package.
+</blockquote>
+<h4 appAnchor id="usage"><span>Usage</span></h4>
+<p>The <code>gqlSchemaFactory.create()</code> method takes an array of resolver class references. For example:</p>
+<pre><code class="language-typescript">
+const schema = await gqlSchemaFactory.create([
+  RecipesResolver,
+  AuthorsResolver,
+  PostsResolvers,
+]);
+</code></pre>
+<p>It also takes a second optional argument with an array of scalar classes:</p>
+<pre><code class="language-typescript">
+const schema = await gqlSchemaFactory.create(
+  [RecipesResolver, AuthorsResolver, PostsResolvers],
+  [DurationScalar, DateScalar],
+);
+</code></pre>
+<p>Lastly, you can pass an options object:</p>
+<pre><code class="language-typescript">
+const schema = await gqlSchemaFactory.create([RecipesResolver], &#123;
+  skipCheck: true,
+  orphanedTypes: [],
+&#125;);
+</code></pre>
+<ul>
+<li><code>skipCheck</code>: ignore schema validation; boolean, defaults to <code>false</code></li>
+<li><code>orphanedTypes</code>: list of classes that are not explicitly referenced (not part of the object graph) to be generated. Normally, if a class is declared but isn&#39;t otherwise referenced in the graph, it&#39;s omitted. The property value is an array of class references.</li>
+</ul>
+
+</div>
+

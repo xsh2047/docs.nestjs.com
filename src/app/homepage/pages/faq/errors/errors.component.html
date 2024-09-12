@@ -1,0 +1,103 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/faq/errors.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="common-errors">Common errors</h3>
+<p>During your development with NestJS, you may encounter various errors as you learn the framework.</p>
+<h4 appAnchor id="cannot-resolve-dependency-error"><span>&quot;Cannot resolve dependency&quot; error</span></h4>
+<blockquote class="
+info "><strong>Hint</strong> Check out the <a href="/devtools/overview#investigating-the-cannot-resolve-dependency-error">NestJS Devtools</a> which can help you resolve the &quot;Cannot resolve dependency&quot; error effortlessly.
+</blockquote>
+<p>Probably the most common error message is about Nest not being able to resolve dependencies of a provider. The error message usually looks something like this:</p>
+<pre><code class="language-bash">
+Nest can&#39;t resolve dependencies of the &lt;provider&gt; (?). Please make sure that the argument &lt;unknown_token&gt; at index [&lt;index&gt;] is available in the &lt;module&gt; context.
+
+Potential solutions:
+- Is &lt;module&gt; a valid NestJS module?
+- If &lt;unknown_token&gt; is a provider, is it part of the current &lt;module&gt;?
+- If &lt;unknown_token&gt; is exported from a separate @Module, is that module imported within &lt;module&gt;?
+  @Module(&#123;
+    imports: [ /* the Module containing &lt;unknown_token&gt; */ ]
+  &#125;)
+</code></pre>
+<p>The most common culprit of the error, is not having the <code>&lt;provider&gt;</code> in the module&#39;s <code>providers</code> array. Please make sure that the provider is indeed in the <code>providers</code> array and following <a href="/fundamentals/custom-providers#di-fundamentals">standard NestJS provider practices</a>.</p>
+<p>There are a few gotchas, that are common. One is putting a provider in an <code>imports</code> array. If this is the case, the error will have the provider&#39;s name where <code>&lt;module&gt;</code> should be.</p>
+<p>If you run across this error while developing, take a look at the module mentioned in the error message and look at its <code>providers</code>. For each provider in the <code>providers</code> array, make sure the module has access to all of the dependencies. Often times, <code>providers</code> are duplicated in a &quot;Feature Module&quot; and a &quot;Root Module&quot; which means Nest will try to instantiate the provider twice. More than likely, the module containing the <code>&lt;provider&gt;</code> being duplicated should be added in the &quot;Root Module&quot;&#39;s <code>imports</code> array instead.</p>
+<p>If the <code>&lt;unknown_token&gt;</code> above is <code>dependency</code>, you might have a circular file import. This is different from the <a href="/faq/common-errors#circular-dependency-error">circular dependency</a> below because instead of having providers depend on each other in their constructors, it just means that two files end up importing each other. A common case would be a module file declaring a token and importing a provider, and the provider import the token constant from the module file. If you are using barrel files, ensure that your barrel imports do not end up creating these circular imports as well.</p>
+<p>If the <code>&lt;unknown_token&gt;</code> above is <code>Object</code>, it means that you&#39;re injecting using an type/interface without a proper provider&#39;s token. To fix that, make sure that:</p>
+<ol>
+<li>you&#39;re importing the class reference or use a custom token with <code>@Inject()</code> decorator. Read the <a routerLink="/fundamentals/custom-providers">custom providers page</a>, and</li>
+<li>for class-based providers, you&#39;re importing the concrete classes instead of only the type via <a rel='nofollow' target='_blank' href="https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-8.html#type-only-imports-and-export"><code>import type ...</code></a> syntax.</li>
+</ol>
+<p>Also, make sure you didn&#39;t end up injecting the provider on itself because self-injections are not allowed in NestJS. When this happens, <code>&lt;unknown_token&gt;</code> will likely be equal to <code>&lt;provider&gt;</code>.</p>
+<p><app-banner-devtools></app-banner-devtools></p>
+<p>If you are in a <strong>monorepo setup</strong>, you may face the same error as above but for core provider called <code>ModuleRef</code> as a <code>&lt;unknown_token&gt;</code>:</p>
+<pre><code class="language-bash">
+Nest can&#39;t resolve dependencies of the &lt;provider&gt; (?).
+Please make sure that the argument ModuleRef at index [&lt;index&gt;] is available in the &lt;module&gt; context.
+...
+</code></pre>
+<p>This likely happens when your project end up loading two Node modules of the package <code>@nestjs/core</code>, like this:</p>
+<pre><code class="language-text">
+.
+├── package.json
+├── apps
+│   └── api
+│       └── node_modules
+│           └── @nestjs/bull
+│               └── node_modules
+│                   └── @nestjs/core
+└── node_modules
+    ├── (other packages)
+    └── @nestjs/core
+</code></pre>
+<p>Solutions:</p>
+<ul>
+<li>For <strong>Yarn</strong> Workspaces, use the <a rel='nofollow' target='_blank' href="https://classic.yarnpkg.com/blog/2018/02/15/nohoist">nohoist feature</a> to prevent hoisting the package <code>@nestjs/core</code>.</li>
+<li>For <strong>pnpm</strong> Workspaces, set <code>@nestjs/core</code> as a peerDependencies in your other module and <code>&quot;dependenciesMeta&quot;: {{ &#39;{&#39; }}&quot;other-module-name&quot;: {{ &#39;{&#39; }}&quot;injected&quot;: true{{ &#39;}}&#39; }}</code> in the app package.json where the module is imported. see: <a rel='nofollow' target='_blank' href="https://pnpm.io/package_json#dependenciesmetainjected">dependenciesmetainjected</a></li>
+</ul>
+<h4 appAnchor id="circular-dependency-error"><span>&quot;Circular dependency&quot; error</span></h4>
+<p>Occasionally you&#39;ll find it difficult to avoid <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/fundamentals/circular-dependency">circular dependencies</a> in your application. You&#39;ll need to take some steps to help Nest resolve these. Errors that arise from circular dependencies look like this:</p>
+<pre><code class="language-bash">
+Nest cannot create the &lt;module&gt; instance.
+The module at index [&lt;index&gt;] of the &lt;module&gt; &quot;imports&quot; array is undefined.
+
+Potential causes:
+- A circular dependency between modules. Use forwardRef() to avoid it. Read more: https://docs.nestjs.com/fundamentals/circular-dependency
+- The module at index [&lt;index&gt;] is of type &quot;undefined&quot;. Check your import statements and the type of the module.
+
+Scope [&lt;module_import_chain&gt;]
+# example chain AppModule -&gt; FooModule
+</code></pre>
+<p>Circular dependencies can arise from both providers depending on each other, or typescript files depending on each other for constants, such as exporting constants from a module file and importing them in a service file. In the latter case, it is advised to create a separate file for your constants. In the former case, please follow the guide on circular dependencies and make sure that both the modules <strong>and</strong> the providers are marked with <code>forwardRef</code>.</p>
+<h4 appAnchor id="debugging-dependency-errors"><span>Debugging dependency errors</span></h4>
+<p>Along with just manually verifying your dependencies are correct, as of Nest 8.1.0 you can set the <code>NEST_DEBUG</code> environment variable to a string that resolves as truthy, and get extra logging information while Nest is resolving all of the dependencies for the application.</p>
+<figure><img src="/assets/injector_logs.png" /></figure>
+
+<p>In the above image, the string in yellow is the host class of the dependency being injected, the string in blue is the name of the injected dependency, or its injection token, and the string in purple is the module in which the dependency is being searched for. Using this, you can usually trace back the dependency resolution for what&#39;s happening and why you&#39;re getting dependency injection problems.</p>
+<h4 appAnchor id="file-change-detected-loops-endlessly"><span>&quot;File change detected&quot; loops endlessly</span></h4>
+<p>Windows users who are using TypeScript version 4.9 and up may encounter this problem.
+This happens when you&#39;re trying to run your application in watch mode, e.g <code>npm run start:dev</code> and see an endless loop of the log messages:</p>
+<pre><code class="language-bash">
+XX:XX:XX AM - File change detected. Starting incremental compilation...
+XX:XX:XX AM - Found 0 errors. Watching for file changes.
+</code></pre>
+<p>When you&#39;re using the NestJS CLI to start your application in watch mode it is done by calling <code>tsc --watch</code>, and as of version 4.9 of TypeScript, a <a rel='nofollow' target='_blank' href="https://devblogs.microsoft.com/typescript/announcing-typescript-4-9/#file-watching-now-uses-file-system-events">new strategy</a> for detecting file changes is used which is likely to be the cause of this problem.
+In order to fix this problem, you need to add a setting to your tsconfig.json file after the <code>&quot;compilerOptions&quot;</code> option as follows:</p>
+<pre><code class="language-bash">
+  &quot;watchOptions&quot;: &#123;
+    &quot;watchFile&quot;: &quot;fixedPollingInterval&quot;
+  &#125;
+</code></pre>
+<p>This tells TypeScript to use the polling method for checking for file changes instead of file system events (the new default method), which can cause issues on some machines.
+You can read more about the <code>&quot;watchFile&quot;</code> option in <a rel='nofollow' target='_blank' href="https://www.typescriptlang.org/tsconfig#watch-watchDirectory">TypeScript documentation</a>.</p>
+
+</div>
+

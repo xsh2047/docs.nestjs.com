@@ -1,0 +1,33 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/faq/global-prefix.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="global-prefix">Global prefix</h3>
+<p>To set a prefix for <strong>every route</strong> registered in an HTTP application, use the <code>setGlobalPrefix()</code> method of the <code>INestApplication</code> instance.</p>
+<pre><code class="language-typescript">
+const app = await NestFactory.create(AppModule);
+app.setGlobalPrefix(&#39;v1&#39;);
+</code></pre>
+<p>You can exclude routes from the global prefix using the following construction:</p>
+<pre><code class="language-typescript">
+app.setGlobalPrefix(&#39;v1&#39;, &#123;
+  exclude: [&#123; path: &#39;health&#39;, method: RequestMethod.GET &#125;],
+&#125;);
+</code></pre>
+<p>Alternatively, you can specify route as a string (it will apply to every request method):</p>
+<pre><code class="language-typescript">
+app.setGlobalPrefix(&#39;v1&#39;, &#123; exclude: [&#39;cats&#39;] &#125;);
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>path</code> property supports wildcard parameters using the <a rel='nofollow' target='_blank' href="https://github.com/pillarjs/path-to-regexp#parameters">path-to-regexp</a> package. Note: this does not accept wildcard asterisks <code>*</code>. Instead, you must use parameters (e.g., <code>(.*)</code>, <code>:splat*</code>).
+</blockquote>
+
+</div>
+

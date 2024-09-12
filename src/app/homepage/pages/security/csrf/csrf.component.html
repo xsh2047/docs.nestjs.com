@@ -1,0 +1,49 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/security/csrf.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="csrf-protection">CSRF Protection</h3>
+<p>Cross-site request forgery (also known as CSRF or XSRF) is a type of malicious exploit of a website where <strong>unauthorized</strong> commands are transmitted from a user that the web application trusts. To mitigate this kind of attack you can use the <a rel='nofollow' target='_blank' href="https://github.com/expressjs/csurf">csurf</a> package.</p>
+<h4 appAnchor id="use-with-express-default"><span>Use with Express (default)</span></h4>
+<p>Start by installing the required package:</p>
+<pre><code class="language-bash">
+$ npm i --save csurf
+</code></pre>
+<blockquote class="
+warning "><strong>Warning</strong> This package is deprecated, refer to <a rel='nofollow' target='_blank' href="https://github.com/expressjs/csurf#csurf"><code>csurf</code> docs</a> for more information.
+</blockquote>
+<blockquote class="
+warning "><strong>Warning</strong> As explained in the <a rel='nofollow' target='_blank' href="https://github.com/expressjs/csurf#csurf"><code>csurf</code> docs</a>, this middleware requires either session middleware or <code>cookie-parser</code> to be initialized first. Please see that documentation for further instructions.
+</blockquote>
+<p>Once the installation is complete, apply the <code>csurf</code> middleware as global middleware.</p>
+<pre><code class="language-typescript">
+import * as csurf from &#39;csurf&#39;;
+// ...
+// somewhere in your initialization file
+app.use(csurf());
+</code></pre>
+<h4 appAnchor id="use-with-fastify"><span>Use with Fastify</span></h4>
+<p>Start by installing the required package:</p>
+<pre><code class="language-bash">
+$ npm i --save @fastify/csrf-protection
+</code></pre>
+<p>Once the installation is complete, register the <code>@fastify/csrf-protection</code> plugin, as follows:</p>
+<pre><code class="language-typescript">
+import fastifyCsrf from &#39;@fastify/csrf-protection&#39;;
+// ...
+// somewhere in your initialization file after registering some storage plugin
+await app.register(fastifyCsrf);
+</code></pre>
+<blockquote class="
+warning "><strong>Warning</strong> As explained in the <code>@fastify/csrf-protection</code> docs <a rel='nofollow' target='_blank' href="https://github.com/fastify/csrf-protection#usage">here</a>, this plugin requires a storage plugin to be initialized first. Please, see that documentation for further instructions.
+</blockquote>
+
+</div>
+

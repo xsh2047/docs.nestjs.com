@@ -1,0 +1,139 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/graphql/mapped-types.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="mapped-types">Mapped types</h3>
+<blockquote class="
+warning "><strong>Warning</strong> This chapter applies only to the code first approach.
+</blockquote>
+<p>As you build out features like CRUD (Create/Read/Update/Delete) it&#39;s often useful to construct variants on a base entity type. Nest provides several utility functions that perform type transformations to make this task more convenient.</p>
+<h4 appAnchor id="partial"><span>Partial</span></h4>
+<p>When building input validation types (also called Data Transfer Objects or DTOs), it&#39;s often useful to build <strong>create</strong> and <strong>update</strong> variations on the same type. For example, the <strong>create</strong> variant may require all fields, while the <strong>update</strong> variant may make all fields optional.</p>
+<p>Nest provides the <code>PartialType()</code> utility function to make this task easier and minimize boilerplate.</p>
+<p>The <code>PartialType()</code> function returns a type (class) with all the properties of the input type set to optional. For example, suppose we have a <strong>create</strong> type as follows:</p>
+<pre><code class="language-typescript">
+@InputType()
+class CreateUserInput &#123;
+  @Field()
+  email: string;
+
+  @Field()
+  password: string;
+
+  @Field()
+  firstName: string;
+&#125;
+</code></pre>
+<p>By default, all of these fields are required. To create a type with the same fields, but with each one optional, use <code>PartialType()</code> passing the class reference (<code>CreateUserInput</code>) as an argument:</p>
+<pre><code class="language-typescript">
+@InputType()
+export class UpdateUserInput extends PartialType(CreateUserInput) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>PartialType()</code> function is imported from the <code>@nestjs/graphql</code> package.
+</blockquote>
+<p>The <code>PartialType()</code> function takes an optional second argument that is a reference to a decorator factory. This argument can be used to change the decorator function applied to the resulting (child) class. If not specified, the child class effectively uses the same decorator as the <strong>parent</strong> class (the class referenced in the first argument). In the example above, we are extending <code>CreateUserInput</code> which is annotated with the <code>@InputType()</code> decorator. Since we want <code>UpdateUserInput</code> to also be treated as if it were decorated with <code>@InputType()</code>, we didn&#39;t need to pass <code>InputType</code> as the second argument. If the parent and child types are different, (e.g., the parent is decorated with <code>@ObjectType</code>), we would pass <code>InputType</code> as the second argument. For example:</p>
+<pre><code class="language-typescript">
+@InputType()
+export class UpdateUserInput extends PartialType(User, InputType) &#123;&#125;
+</code></pre>
+<h4 appAnchor id="pick"><span>Pick</span></h4>
+<p>The <code>PickType()</code> function constructs a new type (class) by picking a set of properties from an input type. For example, suppose we start with a type like:</p>
+<pre><code class="language-typescript">
+@InputType()
+class CreateUserInput &#123;
+  @Field()
+  email: string;
+
+  @Field()
+  password: string;
+
+  @Field()
+  firstName: string;
+&#125;
+</code></pre>
+<p>We can pick a set of properties from this class using the <code>PickType()</code> utility function:</p>
+<pre><code class="language-typescript">
+@InputType()
+export class UpdateEmailInput extends PickType(CreateUserInput, [
+  &#39;email&#39;,
+] as const) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>PickType()</code> function is imported from the <code>@nestjs/graphql</code> package.
+</blockquote>
+<h4 appAnchor id="omit"><span>Omit</span></h4>
+<p>The <code>OmitType()</code> function constructs a type by picking all properties from an input type and then removing a particular set of keys. For example, suppose we start with a type like:</p>
+<pre><code class="language-typescript">
+@InputType()
+class CreateUserInput &#123;
+  @Field()
+  email: string;
+
+  @Field()
+  password: string;
+
+  @Field()
+  firstName: string;
+&#125;
+</code></pre>
+<p>We can generate a derived type that has every property <strong>except</strong> <code>email</code> as shown below. In this construct, the second argument to <code>OmitType</code> is an array of property names.</p>
+<pre><code class="language-typescript">
+@InputType()
+export class UpdateUserInput extends OmitType(CreateUserInput, [
+  &#39;email&#39;,
+] as const) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>OmitType()</code> function is imported from the <code>@nestjs/graphql</code> package.
+</blockquote>
+<h4 appAnchor id="intersection"><span>Intersection</span></h4>
+<p>The <code>IntersectionType()</code> function combines two types into one new type (class). For example, suppose we start with two types like:</p>
+<pre><code class="language-typescript">
+@InputType()
+class CreateUserInput &#123;
+  @Field()
+  email: string;
+
+  @Field()
+  password: string;
+&#125;
+
+@ObjectType()
+export class AdditionalUserInfo &#123;
+  @Field()
+  firstName: string;
+
+  @Field()
+  lastName: string;
+&#125;
+</code></pre>
+<p>We can generate a new type that combines all properties in both types.</p>
+<pre><code class="language-typescript">
+@InputType()
+export class UpdateUserInput extends IntersectionType(
+  CreateUserInput,
+  AdditionalUserInfo,
+) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>IntersectionType()</code> function is imported from the <code>@nestjs/graphql</code> package.
+</blockquote>
+<h4 appAnchor id="composition"><span>Composition</span></h4>
+<p>The type mapping utility functions are composable. For example, the following will produce a type (class) that has all of the properties of the <code>CreateUserInput</code> type except for <code>email</code>, and those properties will be set to optional:</p>
+<pre><code class="language-typescript">
+@InputType()
+export class UpdateUserInput extends PartialType(
+  OmitType(CreateUserInput, [&#39;email&#39;] as const),
+) &#123;&#125;
+</code></pre>
+
+</div>
+

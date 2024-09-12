@@ -1,0 +1,114 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/techniques/cookies.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="cookies">Cookies</h3>
+<p>An <strong>HTTP cookie</strong> is a small piece of data stored by the user&#39;s browser. Cookies were designed to be a reliable mechanism for websites to remember stateful information. When the user visits the website again, the cookie is automatically sent with the request.</p>
+<h4 appAnchor id="use-with-express-default"><span>Use with Express (default)</span></h4>
+<p>First install the <a rel='nofollow' target='_blank' href="https://github.com/expressjs/cookie-parser">required package</a> (and its types for TypeScript users):</p>
+<pre><code class="language-shell">
+$ npm i cookie-parser
+$ npm i -D @types/cookie-parser
+</code></pre>
+<p>Once the installation is complete, apply the <code>cookie-parser</code> middleware as global middleware (for example, in your <code>main.ts</code> file).</p>
+<pre><code class="language-typescript">
+import * as cookieParser from &#39;cookie-parser&#39;;
+// somewhere in your initialization file
+app.use(cookieParser());
+</code></pre>
+<p>You can pass several options to the <code>cookieParser</code> middleware:</p>
+<ul>
+<li><code>secret</code> a string or array used for signing cookies. This is optional and if not specified, will not parse signed cookies. If a string is provided, this is used as the secret. If an array is provided, an attempt will be made to unsign the cookie with each secret in order.</li>
+<li><code>options</code> an object that is passed to <code>cookie.parse</code> as the second option. See <a rel='nofollow' target='_blank' href="https://www.npmjs.org/package/cookie">cookie</a> for more information.</li>
+</ul>
+<p>The middleware will parse the <code>Cookie</code> header on the request and expose the cookie data as the property <code>req.cookies</code> and, if a secret was provided, as the property <code>req.signedCookies</code>. These properties are name value pairs of the cookie name to cookie value.</p>
+<p>When a secret is provided, this module will unsign and validate any signed cookie values and move those name value pairs from <code>req.cookies</code> into <code>req.signedCookies</code>. A signed cookie is a cookie that has a value prefixed with <code>s:</code>. Signed cookies that fail signature validation will have the value <code>false</code> instead of the tampered value.</p>
+<p>With this in place, you can now read cookies from within the route handlers, as follows:</p>
+<pre><code class="language-typescript">
+@Get()
+findAll(@Req() request: Request) &#123;
+  console.log(request.cookies); // or &quot;request.cookies[&#39;cookieKey&#39;]&quot;
+  // or console.log(request.signedCookies);
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>@Req()</code> decorator is imported from the <code>@nestjs/common</code>, while <code>Request</code> from the <code>express</code> package.
+</blockquote>
+<p>To attach a cookie to an outgoing response, use the <code>Response#cookie()</code> method:</p>
+<pre><code class="language-typescript">
+@Get()
+findAll(@Res(&#123; passthrough: true &#125;) response: Response) &#123;
+  response.cookie(&#39;key&#39;, &#39;value&#39;)
+&#125;
+</code></pre>
+<blockquote class="
+warning "><strong>Warning</strong> If you want to leave the response handling logic to the framework, remember to set the <code>passthrough</code> option to <code>true</code>, as shown above. Read more <a href="/controllers#library-specific-approach">here</a>.
+</blockquote>
+<blockquote class="
+info "><strong>Hint</strong> The <code>@Res()</code> decorator is imported from the <code>@nestjs/common</code>, while <code>Response</code> from the <code>express</code> package.
+</blockquote>
+<h4 appAnchor id="use-with-fastify"><span>Use with Fastify</span></h4>
+<p>First install the required package:</p>
+<pre><code class="language-shell">
+$ npm i @fastify/cookie
+</code></pre>
+<p>Once the installation is complete, register the <code>@fastify/cookie</code> plugin:</p>
+<pre><code class="language-typescript">
+import fastifyCookie from &#39;@fastify/cookie&#39;;
+
+// somewhere in your initialization file
+const app = await NestFactory.create&lt;NestFastifyApplication&gt;(AppModule, new FastifyAdapter());
+await app.register(fastifyCookie, &#123;
+  secret: &#39;my-secret&#39;, // for cookies signature
+&#125;);
+</code></pre>
+<p>With this in place, you can now read cookies from within the route handlers, as follows:</p>
+<pre><code class="language-typescript">
+@Get()
+findAll(@Req() request: FastifyRequest) &#123;
+  console.log(request.cookies); // or &quot;request.cookies[&#39;cookieKey&#39;]&quot;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>@Req()</code> decorator is imported from the <code>@nestjs/common</code>, while <code>FastifyRequest</code> from the <code>fastify</code> package.
+</blockquote>
+<p>To attach a cookie to an outgoing response, use the <code>FastifyReply#setCookie()</code> method:</p>
+<pre><code class="language-typescript">
+@Get()
+findAll(@Res(&#123; passthrough: true &#125;) response: FastifyReply) &#123;
+  response.setCookie(&#39;key&#39;, &#39;value&#39;)
+&#125;
+</code></pre>
+<p>To read more about <code>FastifyReply#setCookie()</code> method, check out this <a rel='nofollow' target='_blank' href="https://github.com/fastify/fastify-cookie#sending">page</a>.</p>
+<blockquote class="
+warning "><strong>Warning</strong> If you want to leave the response handling logic to the framework, remember to set the <code>passthrough</code> option to <code>true</code>, as shown above. Read more <a href="/controllers#library-specific-approach">here</a>.
+</blockquote>
+<blockquote class="
+info "><strong>Hint</strong> The <code>@Res()</code> decorator is imported from the <code>@nestjs/common</code>, while <code>FastifyReply</code> from the <code>fastify</code> package.
+</blockquote>
+<h4 appAnchor id="creating-a-custom-decorator-cross-platform"><span>Creating a custom decorator (cross-platform)</span></h4>
+<p>To provide a convenient, declarative way of accessing incoming cookies, we can create a <a routerLink="/custom-decorators">custom decorator</a>.</p>
+<pre><code class="language-typescript">
+import &#123; createParamDecorator, ExecutionContext &#125; from &#39;@nestjs/common&#39;;
+
+export const Cookies = createParamDecorator((data: string, ctx: ExecutionContext) =&gt; &#123;
+  const request = ctx.switchToHttp().getRequest();
+  return data ? request.cookies?.[data] : request.cookies;
+&#125;);
+</code></pre>
+<p>The <code>@Cookies()</code> decorator will extract all cookies, or a named cookie from the <code>req.cookies</code> object and populate the decorated parameter with that value.</p>
+<p>With this in place, we can now use the decorator in a route handler signature, as follows:</p>
+<pre><code class="language-typescript">
+@Get()
+findAll(@Cookies(&#39;name&#39;) name: string) &#123;&#125;
+</code></pre>
+
+</div>
+

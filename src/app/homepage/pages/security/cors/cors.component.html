@@ -1,0 +1,30 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/security/cors.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="cors">CORS</h3>
+<p>Cross-origin resource sharing (CORS) is a mechanism that allows resources to be requested from another domain. Under the hood, Nest makes use of the Express <a rel='nofollow' target='_blank' href="https://github.com/expressjs/cors">cors</a> or Fastify <a rel='nofollow' target='_blank' href="https://github.com/fastify/fastify-cors">@fastify/cors</a> packages depending on the underlying platform. These packages provide various options that you can customize based on your requirements.</p>
+<h4 appAnchor id="getting-started"><span>Getting started</span></h4>
+<p>To enable CORS, call the <code>enableCors()</code> method on the Nest application object.</p>
+<pre><code class="language-typescript">
+const app = await NestFactory.create(AppModule);
+app.enableCors();
+await app.listen(3000);
+</code></pre>
+<p>The <code>enableCors()</code> method takes an optional configuration object argument. The available properties of this object are described in the official <a rel='nofollow' target='_blank' href="https://github.com/expressjs/cors#configuration-options">CORS</a> documentation. Another way is to pass a <a rel='nofollow' target='_blank' href="https://github.com/expressjs/cors#configuring-cors-asynchronously">callback function</a> that lets you define the configuration object asynchronously based on the request (on the fly).</p>
+<p>Alternatively, enable CORS via the <code>create()</code> method&#39;s options object. Set the <code>cors</code> property to <code>true</code> to enable CORS with default settings.
+Or, pass a <a rel='nofollow' target='_blank' href="https://github.com/expressjs/cors#configuration-options">CORS configuration object</a> or <a rel='nofollow' target='_blank' href="https://github.com/expressjs/cors#configuring-cors-asynchronously">callback function</a> as the <code>cors</code> property value to customize its behavior.</p>
+<pre><code class="language-typescript">
+const app = await NestFactory.create(AppModule, &#123; cors: true &#125;);
+await app.listen(3000);
+</code></pre>
+
+</div>
+

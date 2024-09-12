@@ -1,0 +1,382 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/recipes/cqrs.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="cqrs">CQRS</h3>
+<p>The flow of simple <a rel='nofollow' target='_blank' href="https://en.wikipedia.org/wiki/Create,_read,_update_and_delete">CRUD</a> (Create, Read, Update and Delete) applications can be described as follows:</p>
+<ol>
+<li>The controllers layer handles HTTP requests and delegates tasks to the services layer.</li>
+<li>The services layer is where most of the business logic lives.</li>
+<li>Services use repositories / DAOs to change / persist entities.</li>
+<li>Entities act as containers for the values, with setters and getters.</li>
+</ol>
+<p>While this pattern is usually sufficient for small and medium-sized applications, it may not be the best choice for larger, more complex applications. In such cases, the <strong>CQRS</strong> (Command and Query Responsibility Segregation) model may be more appropriate and scalable (depending on the application&#39;s requirements). Benefits of this model include:</p>
+<ul>
+<li><strong>Separation of concerns</strong>. The model separates the read and write operations into separate models.</li>
+<li><strong>Scalability</strong>. The read and write operations can be scaled independently.</li>
+<li><strong>Flexibility</strong>. The model allows for the use of different data stores for read and write operations.</li>
+<li><strong>Performance</strong>. The model allows for the use of different data stores optimized for read and write operations.</li>
+</ul>
+<p>To facilitate that model, Nest provides a lightweight <a rel='nofollow' target='_blank' href="https://github.com/nestjs/cqrs">CQRS module</a>. This chapter describes how to use it.</p>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>First install the required package:</p>
+<pre><code class="language-bash">
+$ npm install --save @nestjs/cqrs
+</code></pre>
+<h4 appAnchor id="commands"><span>Commands</span></h4>
+<p>Commands are used to change the application state. They should be task-based, rather than data centric. When a command is dispatched, it is handled by a corresponding <strong>Command Handler</strong>. The handler is responsible for updating the application state.</p>
+
+<span class="filename">
+  {{ 'heroes-game.service' | extension: app7d68d66f6ed5fb39dd10da01b2f485e3038a9ba5.isJsActive }}
+<app-tabs #app7d68d66f6ed5fb39dd10da01b2f485e3038a9ba5></app-tabs>
+</span><pre [class.hide]="app7d68d66f6ed5fb39dd10da01b2f485e3038a9ba5.isJsActive"><code class="language-typescript">
+@Injectable()
+export class HeroesGameService &#123;
+  constructor(private commandBus: CommandBus) &#123;&#125;
+
+  async killDragon(heroId: string, killDragonDto: KillDragonDto) &#123;
+    return this.commandBus.execute(
+      new KillDragonCommand(heroId, killDragonDto.dragonId)
+    );
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app7d68d66f6ed5fb39dd10da01b2f485e3038a9ba5.isJsActive"><code class="language-typescript">
+@Injectable()
+@Dependencies(CommandBus)
+export class HeroesGameService &#123;
+  constructor(commandBus) &#123;
+    this.commandBus = commandBus;
+  &#125;
+
+  async killDragon(heroId, killDragonDto) &#123;
+    return this.commandBus.execute(
+      new KillDragonCommand(heroId, killDragonDto.dragonId)
+    );
+  &#125;
+&#125;
+</code></pre><p>In the code snippet above, we instantiate the <code>KillDragonCommand</code> class and pass it to the <code>CommandBus</code>&#39;s <code>execute()</code> method. This is the demonstrated command class:</p>
+
+<span class="filename">
+  {{ 'kill-dragon.command' | extension: appa5a1950d9be39fa6d183e20e5cae816f58f3031c.isJsActive }}
+<app-tabs #appa5a1950d9be39fa6d183e20e5cae816f58f3031c></app-tabs>
+</span><pre [class.hide]="appa5a1950d9be39fa6d183e20e5cae816f58f3031c.isJsActive"><code class="language-typescript">
+export class KillDragonCommand &#123;
+  constructor(
+    public readonly heroId: string,
+    public readonly dragonId: string,
+  ) &#123;&#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!appa5a1950d9be39fa6d183e20e5cae816f58f3031c.isJsActive"><code class="language-typescript">
+export class KillDragonCommand &#123;
+  constructor(heroId, dragonId) &#123;
+    this.heroId = heroId;
+    this.dragonId = dragonId;
+  &#125;
+&#125;
+</code></pre><p>The <code>CommandBus</code> represents a <strong>stream</strong> of commands. It is responsible for dispatching commands to the appropriate handlers. The <code>execute()</code> method returns a promise, which resolves to the value returned by the handler.</p>
+<p>Let&#39;s create a handler for the <code>KillDragonCommand</code> command.</p>
+
+<span class="filename">
+  {{ 'kill-dragon.handler' | extension: app027538913b66289fd066fd3cef4c7f364d3e9745.isJsActive }}
+<app-tabs #app027538913b66289fd066fd3cef4c7f364d3e9745></app-tabs>
+</span><pre [class.hide]="app027538913b66289fd066fd3cef4c7f364d3e9745.isJsActive"><code class="language-typescript">
+@CommandHandler(KillDragonCommand)
+export class KillDragonHandler implements ICommandHandler&lt;KillDragonCommand&gt; &#123;
+  constructor(private repository: HeroRepository) &#123;&#125;
+
+  async execute(command: KillDragonCommand) &#123;
+    const &#123; heroId, dragonId &#125; = command;
+    const hero = this.repository.findOneById(+heroId);
+
+    hero.killEnemy(dragonId);
+    await this.repository.persist(hero);
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app027538913b66289fd066fd3cef4c7f364d3e9745.isJsActive"><code class="language-typescript">
+@CommandHandler(KillDragonCommand)
+@Dependencies(HeroRepository)
+export class KillDragonHandler &#123;
+  constructor(repository) &#123;
+    this.repository = repository;
+  &#125;
+
+  async execute(command) &#123;
+    const &#123; heroId, dragonId &#125; = command;
+    const hero = this.repository.findOneById(+heroId);
+
+    hero.killEnemy(dragonId);
+    await this.repository.persist(hero);
+  &#125;
+&#125;
+</code></pre><p>This handler retrieves the <code>Hero</code> entity from the repository, calls the <code>killEnemy()</code> method, and then persists the changes. The <code>KillDragonHandler</code> class implements the <code>ICommandHandler</code> interface, which requires the implementation of the <code>execute()</code> method. The <code>execute()</code> method receives the command object as an argument.</p>
+<h4 appAnchor id="queries"><span>Queries</span></h4>
+<p>Queries are used to retrieve data from the application state. They should be data centric, rather than task-based. When a query is dispatched, it is handled by a corresponding <strong>Query Handler</strong>. The handler is responsible for retrieving the data.</p>
+<p>The <code>QueryBus</code> follows the same pattern as the <code>CommandBus</code>. Query handlers should implement the <code>IQueryHandler</code> interface and be annotated with the <code>@QueryHandler()</code> decorator.</p>
+<h4 appAnchor id="events"><span>Events</span></h4>
+<p>Events are used to notify other parts of the application about changes in the application state. They are dispatched by <strong>models</strong> or directly using the <code>EventBus</code>. When an event is dispatched, it is handled by corresponding <strong>Event Handlers</strong>. Handlers can then, for example, update the read model.</p>
+<p>For demonstration purposes, let&#39;s create an event class:</p>
+
+<span class="filename">
+  {{ 'hero-killed-dragon.event' | extension: appfed8d738d46d2d4f4236356c53644a85269841a8.isJsActive }}
+<app-tabs #appfed8d738d46d2d4f4236356c53644a85269841a8></app-tabs>
+</span><pre [class.hide]="appfed8d738d46d2d4f4236356c53644a85269841a8.isJsActive"><code class="language-typescript">
+export class HeroKilledDragonEvent &#123;
+  constructor(
+    public readonly heroId: string,
+    public readonly dragonId: string,
+  ) &#123;&#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!appfed8d738d46d2d4f4236356c53644a85269841a8.isJsActive"><code class="language-typescript">
+export class HeroKilledDragonEvent &#123;
+  constructor(heroId, dragonId) &#123;
+    this.heroId = heroId;
+    this.dragonId = dragonId;
+  &#125;
+&#125;
+</code></pre><p>Now while events can be dispatched directly using the <code>EventBus.publish()</code> method, we can also dispatch them from the model. Let&#39;s update the <code>Hero</code> model to dispatch the <code>HeroKilledDragonEvent</code> event when the <code>killEnemy()</code> method is called.</p>
+
+<span class="filename">
+  {{ 'hero.model' | extension: app461a77f1d1afe7dafc0fa221d16ba88e58da8026.isJsActive }}
+<app-tabs #app461a77f1d1afe7dafc0fa221d16ba88e58da8026></app-tabs>
+</span><pre [class.hide]="app461a77f1d1afe7dafc0fa221d16ba88e58da8026.isJsActive"><code class="language-typescript">
+export class Hero extends AggregateRoot &#123;
+  constructor(private id: string) &#123;
+    super();
+  &#125;
+
+  killEnemy(enemyId: string) &#123;
+    // Business logic
+    this.apply(new HeroKilledDragonEvent(this.id, enemyId));
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app461a77f1d1afe7dafc0fa221d16ba88e58da8026.isJsActive"><code class="language-typescript">
+export class Hero extends AggregateRoot &#123;
+  constructor(id) &#123;
+    super();
+    this.id = id;
+  &#125;
+
+  killEnemy(enemyId) &#123;
+    // Business logic
+    this.apply(new HeroKilledDragonEvent(this.id, enemyId));
+  &#125;
+&#125;
+</code></pre><p>The <code>apply()</code> method is used to dispatch events. It accepts an event object as an argument. However, since our model is not aware of the <code>EventBus</code>, we need to associate it with the model. We can do that by using the <code>EventPublisher</code> class.</p>
+
+<span class="filename">
+  {{ 'kill-dragon.handler' | extension: app477ea59e02703e21d8c2b844ebf915dea7aaf518.isJsActive }}
+<app-tabs #app477ea59e02703e21d8c2b844ebf915dea7aaf518></app-tabs>
+</span><pre [class.hide]="app477ea59e02703e21d8c2b844ebf915dea7aaf518.isJsActive"><code class="language-typescript">
+@CommandHandler(KillDragonCommand)
+export class KillDragonHandler implements ICommandHandler&lt;KillDragonCommand&gt; &#123;
+  constructor(
+    private repository: HeroRepository,
+    private publisher: EventPublisher,
+  ) &#123;&#125;
+
+  async execute(command: KillDragonCommand) &#123;
+    const &#123; heroId, dragonId &#125; = command;
+    const hero = this.publisher.mergeObjectContext(
+      await this.repository.findOneById(+heroId),
+    );
+    hero.killEnemy(dragonId);
+    hero.commit();
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app477ea59e02703e21d8c2b844ebf915dea7aaf518.isJsActive"><code class="language-typescript">
+@CommandHandler(KillDragonCommand)
+@Dependencies(HeroRepository, EventPublisher)
+export class KillDragonHandler &#123;
+  constructor(repository, publisher) &#123;
+    this.repository = repository;
+    this.publisher = publisher;
+  &#125;
+
+  async execute(command) &#123;
+    const &#123; heroId, dragonId &#125; = command;
+    const hero = this.publisher.mergeObjectContext(
+      await this.repository.findOneById(+heroId),
+    );
+    hero.killEnemy(dragonId);
+    hero.commit();
+  &#125;
+&#125;
+</code></pre><p>The <code>EventPublisher#mergeObjectContext</code> method merges the event publisher into the provided object, which means that the object will now be able to publish events to the events stream.</p>
+<p>Notice that in this example we also call the <code>commit()</code> method on the model. This method is used to dispatch any outstanding events. To automatically dispatch events, we can set the <code>autoCommit</code> property to <code>true</code>:</p>
+<pre><code class="language-typescript">
+export class Hero extends AggregateRoot &#123;
+  constructor(private id: string) &#123;
+    super();
+    this.autoCommit = true;
+  &#125;
+&#125;
+</code></pre>
+<p>In case we want to merge the event publisher into a non-existing object, but rather into a class, we can use the <code>EventPublisher#mergeClassContext</code> method:</p>
+<pre><code class="language-typescript">
+const HeroModel = this.publisher.mergeClassContext(Hero);
+const hero = new HeroModel(&#39;id&#39;); // &lt;-- HeroModel is a class
+</code></pre>
+<p>Now every instance of the <code>HeroModel</code> class will be able to publish events without using <code>mergeObjectContext()</code> method.</p>
+<p>Additionally, we can emit events manually using <code>EventBus</code>:</p>
+<pre><code class="language-typescript">
+this.eventBus.publish(new HeroKilledDragonEvent());
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>EventBus</code> is an injectable class.
+</blockquote>
+<p>Each event can have multiple <strong>Event Handlers</strong>.</p>
+
+<span class="filename">
+  {{ 'hero-killed-dragon.handler' | extension: appc8fb50b250af7d359632bbdc92a3e23ccfc99480.isJsActive }}
+<app-tabs #appc8fb50b250af7d359632bbdc92a3e23ccfc99480></app-tabs>
+</span><pre><code class="language-typescript">
+@EventsHandler(HeroKilledDragonEvent)
+export class HeroKilledDragonHandler implements IEventHandler&lt;HeroKilledDragonEvent&gt; &#123;
+  constructor(private repository: HeroRepository) &#123;&#125;
+
+  handle(event: HeroKilledDragonEvent) &#123;
+    // Business logic
+  &#125;
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> Be aware that when you start using event handlers you get out of the traditional HTTP web context.
+<ul>
+<li>Errors in <code>CommandHandlers</code> can still be caught by built-in <a routerLink="/exception-filters">Exception filters</a>.</li>
+<li>Errors in <code>EventHandlers</code> can&#39;t be caught by Exception filters: you will have to handle them manually. Either by a simple <code>try/catch</code>, using <a href="/recipes/cqrs#sagas">Sagas</a> by triggering a compensating event, or whatever other solution you choose.</li>
+<li>HTTP Responses in <code>CommandHandlers</code> can still be sent back to the client.</li>
+<li>HTTP Responses in <code>EventHandlers</code> cannot. If you want to send information to the client you could use <a routerLink="/websockets/gateways">WebSocket</a>, <a routerLink="/techniques/server-sent-events">SSE</a>, or whatever other solution you choose.</li>
+</ul>
+</blockquote>
+<h4 appAnchor id="sagas"><span>Sagas</span></h4>
+<p>Saga is a long-running process that listens to events and may trigger new commands. It is usually used to manage complex workflows in the application. For example, when a user signs up, a saga may listen to the <code>UserRegisteredEvent</code> and send a welcome email to the user.</p>
+<p>Sagas are an extremely powerful feature. A single saga may listen for 1..* events. Using the <a rel='nofollow' target='_blank' href="https://github.com/ReactiveX/rxjs">RxJS</a> library, we can filter, map, fork, and merge event streams to create sophisticated workflows. Each saga returns an Observable which produces a command instance. This command is then dispatched <strong>asynchronously</strong> by the <code>CommandBus</code>.</p>
+<p>Let&#39;s create a saga that listens to the <code>HeroKilledDragonEvent</code> and dispatches the <code>DropAncientItemCommand</code> command.</p>
+
+<span class="filename">
+  {{ 'heroes-game.saga' | extension: app8df8e422ba8e5ec15deb2341c332677d98294c58.isJsActive }}
+<app-tabs #app8df8e422ba8e5ec15deb2341c332677d98294c58></app-tabs>
+</span><pre [class.hide]="app8df8e422ba8e5ec15deb2341c332677d98294c58.isJsActive"><code class="language-typescript">
+@Injectable()
+export class HeroesGameSagas &#123;
+  @Saga()
+  dragonKilled = (events$: Observable&lt;any&gt;): Observable&lt;ICommand&gt; =&gt; &#123;
+    return events$.pipe(
+      ofType(HeroKilledDragonEvent),
+      map((event) =&gt; new DropAncientItemCommand(event.heroId, fakeItemID)),
+    );
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app8df8e422ba8e5ec15deb2341c332677d98294c58.isJsActive"><code class="language-typescript">
+@Injectable()
+export class HeroesGameSagas &#123;
+  @Saga()
+  dragonKilled = (events$) =&gt; &#123;
+    return events$.pipe(
+      ofType(HeroKilledDragonEvent),
+      map((event) =&gt; new DropAncientItemCommand(event.heroId, fakeItemID)),
+    );
+  &#125;
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> The <code>ofType</code> operator and the <code>@Saga()</code> decorator are exported from the <code>@nestjs/cqrs</code> package.
+</blockquote>
+<p>The <code>@Saga()</code> decorator marks the method as a saga. The <code>events$</code> argument is an Observable stream of all events. The <code>ofType</code> operator filters the stream by the specified event type. The <code>map</code> operator maps the event to a new command instance.</p>
+<p>In this example, we map the <code>HeroKilledDragonEvent</code> to the <code>DropAncientItemCommand</code> command. The <code>DropAncientItemCommand</code> command is then auto-dispatched by the <code>CommandBus</code>.</p>
+<h4 appAnchor id="setup"><span>Setup</span></h4>
+<p>To wrap up, we need to register all command handlers, event handlers, and sagas in the <code>HeroesGameModule</code>:</p>
+
+<span class="filename">
+  {{ 'heroes-game.module' | extension: appb7dfdfc150c98c43fca088653bcaeb1326814c10.isJsActive }}
+<app-tabs #appb7dfdfc150c98c43fca088653bcaeb1326814c10></app-tabs>
+</span><pre><code class="language-typescript">
+export const CommandHandlers = [KillDragonHandler, DropAncientItemHandler];
+export const EventHandlers =  [HeroKilledDragonHandler, HeroFoundItemHandler];
+
+@Module(&#123;
+  imports: [CqrsModule],
+  controllers: [HeroesGameController],
+  providers: [
+    HeroesGameService,
+    HeroesGameSagas,
+    ...CommandHandlers,
+    ...EventHandlers,
+    HeroRepository,
+  ]
+&#125;)
+export class HeroesGameModule &#123;&#125;
+</code></pre><h4 appAnchor id="unhandled-exceptions"><span>Unhandled exceptions</span></h4>
+<p>Event handlers are executed in the asynchronous manner. This means they should always handle all exceptions to prevent application from entering the inconsistent state. However, if an exception is not handled, the <code>EventBus</code> will create the <code>UnhandledExceptionInfo</code> object and push it to the <code>UnhandledExceptionBus</code> stream. This stream is an <code>Observable</code> which can be used to process unhandled exceptions.</p>
+<pre><code class="language-typescript">
+private destroy$ = new Subject&lt;void&gt;();
+
+constructor(private unhandledExceptionsBus: UnhandledExceptionBus) &#123;
+  this.unhandledExceptionsBus
+    .pipe(takeUntil(this.destroy$))
+    .subscribe((exceptionInfo) =&gt; &#123;
+      // Handle exception here
+      // e.g. send it to external service, terminate process, or publish a new event
+    &#125;);
+&#125;
+
+onModuleDestroy() &#123;
+  this.destroy$.next();
+  this.destroy$.complete();
+&#125;
+</code></pre>
+<p>To filter out exceptions, we can use the <code>ofType</code> operator, as follows:</p>
+<pre><code class="language-typescript">
+this.unhandledExceptionsBus.pipe(takeUntil(this.destroy$), UnhandledExceptionBus.ofType(TransactionNotAllowedException)).subscribe((exceptionInfo) =&gt; &#123;
+  // Handle exception here
+&#125;);
+</code></pre>
+<p>Where <code>TransactionNotAllowedException</code> is the exception we want to filter out.</p>
+<p>The <code>UnhandledExceptionInfo</code> object contains the following properties:</p>
+<pre><code class="language-typescript">
+export interface UnhandledExceptionInfo&lt;Cause = IEvent | ICommand, Exception = any&gt; &#123;
+  /**
+   * The exception that was thrown.
+   */
+  exception: Exception;
+  /**
+   * The cause of the exception (event or command reference).
+   */
+  cause: Cause;
+&#125;
+</code></pre>
+<h4 appAnchor id="subscribing-to-all-events"><span>Subscribing to all events</span></h4>
+<p><code>CommandBus</code>, <code>QueryBus</code> and <code>EventBus</code> are all <strong>Observables</strong>. This means that we can subscribe to the entire stream and, for example, process all events. For example, we can log all events to the console, or save them to the event store.</p>
+<pre><code class="language-typescript">
+private destroy$ = new Subject&lt;void&gt;();
+
+constructor(private eventBus: EventBus) &#123;
+  this.eventBus
+    .pipe(takeUntil(this.destroy$))
+    .subscribe((event) =&gt; &#123;
+      // Save events to database
+    &#125;);
+&#125;
+
+onModuleDestroy() &#123;
+  this.destroy$.next();
+  this.destroy$.complete();
+&#125;
+</code></pre>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>A working example is available <a rel='nofollow' target='_blank' href="https://github.com/kamilmysliwiec/nest-cqrs-example">here</a>.</p>
+
+</div>
+

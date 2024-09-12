@@ -1,0 +1,134 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/graphql/guards-interceptors.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="other-features">Other features</h3>
+<p>In the GraphQL world, there is a lot of debate about handling issues like <strong>authentication</strong>, or <strong>side-effects</strong> of operations. Should we handle things inside the business logic? Should we use a higher-order function to enhance queries and mutations with authorization logic? Or should we use <a rel='nofollow' target='_blank' href="https://www.apollographql.com/docs/apollo-server/schema/directives/">schema directives</a>? There is no single one-size-fits-all answer to these questions.</p>
+<p>Nest helps address these issues with its cross-platform features like <a routerLink="/guards">guards</a> and <a routerLink="/interceptors">interceptors</a>. The philosophy is to reduce redundancy and provide tooling that helps create well-structured, readable, and consistent applications.</p>
+<h4 appAnchor id="overview"><span>Overview</span></h4>
+<p>You can use standard <a routerLink="/guards">guards</a>, <a routerLink="/interceptors">interceptors</a>, <a routerLink="/exception-filters">filters</a> and <a routerLink="/pipes">pipes</a> in the same fashion with GraphQL as with any RESTful application. Additionally, you can easily create your own decorators by leveraging the <a routerLink="/custom-decorators">custom decorators</a> feature. Let&#39;s take a look at a sample GraphQL query handler.</p>
+<pre><code class="language-typescript">
+@Query(&#39;author&#39;)
+@UseGuards(AuthGuard)
+async getAuthor(@Args(&#39;id&#39;, ParseIntPipe) id: number) &#123;
+  return this.authorsService.findOneById(id);
+&#125;
+</code></pre>
+<p>As you can see, GraphQL works with both guards and pipes in the same way as HTTP REST handlers. Because of this, you can move your authentication logic to a guard; you can even reuse the same guard class across both a REST and GraphQL API interface. Similarly, interceptors work across both types of applications in the same way:</p>
+<pre><code class="language-typescript">
+@Mutation()
+@UseInterceptors(EventsInterceptor)
+async upvotePost(@Args(&#39;postId&#39;) postId: number) &#123;
+  return this.postsService.upvoteById(&#123; id: postId &#125;);
+&#125;
+</code></pre>
+<h4 appAnchor id="execution-context"><span>Execution context</span></h4>
+<p>Since GraphQL receives a different type of data in the incoming request, the <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/fundamentals/execution-context">execution context</a> received by both guards and interceptors is somewhat different with GraphQL vs. REST. GraphQL resolvers have a distinct set of arguments: <code>root</code>, <code>args</code>, <code>context</code>, and <code>info</code>. Thus guards and interceptors must transform the generic <code>ExecutionContext</code> to a <code>GqlExecutionContext</code>. This is straightforward:</p>
+<pre><code class="language-typescript">
+import &#123; CanActivate, ExecutionContext, Injectable &#125; from &#39;@nestjs/common&#39;;
+import &#123; GqlExecutionContext &#125; from &#39;@nestjs/graphql&#39;;
+
+@Injectable()
+export class AuthGuard implements CanActivate &#123;
+  canActivate(context: ExecutionContext): boolean &#123;
+    const ctx = GqlExecutionContext.create(context);
+    return true;
+  &#125;
+&#125;
+</code></pre>
+<p>The GraphQL context object returned by <code>GqlExecutionContext.create()</code> exposes a <strong>get</strong> method for each GraphQL resolver argument (e.g., <code>getArgs()</code>, <code>getContext()</code>, etc). Once transformed, we can easily pick out any GraphQL argument for the current request.</p>
+<h4 appAnchor id="exception-filters"><span>Exception filters</span></h4>
+<p>Nest standard <a routerLink="/exception-filters">exception filters</a> are compatible with GraphQL applications as well. As with <code>ExecutionContext</code>, GraphQL apps should transform the <code>ArgumentsHost</code> object to a <code>GqlArgumentsHost</code> object.</p>
+<pre><code class="language-typescript">
+@Catch(HttpException)
+export class HttpExceptionFilter implements GqlExceptionFilter &#123;
+  catch(exception: HttpException, host: ArgumentsHost) &#123;
+    const gqlHost = GqlArgumentsHost.create(host);
+    return exception;
+  &#125;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Both <code>GqlExceptionFilter</code> and <code>GqlArgumentsHost</code> are imported from the <code>@nestjs/graphql</code> package.
+</blockquote>
+<p>Note that unlike the REST case, you don&#39;t use the native <code>response</code> object to generate a response.</p>
+<h4 appAnchor id="custom-decorators"><span>Custom decorators</span></h4>
+<p>As mentioned, the <a routerLink="/custom-decorators">custom decorators</a> feature works as expected with GraphQL resolvers.</p>
+<pre><code class="language-typescript">
+export const User = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext) =&gt;
+    GqlExecutionContext.create(ctx).getContext().user,
+);
+</code></pre>
+<p>Use the <code>@User()</code> custom decorator as follows:</p>
+<pre><code class="language-typescript">
+@Mutation()
+async upvotePost(
+  @User() user: UserEntity,
+  @Args(&#39;postId&#39;) postId: number,
+) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> In the above example, we have assumed that the <code>user</code> object is assigned to the context of your GraphQL application.
+</blockquote>
+<h4 appAnchor id="execute-enhancers-at-the-field-resolver-level"><span>Execute enhancers at the field resolver level</span></h4>
+<p>In the GraphQL context, Nest does not run <strong>enhancers</strong> (the generic name for interceptors, guards and filters) at the field level <a rel='nofollow' target='_blank' href="https://github.com/nestjs/graphql/issues/320#issuecomment-511193229">see this issue</a>: they only run for the top level <code>@Query()</code>/<code>@Mutation()</code> method. You can tell Nest to execute interceptors, guards or filters for methods annotated with <code>@ResolveField()</code> by setting the <code>fieldResolverEnhancers</code> option in <code>GqlModuleOptions</code>. Pass it a list of <code>&#39;interceptors&#39;</code>, <code>&#39;guards&#39;</code>, and/or <code>&#39;filters&#39;</code> as appropriate:</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot(&#123;
+  fieldResolverEnhancers: [&#39;interceptors&#39;]
+&#125;),
+</code></pre>
+<blockquote class="
+"><strong>Warning</strong> Enabling enhancers for field resolvers can cause performance issues when you are returning lots of records and your field resolver is executed thousands of times. For this reason, when you enable <code>fieldResolverEnhancers</code>, we advise you to skip execution of enhancers that are not strictly necessary for your field resolvers. You can do this using the following helper function:
+</blockquote>
+<pre><code class="language-typescript">
+export function isResolvingGraphQLField(context: ExecutionContext): boolean &#123;
+  if (context.getType&lt;GqlContextType&gt;() === &#39;graphql&#39;) &#123;
+    const gqlContext = GqlExecutionContext.create(context);
+    const info = gqlContext.getInfo();
+    const parentType = info.parentType.name;
+    return parentType !== &#39;Query&#39; &amp;&amp; parentType !== &#39;Mutation&#39;;
+  &#125;
+  return false;
+&#125;
+</code></pre>
+<h4 appAnchor id="creating-a-custom-driver"><span>Creating a custom driver</span></h4>
+<p>Nest provides two official drivers out-of-the-box: <code>@nestjs/apollo</code> and <code>@nestjs/mercurius</code>, as well as an API allowing developers to build new <strong>custom drivers</strong>. With a custom driver, you can integrate any GraphQL library or extend the existing integration, adding extra features on top.</p>
+<p>For example, to integrate the <code>express-graphql</code> package, you could create the following driver class:</p>
+<pre><code class="language-typescript">
+import &#123; AbstractGraphQLDriver, GqlModuleOptions &#125; from &#39;@nestjs/graphql&#39;;
+import &#123; graphqlHTTP &#125; from &#39;express-graphql&#39;;
+
+class ExpressGraphQLDriver extends AbstractGraphQLDriver &#123;
+  async start(options: GqlModuleOptions&lt;any&gt;): Promise&lt;void&gt; &#123;
+    options = await this.graphQlFactory.mergeWithSchema(options);
+
+    const &#123; httpAdapter &#125; = this.httpAdapterHost;
+    httpAdapter.use(
+      &#39;/graphql&#39;,
+      graphqlHTTP(&#123;
+        schema: options.schema,
+        graphiql: true,
+      &#125;),
+    );
+  &#125;
+
+  async stop() &#123;&#125;
+&#125;
+</code></pre>
+<p>And then use it as follows:</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot(&#123;
+  driver: ExpressGraphQLDriver,
+&#125;);
+</code></pre>
+
+</div>
+

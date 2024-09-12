@@ -1,0 +1,214 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/graphql/cli-plugin.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="cli-plugin">CLI Plugin</h3>
+<blockquote class="
+warning "><strong>Warning</strong> This chapter applies only to the code first approach.
+</blockquote>
+<p>TypeScript&#39;s metadata reflection system has several limitations which make it impossible to, for instance, determine what properties a class consists of or recognize whether a given property is optional or required. However, some of these constraints can be addressed at compilation time. Nest provides a plugin that enhances the TypeScript compilation process to reduce the amount of boilerplate code required.</p>
+<blockquote class="
+info "><strong>Hint</strong> This plugin is <strong>opt-in</strong>. If you prefer, you can declare all decorators manually, or only specific decorators where you need them.
+</blockquote>
+<h4 appAnchor id="overview"><span>Overview</span></h4>
+<p>The GraphQL plugin will automatically:</p>
+<ul>
+<li>annotate all input object, object type and args classes properties with <code>@Field</code> unless <code>@HideField</code> is used</li>
+<li>set the <code>nullable</code> property depending on the question mark (e.g. <code>name?: string</code> will set <code>nullable: true</code>)</li>
+<li>set the <code>type</code> property depending on the type (supports arrays as well)</li>
+<li>generate descriptions for properties based on comments (if <code>introspectComments</code> set to <code>true</code>)</li>
+</ul>
+<p>Please, note that your filenames <strong>must have</strong> one of the following suffixes in order to be analyzed by the plugin: <code>[&#39;.input.ts&#39;, &#39;.args.ts&#39;, &#39;.entity.ts&#39;, &#39;.model.ts&#39;]</code> (e.g., <code>author.entity.ts</code>). If you are using a different suffix, you can adjust the plugin&#39;s behavior by specifying the <code>typeFileNameSuffix</code> option (see below).</p>
+<p>With what we&#39;ve learned so far, you have to duplicate a lot of code to let the package know how your type should be declared in GraphQL. For example, you could define a simple <code>Author</code> class as follows:</p>
+
+<span class="filename">
+  {{ 'authors/models/author.model' | extension: app2aac3808fe48926e1718fd93e600e433060d4b79.isJsActive }}
+<app-tabs #app2aac3808fe48926e1718fd93e600e433060d4b79></app-tabs>
+</span><pre><code class="language-typescript">
+@ObjectType()
+export class Author &#123;
+  @Field(type =&gt; ID)
+  id: number;
+
+  @Field(&#123; nullable: true &#125;)
+  firstName?: string;
+
+  @Field(&#123; nullable: true &#125;)
+  lastName?: string;
+
+  @Field(type =&gt; [Post])
+  posts: Post[];
+&#125;
+</code></pre><p>While not a significant issue with medium-sized projects, it becomes verbose &amp; hard to maintain once you have a large set of classes.</p>
+<p>By enabling the GraphQL plugin, the above class definition can be declared simply:</p>
+
+<span class="filename">
+  {{ 'authors/models/author.model' | extension: appca3112cc8bc65f62aba3629321819301dcac64f2.isJsActive }}
+<app-tabs #appca3112cc8bc65f62aba3629321819301dcac64f2></app-tabs>
+</span><pre><code class="language-typescript">
+@ObjectType()
+export class Author &#123;
+  @Field(type =&gt; ID)
+  id: number;
+  firstName?: string;
+  lastName?: string;
+  posts: Post[];
+&#125;
+</code></pre><p>The plugin adds appropriate decorators on-the-fly based on the <strong>Abstract Syntax Tree</strong>. Thus, you won&#39;t have to struggle with <code>@Field</code> decorators scattered throughout the code.</p>
+<blockquote class="
+info "><strong>Hint</strong> The plugin will automatically generate any missing GraphQL properties, but if you need to override them, simply set them explicitly via <code>@Field()</code>.
+</blockquote>
+<h4 appAnchor id="comments-introspection"><span>Comments introspection</span></h4>
+<p>With the comments introspection feature enabled, CLI plugin will generate descriptions for fields based on comments.</p>
+<p>For example, given an example <code>roles</code> property:</p>
+<pre><code class="language-typescript">
+/**
+ * A list of user&#39;s roles
+ */
+@Field(() =&gt; [String], &#123;
+  description: `A list of user&#39;s roles`
+&#125;)
+roles: string[];
+</code></pre>
+<p>You must duplicate description values. With <code>introspectComments</code> enabled, the CLI plugin can extract these comments and automatically provide descriptions for properties. Now, the above field can be declared simply as follows:</p>
+<pre><code class="language-typescript">
+/**
+ * A list of user&#39;s roles
+ */
+roles: string[];
+</code></pre>
+<h4 appAnchor id="using-the-cli-plugin"><span>Using the CLI plugin</span></h4>
+<p>To enable the plugin, open <code>nest-cli.json</code> (if you use <a routerLink="/cli/overview">Nest CLI</a>) and add the following <code>plugins</code> configuration:</p>
+<pre><code class="language-javascript">
+&#123;
+  &quot;collection&quot;: &quot;@nestjs/schematics&quot;,
+  &quot;sourceRoot&quot;: &quot;src&quot;,
+  &quot;compilerOptions&quot;: &#123;
+    &quot;plugins&quot;: [&quot;@nestjs/graphql&quot;]
+  &#125;
+&#125;
+</code></pre>
+<p>You can use the <code>options</code> property to customize the behavior of the plugin.</p>
+<pre><code class="language-javascript">
+&quot;plugins&quot;: [
+  &#123;
+    &quot;name&quot;: &quot;@nestjs/graphql&quot;,
+    &quot;options&quot;: &#123;
+      &quot;typeFileNameSuffix&quot;: [&quot;.input.ts&quot;, &quot;.args.ts&quot;],
+      &quot;introspectComments&quot;: true
+    &#125;
+  &#125;
+]
+</code></pre>
+<p>The <code>options</code> property has to fulfill the following interface:</p>
+<pre><code class="language-typescript">
+export interface PluginOptions &#123;
+  typeFileNameSuffix?: string[];
+  introspectComments?: boolean;
+&#125;
+</code></pre>
+<table>
+  <tr>
+    <th>Option</th>
+    <th>Default</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>typeFileNameSuffix</code></td>
+    <td><code>['.input.ts', '.args.ts', '.entity.ts', '.model.ts']</code></td>
+    <td>GraphQL types files suffix</td>
+  </tr>
+  <tr>
+    <td><code>introspectComments</code></td>
+      <td><code>false</code></td>
+      <td>If set to true, plugin will generate descriptions for properties based on comments</td>
+  </tr>
+</table>
+
+<p>If you don&#39;t use the CLI but instead have a custom <code>webpack</code> configuration, you can use this plugin in combination with <code>ts-loader</code>:</p>
+<pre><code class="language-javascript">
+getCustomTransformers: (program: any) =&gt; (&#123;
+  before: [require(&#39;@nestjs/graphql/plugin&#39;).before(&#123;&#125;, program)]
+&#125;),
+</code></pre>
+<h4 appAnchor id="swc-builder"><span>SWC builder</span></h4>
+<p>For standard setups (non-monorepo), to use CLI Plugins with the SWC builder, you need to enable type checking, as described <a href="/recipes/swc#type-checking">here</a>.</p>
+<pre><code class="language-bash">
+$ nest start -b swc --type-check
+</code></pre>
+<p>For monorepo setups, follow the instructions <a href="/recipes/swc#monorepo-and-cli-plugins">here</a>.</p>
+<pre><code class="language-bash">
+$ npx ts-node src/generate-metadata.ts
+# OR npx ts-node apps/&#123;YOUR_APP&#125;/src/generate-metadata.ts
+</code></pre>
+<p>Now, the serialized metadata file must be loaded by the <code>GraphQLModule</code> method, as shown below:</p>
+<pre><code class="language-typescript">
+import metadata from &#39;./metadata&#39;; // &lt;-- file auto-generated by the &quot;PluginMetadataGenerator&quot;
+
+GraphQLModule.forRoot&lt;...&gt;(&#123;
+  ..., // other options
+  metadata,
+&#125;),
+</code></pre>
+<h4 appAnchor id="integration-with-ts-jest-e2e-tests"><span>Integration with <code>ts-jest</code> (e2e tests)</span></h4>
+<p>When running e2e tests with this plugin enabled, you may run into issues with compiling schema. For example, one of the most common errors is:</p>
+<pre><code class="language-json">
+Object type &lt;name&gt; must define one or more fields.
+</code></pre>
+<p>This happens because <code>jest</code> configuration does not import <code>@nestjs/graphql/plugin</code> plugin anywhere.</p>
+<p>To fix this, create the following file in your e2e tests directory:</p>
+<pre><code class="language-javascript">
+const transformer = require(&#39;@nestjs/graphql/plugin&#39;);
+
+module.exports.name = &#39;nestjs-graphql-transformer&#39;;
+// you should change the version number anytime you change the configuration below - otherwise, jest will not detect changes
+module.exports.version = 1;
+
+module.exports.factory = (cs) =&gt; &#123;
+  return transformer.before(
+    &#123;
+      // @nestjs/graphql/plugin options (can be empty)
+    &#125;,
+    cs.program, // &quot;cs.tsCompiler.program&quot; for older versions of Jest (&lt;= v27)
+  );
+&#125;;
+</code></pre>
+<p>With this in place, import AST transformer within your <code>jest</code> configuration file. By default (in the starter application), e2e tests configuration file is located under the <code>test</code> folder and is named <code>jest-e2e.json</code>.</p>
+<pre><code class="language-json">
+&#123;
+  ... // other configuration
+  &quot;globals&quot;: &#123;
+    &quot;ts-jest&quot;: &#123;
+      &quot;astTransformers&quot;: &#123;
+        &quot;before&quot;: [&quot;&lt;path to the file created above&gt;&quot;]
+      &#125;
+    &#125;
+  &#125;
+&#125;
+</code></pre>
+<p>If you use <code>jest@^29</code>, then use the snippet below, as the previous approach got deprecated.</p>
+<pre><code class="language-json">
+&#123;
+  ... // other configuration
+  &quot;transform&quot;: &#123;
+    &quot;^.+\\.(t|j)s$&quot;: [
+      &quot;ts-jest&quot;,
+      &#123;
+        &quot;astTransformers&quot;: &#123;
+          &quot;before&quot;: [&quot;&lt;path to the file created above&gt;&quot;]
+        &#125;
+      &#125;
+    ]
+  &#125;
+&#125;
+</code></pre>
+
+</div>
+

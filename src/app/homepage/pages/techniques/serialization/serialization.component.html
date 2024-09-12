@@ -1,0 +1,102 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/techniques/serialization.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="serialization">Serialization</h3>
+<p>Serialization is a process that happens before objects are returned in a network response. This is an appropriate place to provide rules for transforming and sanitizing the data to be returned to the client. For example, sensitive data like passwords should always be excluded from the response. Or, certain properties might require additional transformation, such as sending only a subset of properties of an entity. Performing these transformations manually can be tedious and error prone, and can leave you uncertain that all cases have been covered.</p>
+<h4 appAnchor id="overview"><span>Overview</span></h4>
+<p>Nest provides a built-in capability to help ensure that these operations can be performed in a straightforward way. The <code>ClassSerializerInterceptor</code> interceptor uses the powerful <a rel='nofollow' target='_blank' href="https://github.com/typestack/class-transformer">class-transformer</a> package to provide a declarative and extensible way of transforming objects. The basic operation it performs is to take the value returned by a method handler and apply the <code>instanceToPlain()</code> function from <a rel='nofollow' target='_blank' href="https://github.com/typestack/class-transformer">class-transformer</a>. In doing so, it can apply rules expressed by <code>class-transformer</code> decorators on an entity/DTO class, as described below.</p>
+<blockquote class="
+info "><strong>Hint</strong> The serialization does not apply to <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/techniques/streaming-files#streamable-file-class">StreamableFile</a> responses.
+</blockquote>
+<h4 appAnchor id="exclude-properties"><span>Exclude properties</span></h4>
+<p>Let&#39;s assume that we want to automatically exclude a <code>password</code> property from a user entity. We annotate the entity as follows:</p>
+<pre><code class="language-typescript">
+import &#123; Exclude &#125; from &#39;class-transformer&#39;;
+
+export class UserEntity &#123;
+  id: number;
+  firstName: string;
+  lastName: string;
+
+  @Exclude()
+  password: string;
+
+  constructor(partial: Partial&lt;UserEntity&gt;) &#123;
+    Object.assign(this, partial);
+  &#125;
+&#125;
+</code></pre>
+<p>Now consider a controller with a method handler that returns an instance of this class.</p>
+<pre><code class="language-typescript">
+@UseInterceptors(ClassSerializerInterceptor)
+@Get()
+findOne(): UserEntity &#123;
+  return new UserEntity(&#123;
+    id: 1,
+    firstName: &#39;Kamil&#39;,
+    lastName: &#39;Mysliwiec&#39;,
+    password: &#39;password&#39;,
+  &#125;);
+&#125;
+</code></pre>
+<blockquote class="
+"><strong>Warning</strong> Note that we must return an instance of the class. If you return a plain JavaScript object, for example, <code>{{ &#39;{&#39; }} user: new UserEntity() {{ &#39;}&#39; }}</code>, the object won&#39;t be properly serialized.
+</blockquote>
+<blockquote class="
+info "><strong>Hint</strong> The <code>ClassSerializerInterceptor</code> is imported from <code>@nestjs/common</code>.
+</blockquote>
+<p>When this endpoint is requested, the client receives the following response:</p>
+<pre><code class="language-json">
+&#123;
+  &quot;id&quot;: 1,
+  &quot;firstName&quot;: &quot;Kamil&quot;,
+  &quot;lastName&quot;: &quot;Mysliwiec&quot;
+&#125;
+</code></pre>
+<p>Note that the interceptor can be applied application-wide (as covered <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/interceptors#binding-interceptors">here</a>). The combination of the interceptor and the entity class declaration ensures that <strong>any</strong> method that returns a <code>UserEntity</code> will be sure to remove the <code>password</code> property. This gives you a measure of centralized enforcement of this business rule.</p>
+<h4 appAnchor id="expose-properties"><span>Expose properties</span></h4>
+<p>You can use the <code>@Expose()</code> decorator to provide alias names for properties, or to execute a function to calculate a property value (analogous to <strong>getter</strong> functions), as shown below.</p>
+<pre><code class="language-typescript">
+@Expose()
+get fullName(): string &#123;
+  return `$&#123;this.firstName&#125; $&#123;this.lastName&#125;`;
+&#125;
+</code></pre>
+<h4 appAnchor id="transform"><span>Transform</span></h4>
+<p>You can perform additional data transformation using the <code>@Transform()</code> decorator. For example, the following construct returns the name property of the <code>RoleEntity</code> instead of returning the whole object.</p>
+<pre><code class="language-typescript">
+@Transform((&#123; value &#125;) =&gt; value.name)
+role: RoleEntity;
+</code></pre>
+<h4 appAnchor id="pass-options"><span>Pass options</span></h4>
+<p>You may want to modify the default behavior of the transformation functions. To override default settings, pass them in an <code>options</code> object with the <code>@SerializeOptions()</code> decorator.</p>
+<pre><code class="language-typescript">
+@SerializeOptions(&#123;
+  excludePrefixes: [&#39;_&#39;],
+&#125;)
+@Get()
+findOne(): UserEntity &#123;
+  return new UserEntity();
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>@SerializeOptions()</code> decorator is imported from <code>@nestjs/common</code>.
+</blockquote>
+<p>Options passed via <code>@SerializeOptions()</code> are passed as the second argument of the underlying <code>instanceToPlain()</code> function. In this example, we are automatically excluding all properties that begin with the <code>_</code> prefix.</p>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>A working example is available <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/tree/master/sample/21-serializer">here</a>.</p>
+<h4 appAnchor id="websockets-and-microservices"><span>WebSockets and Microservices</span></h4>
+<p>While this chapter shows examples using HTTP style applications (e.g., Express or Fastify), the <code>ClassSerializerInterceptor</code> works the same for WebSockets and Microservices, regardless of the transport method that is used.</p>
+<h4 appAnchor id="learn-more"><span>Learn more</span></h4>
+<p>Read more about available decorators and options as provided by the <code>class-transformer</code> package <a rel='nofollow' target='_blank' href="https://github.com/typestack/class-transformer">here</a>.</p>
+
+</div>
+

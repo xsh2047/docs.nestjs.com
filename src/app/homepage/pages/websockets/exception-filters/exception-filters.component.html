@@ -1,0 +1,67 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/websockets/exception-filters.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="exception-filters">Exception filters</h3>
+<p>The only difference between the HTTP <a routerLink="/exception-filters">exception filter</a> layer and the corresponding web sockets layer is that instead of throwing <code>HttpException</code>, you should use <code>WsException</code>.</p>
+<pre><code class="language-typescript">
+throw new WsException(&#39;Invalid credentials.&#39;);
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>WsException</code> class is imported from the <code>@nestjs/websockets</code> package.
+</blockquote>
+<p>With the sample above, Nest will handle the thrown exception and emit the <code>exception</code> message with the following structure:</p>
+<pre><code class="language-typescript">
+&#123;
+  status: &#39;error&#39;,
+  message: &#39;Invalid credentials.&#39;
+&#125;
+</code></pre>
+<h4 appAnchor id="filters"><span>Filters</span></h4>
+<p>Web sockets exception filters behave equivalently to HTTP exception filters. The following example uses a manually instantiated method-scoped filter. Just as with HTTP based applications, you can also use gateway-scoped filters (i.e., prefix the gateway class with a <code>@UseFilters()</code> decorator).</p>
+<pre><code class="language-typescript">
+@UseFilters(new WsExceptionFilter())
+@SubscribeMessage(&#39;events&#39;)
+onEvent(client, data: any): WsResponse&lt;any&gt; &#123;
+  const event = &#39;events&#39;;
+  return &#123; event, data &#125;;
+&#125;
+</code></pre>
+<h4 appAnchor id="inheritance"><span>Inheritance</span></h4>
+<p>Typically, you&#39;ll create fully customized exception filters crafted to fulfill your application requirements. However, there might be use-cases when you would like to simply extend the <strong>core exception filter</strong>, and override the behavior based on certain factors.</p>
+<p>In order to delegate exception processing to the base filter, you need to extend <code>BaseWsExceptionFilter</code> and call the inherited <code>catch()</code> method.</p>
+
+<span class="filename">
+<app-tabs #app86480ae749535406330aa494efe143596f4d6bd9></app-tabs>
+</span><pre [class.hide]="app86480ae749535406330aa494efe143596f4d6bd9.isJsActive"><code class="language-typescript">
+import &#123; Catch, ArgumentsHost &#125; from &#39;@nestjs/common&#39;;
+import &#123; BaseWsExceptionFilter &#125; from &#39;@nestjs/websockets&#39;;
+
+@Catch()
+export class AllExceptionsFilter extends BaseWsExceptionFilter &#123;
+  catch(exception: unknown, host: ArgumentsHost) &#123;
+    super.catch(exception, host);
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app86480ae749535406330aa494efe143596f4d6bd9.isJsActive"><code class="language-typescript">
+import &#123; Catch &#125; from &#39;@nestjs/common&#39;;
+import &#123; BaseWsExceptionFilter &#125; from &#39;@nestjs/websockets&#39;;
+
+@Catch()
+export class AllExceptionsFilter extends BaseWsExceptionFilter &#123;
+  catch(exception, host) &#123;
+    super.catch(exception, host);
+  &#125;
+&#125;
+</code></pre><p>The above implementation is just a shell demonstrating the approach. Your implementation of the extended exception filter would include your tailored <strong>business logic</strong> (e.g., handling various conditions).</p>
+
+</div>
+

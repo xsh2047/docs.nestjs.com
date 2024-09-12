@@ -1,0 +1,508 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/graphql/subscriptions.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="subscriptions">Subscriptions</h3>
+<p>In addition to fetching data using queries and modifying data using mutations, the GraphQL spec supports a third operation type, called <code>subscription</code>. GraphQL subscriptions are a way to push data from the server to the clients that choose to listen to real time messages from the server. Subscriptions are similar to queries in that they specify a set of fields to be delivered to the client, but instead of immediately returning a single answer, a channel is opened and a result is sent to the client every time a particular event happens on the server.</p>
+<p>A common use case for subscriptions is notifying the client side about particular events, for example the creation of a new object, updated fields and so on (read more <a rel='nofollow' target='_blank' href="https://www.apollographql.com/docs/react/data/subscriptions">here</a>).</p>
+<h4 appAnchor id="enable-subscriptions-with-apollo-driver"><span>Enable subscriptions with Apollo driver</span></h4>
+<p>To enable subscriptions, set the <code>installSubscriptionHandlers</code> property to <code>true</code>.</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot&lt;ApolloDriverConfig&gt;(&#123;
+  driver: ApolloDriver,
+  installSubscriptionHandlers: true,
+&#125;),
+</code></pre>
+<blockquote class="
+warning "><strong>Warning</strong> The <code>installSubscriptionHandlers</code> configuration option has been removed from the latest version of Apollo server and will be soon deprecated in this package as well. By default, <code>installSubscriptionHandlers</code> will fallback to use the <code>subscriptions-transport-ws</code> (<a rel='nofollow' target='_blank' href="https://github.com/apollographql/subscriptions-transport-ws">read more</a>) but we strongly recommend using the <code>graphql-ws</code>(<a rel='nofollow' target='_blank' href="https://github.com/enisdenjo/graphql-ws">read more</a>) library instead.
+</blockquote>
+<p>To switch to use the <code>graphql-ws</code> package instead, use the following configuration:</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot&lt;ApolloDriverConfig&gt;(&#123;
+  driver: ApolloDriver,
+  subscriptions: &#123;
+    &#39;graphql-ws&#39;: true
+  &#125;,
+&#125;),
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> You can also use both packages (<code>subscriptions-transport-ws</code> and <code>graphql-ws</code>) at the same time, for example, for backward compatibility.
+</blockquote>
+<h4 appAnchor id="code-first"><span>Code first</span></h4>
+<p>To create a subscription using the code first approach, we use the <code>@Subscription()</code> decorator (exported from the <code>@nestjs/graphql</code> package) and the <code>PubSub</code> class from the <code>graphql-subscriptions</code> package, which provides a simple <strong>publish/subscribe API</strong>.</p>
+<p>The following subscription handler takes care of <strong>subscribing</strong> to an event by calling <code>PubSub#asyncIterator</code>. This method takes a single argument, the <code>triggerName</code>, which corresponds to an event topic name.</p>
+<pre><code class="language-typescript">
+const pubSub = new PubSub();
+
+@Resolver((of) =&gt; Author)
+export class AuthorResolver &#123;
+  // ...
+  @Subscription((returns) =&gt; Comment)
+  commentAdded() &#123;
+    return pubSub.asyncIterator(&#39;commentAdded&#39;);
+  &#125;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> All decorators are exported from the <code>@nestjs/graphql</code> package, while the <code>PubSub</code> class is exported from the <code>graphql-subscriptions</code> package.
+</blockquote>
+<blockquote class="
+warning "><strong>Note</strong> <code>PubSub</code> is a class that exposes a simple <code>publish</code> and <code>subscribe API</code>. Read more about it <a rel='nofollow' target='_blank' href="https://www.apollographql.com/docs/graphql-subscriptions/setup.html">here</a>. Note that the Apollo docs warn that the default implementation is not suitable for production (read more <a rel='nofollow' target='_blank' href="https://github.com/apollographql/graphql-subscriptions#getting-started-with-your-first-subscription">here</a>). Production apps should use a <code>PubSub</code> implementation backed by an external store (read more <a rel='nofollow' target='_blank' href="https://github.com/apollographql/graphql-subscriptions#pubsub-implementations">here</a>).
+</blockquote>
+<p>This will result in generating the following part of the GraphQL schema in SDL:</p>
+<pre><code class="language-graphql">
+type Subscription &#123;
+  commentAdded(): Comment!
+&#125;
+</code></pre>
+<p>Note that subscriptions, by definition, return an object with a single top level property whose key is the name of the subscription. This name is either inherited from the name of the subscription handler method (i.e., <code>commentAdded</code> above), or is provided explicitly by passing an option with the key <code>name</code> as the second argument to the <code>@Subscription()</code> decorator, as shown below.</p>
+<pre><code class="language-typescript">
+@Subscription(returns =&gt; Comment, &#123;
+  name: &#39;commentAdded&#39;,
+&#125;)
+subscribeToCommentAdded() &#123;
+  return pubSub.asyncIterator(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<p>This construct produces the same SDL as the previous code sample, but allows us to decouple the method name from the subscription.</p>
+<h4 appAnchor id="publishing"><span>Publishing</span></h4>
+<p>Now, to publish the event, we use the <code>PubSub#publish</code> method. This is often used within a mutation to trigger a client-side update when a part of the object graph has changed. For example:</p>
+
+<span class="filename">
+  {{ 'posts/posts.resolver' | extension: app234155d84018ff3d997b85502d9d12f6e80581e0.isJsActive }}
+<app-tabs #app234155d84018ff3d997b85502d9d12f6e80581e0></app-tabs>
+</span><pre><code class="language-typescript">
+@Mutation(returns =&gt; Post)
+async addComment(
+  @Args(&#39;postId&#39;, &#123; type: () =&gt; Int &#125;) postId: number,
+  @Args(&#39;comment&#39;, &#123; type: () =&gt; Comment &#125;) comment: CommentInput,
+) &#123;
+  const newComment = this.commentsService.addComment(&#123; id: postId, comment &#125;);
+  pubSub.publish(&#39;commentAdded&#39;, &#123; commentAdded: newComment &#125;);
+  return newComment;
+&#125;
+</code></pre><p>The <code>PubSub#publish</code> method takes a <code>triggerName</code> (again, think of this as an event topic name) as the first parameter, and an event payload as the second parameter. As mentioned, the subscription, by definition, returns a value and that value has a shape. Look again at the generated SDL for our <code>commentAdded</code> subscription:</p>
+<pre><code class="language-graphql">
+type Subscription &#123;
+  commentAdded(): Comment!
+&#125;
+</code></pre>
+<p>This tells us that the subscription must return an object with a top-level property name of <code>commentAdded</code> that has a value which is a <code>Comment</code> object. The important point to note is that the shape of the event payload emitted by the <code>PubSub#publish</code> method must correspond to the shape of the value expected to return from the subscription. So, in our example above, the <code>pubSub.publish(&#39;commentAdded&#39;, {{ &#39;{&#39; }} commentAdded: newComment {{ &#39;}&#39; }})</code> statement publishes a <code>commentAdded</code> event with the appropriately shaped payload. If these shapes don&#39;t match, your subscription will fail during the GraphQL validation phase.</p>
+<h4 appAnchor id="filtering-subscriptions"><span>Filtering subscriptions</span></h4>
+<p>To filter out specific events, set the <code>filter</code> property to a filter function. This function acts similar to the function passed to an array <code>filter</code>. It takes two arguments: <code>payload</code> containing the event payload (as sent by the event publisher), and <code>variables</code> taking any arguments passed in during the subscription request. It returns a boolean determining whether this event should be published to client listeners.</p>
+<pre><code class="language-typescript">
+@Subscription(returns =&gt; Comment, &#123;
+  filter: (payload, variables) =&gt;
+    payload.commentAdded.title === variables.title,
+&#125;)
+commentAdded(@Args(&#39;title&#39;) title: string) &#123;
+  return pubSub.asyncIterator(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<h4 appAnchor id="mutating-subscription-payloads"><span>Mutating subscription payloads</span></h4>
+<p>To mutate the published event payload, set the <code>resolve</code> property to a function. The function receives the event payload (as sent by the event publisher) and returns the appropriate value.</p>
+<pre><code class="language-typescript">
+@Subscription(returns =&gt; Comment, &#123;
+  resolve: value =&gt; value,
+&#125;)
+commentAdded() &#123;
+  return pubSub.asyncIterator(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<blockquote class="
+warning "><strong>Note</strong> If you use the <code>resolve</code> option, you should return the unwrapped payload (e.g., with our example, return a <code>newComment</code> object directly, not a <code>{{ &#39;{&#39; }} commentAdded: newComment {{ &#39;}&#39; }}</code> object).
+</blockquote>
+<p>If you need to access injected providers (e.g., use an external service to validate the data), use the following construction.</p>
+<pre><code class="language-typescript">
+@Subscription(returns =&gt; Comment, &#123;
+  resolve(this: AuthorResolver, value) &#123;
+    // &quot;this&quot; refers to an instance of &quot;AuthorResolver&quot;
+    return value;
+  &#125;
+&#125;)
+commentAdded() &#123;
+  return pubSub.asyncIterator(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<p>The same construction works with filters:</p>
+<pre><code class="language-typescript">
+@Subscription(returns =&gt; Comment, &#123;
+  filter(this: AuthorResolver, payload, variables) &#123;
+    // &quot;this&quot; refers to an instance of &quot;AuthorResolver&quot;
+    return payload.commentAdded.title === variables.title;
+  &#125;
+&#125;)
+commentAdded() &#123;
+  return pubSub.asyncIterator(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<h4 appAnchor id="schema-first"><span>Schema first</span></h4>
+<p>To create an equivalent subscription in Nest, we&#39;ll make use of the <code>@Subscription()</code> decorator.</p>
+<pre><code class="language-typescript">
+const pubSub = new PubSub();
+
+@Resolver(&#39;Author&#39;)
+export class AuthorResolver &#123;
+  // ...
+  @Subscription()
+  commentAdded() &#123;
+    return pubSub.asyncIterator(&#39;commentAdded&#39;);
+  &#125;
+&#125;
+</code></pre>
+<p>To filter out specific events based on context and arguments, set the <code>filter</code> property.</p>
+<pre><code class="language-typescript">
+@Subscription(&#39;commentAdded&#39;, &#123;
+  filter: (payload, variables) =&gt;
+    payload.commentAdded.title === variables.title,
+&#125;)
+commentAdded() &#123;
+  return pubSub.asyncIterator(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<p>To mutate the published payload, we can use a <code>resolve</code> function.</p>
+<pre><code class="language-typescript">
+@Subscription(&#39;commentAdded&#39;, &#123;
+  resolve: value =&gt; value,
+&#125;)
+commentAdded() &#123;
+  return pubSub.asyncIterator(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<p>If you need to access injected providers (e.g., use an external service to validate the data), use the following construction:</p>
+<pre><code class="language-typescript">
+@Subscription(&#39;commentAdded&#39;, &#123;
+  resolve(this: AuthorResolver, value) &#123;
+    // &quot;this&quot; refers to an instance of &quot;AuthorResolver&quot;
+    return value;
+  &#125;
+&#125;)
+commentAdded() &#123;
+  return pubSub.asyncIterator(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<p>The same construction works with filters:</p>
+<pre><code class="language-typescript">
+@Subscription(&#39;commentAdded&#39;, &#123;
+  filter(this: AuthorResolver, payload, variables) &#123;
+    // &quot;this&quot; refers to an instance of &quot;AuthorResolver&quot;
+    return payload.commentAdded.title === variables.title;
+  &#125;
+&#125;)
+commentAdded() &#123;
+  return pubSub.asyncIterator(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<p>The last step is to update the type definitions file.</p>
+<pre><code class="language-graphql">
+type Author &#123;
+  id: Int!
+  firstName: String
+  lastName: String
+  posts: [Post]
+&#125;
+
+type Post &#123;
+  id: Int!
+  title: String
+  votes: Int
+&#125;
+
+type Query &#123;
+  author(id: Int!): Author
+&#125;
+
+type Comment &#123;
+  id: String
+  content: String
+&#125;
+
+type Subscription &#123;
+  commentAdded(title: String!): Comment
+&#125;
+</code></pre>
+<p>With this, we&#39;ve created a single <code>commentAdded(title: String!): Comment</code> subscription. You can find a full sample implementation <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/blob/master/sample/12-graphql-schema-first">here</a>.</p>
+<h4 appAnchor id="pubsub"><span>PubSub</span></h4>
+<p>We instantiated a local <code>PubSub</code> instance above. The preferred approach is to define <code>PubSub</code> as a <a routerLink="/fundamentals/custom-providers">provider</a> and inject it through the constructor (using the <code>@Inject()</code> decorator). This allows us to re-use the instance across the whole application. For example, define a provider as follows, then inject <code>&#39;PUB_SUB&#39;</code> where needed.</p>
+<pre><code class="language-typescript">
+&#123;
+  provide: &#39;PUB_SUB&#39;,
+  useValue: new PubSub(),
+&#125;
+</code></pre>
+<h4 appAnchor id="customize-subscriptions-server"><span>Customize subscriptions server</span></h4>
+<p>To customize the subscriptions server (e.g., change the path), use the <code>subscriptions</code> options property.</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot&lt;ApolloDriverConfig&gt;(&#123;
+  driver: ApolloDriver,
+  subscriptions: &#123;
+    &#39;subscriptions-transport-ws&#39;: &#123;
+      path: &#39;/graphql&#39;
+    &#125;,
+  &#125;
+&#125;),
+</code></pre>
+<p>If you&#39;re using the <code>graphql-ws</code> package for subscriptions, replace the <code>subscriptions-transport-ws</code> key with <code>graphql-ws</code>, as follows:</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot&lt;ApolloDriverConfig&gt;(&#123;
+  driver: ApolloDriver,
+  subscriptions: &#123;
+    &#39;graphql-ws&#39;: &#123;
+      path: &#39;/graphql&#39;
+    &#125;,
+  &#125;
+&#125;),
+</code></pre>
+<h4 appAnchor id="authentication-over-websockets"><span>Authentication over WebSockets</span></h4>
+<p>Checking whether the user is authenticated can be done inside the <code>onConnect</code> callback function that you can specify in the <code>subscriptions</code> options.</p>
+<p>The <code>onConnect</code> will receive as a first argument the <code>connectionParams</code> passed to the <code>SubscriptionClient</code> (read <a rel='nofollow' target='_blank' href="https://www.apollographql.com/docs/react/data/subscriptions/#5-authenticate-over-websocket-optional">more</a>).</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot&lt;ApolloDriverConfig&gt;(&#123;
+  driver: ApolloDriver,
+  subscriptions: &#123;
+    &#39;subscriptions-transport-ws&#39;: &#123;
+      onConnect: (connectionParams) =&gt; &#123;
+        const authToken = connectionParams.authToken;
+        if (!isValid(authToken)) &#123;
+          throw new Error(&#39;Token is not valid&#39;);
+        &#125;
+        // extract user information from token
+        const user = parseToken(authToken);
+        // return user info to add them to the context later
+        return &#123; user &#125;;
+      &#125;,
+    &#125;
+  &#125;,
+  context: (&#123; connection &#125;) =&gt; &#123;
+    // connection.context will be equal to what was returned by the &quot;onConnect&quot; callback
+  &#125;,
+&#125;),
+</code></pre>
+<p>The <code>authToken</code> in this example is only sent once by the client, when the connection is first established.
+All subscriptions made with this connection will have the same <code>authToken</code>, and thus the same user info.</p>
+<blockquote class="
+warning "><strong>Note</strong> There is a bug in <code>subscriptions-transport-ws</code> that allows connections to skip the <code>onConnect</code> phase (read <a rel='nofollow' target='_blank' href="https://github.com/apollographql/subscriptions-transport-ws/issues/349">more</a>). You should not assume that <code>onConnect</code> was called when the user starts a subscription, and always check that the <code>context</code> is populated.
+</blockquote>
+<p>If you&#39;re using the <code>graphql-ws</code> package, the signature of the <code>onConnect</code> callback will be slightly different:</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot&lt;ApolloDriverConfig&gt;(&#123;
+  driver: ApolloDriver,
+  subscriptions: &#123;
+    &#39;graphql-ws&#39;: &#123;
+      onConnect: (context: Context&lt;any&gt;) =&gt; &#123;
+        const &#123; connectionParams, extra &#125; = context;
+        // user validation will remain the same as in the example above
+        // when using with graphql-ws, additional context value should be stored in the extra field
+        extra.user = &#123; user: &#123;&#125; &#125;;
+      &#125;,
+    &#125;,
+  &#125;,
+  context: (&#123; extra &#125;) =&gt; &#123;
+    // you can now access your additional context value through the extra field
+  &#125;,
+&#125;);
+</code></pre>
+<h4 appAnchor id="enable-subscriptions-with-mercurius-driver"><span>Enable subscriptions with Mercurius driver</span></h4>
+<p>To enable subscriptions, set the <code>subscription</code> property to <code>true</code>.</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot&lt;MercuriusDriverConfig&gt;(&#123;
+  driver: MercuriusDriver,
+  subscription: true,
+&#125;),
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> You can also pass the options object to set up a custom emitter, validate incoming connections, etc. Read more <a rel='nofollow' target='_blank' href="https://github.com/mercurius-js/mercurius/blob/master/docs/api/options.md#plugin-options">here</a> (see <code>subscription</code>).
+</blockquote>
+<h4 appAnchor id="code-first-1"><span>Code first</span></h4>
+<p>To create a subscription using the code first approach, we use the <code>@Subscription()</code> decorator (exported from the <code>@nestjs/graphql</code> package) and the <code>PubSub</code> class from the <code>mercurius</code> package, which provides a simple <strong>publish/subscribe API</strong>.</p>
+<p>The following subscription handler takes care of <strong>subscribing</strong> to an event by calling <code>PubSub#asyncIterator</code>. This method takes a single argument, the <code>triggerName</code>, which corresponds to an event topic name.</p>
+<pre><code class="language-typescript">
+@Resolver((of) =&gt; Author)
+export class AuthorResolver &#123;
+  // ...
+  @Subscription((returns) =&gt; Comment)
+  commentAdded(@Context(&#39;pubsub&#39;) pubSub: PubSub) &#123;
+    return pubSub.subscribe(&#39;commentAdded&#39;);
+  &#125;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> All decorators used in the example above are exported from the <code>@nestjs/graphql</code> package, while the <code>PubSub</code> class is exported from the <code>mercurius</code> package.
+</blockquote>
+<blockquote class="
+warning "><strong>Note</strong> <code>PubSub</code> is a class that exposes a simple <code>publish</code> and <code>subscribe</code> API. Check out <a rel='nofollow' target='_blank' href="https://github.com/mercurius-js/mercurius/blob/master/docs/subscriptions.md#subscriptions-with-custom-pubsub">this section</a> on how to register a custom <code>PubSub</code> class.
+</blockquote>
+<p>This will result in generating the following part of the GraphQL schema in SDL:</p>
+<pre><code class="language-graphql">
+type Subscription &#123;
+  commentAdded(): Comment!
+&#125;
+</code></pre>
+<p>Note that subscriptions, by definition, return an object with a single top level property whose key is the name of the subscription. This name is either inherited from the name of the subscription handler method (i.e., <code>commentAdded</code> above), or is provided explicitly by passing an option with the key <code>name</code> as the second argument to the <code>@Subscription()</code> decorator, as shown below.</p>
+<pre><code class="language-typescript">
+@Subscription(returns =&gt; Comment, &#123;
+  name: &#39;commentAdded&#39;,
+&#125;)
+subscribeToCommentAdded(@Context(&#39;pubsub&#39;) pubSub: PubSub) &#123;
+  return pubSub.subscribe(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<p>This construct produces the same SDL as the previous code sample, but allows us to decouple the method name from the subscription.</p>
+<h4 appAnchor id="publishing-1"><span>Publishing</span></h4>
+<p>Now, to publish the event, we use the <code>PubSub#publish</code> method. This is often used within a mutation to trigger a client-side update when a part of the object graph has changed. For example:</p>
+
+<span class="filename">
+  {{ 'posts/posts.resolver' | extension: appa119900d489a6d540dc6e8c1705a1d781af8c19f.isJsActive }}
+<app-tabs #appa119900d489a6d540dc6e8c1705a1d781af8c19f></app-tabs>
+</span><pre><code class="language-typescript">
+@Mutation(returns =&gt; Post)
+async addComment(
+  @Args(&#39;postId&#39;, &#123; type: () =&gt; Int &#125;) postId: number,
+  @Args(&#39;comment&#39;, &#123; type: () =&gt; Comment &#125;) comment: CommentInput,
+  @Context(&#39;pubsub&#39;) pubSub: PubSub,
+) &#123;
+  const newComment = this.commentsService.addComment(&#123; id: postId, comment &#125;);
+  await pubSub.publish(&#123;
+    topic: &#39;commentAdded&#39;,
+    payload: &#123;
+      commentAdded: newComment
+    &#125;
+  &#125;);
+  return newComment;
+&#125;
+</code></pre><p>As mentioned, the subscription, by definition, returns a value and that value has a shape. Look again at the generated SDL for our <code>commentAdded</code> subscription:</p>
+<pre><code class="language-graphql">
+type Subscription &#123;
+  commentAdded(): Comment!
+&#125;
+</code></pre>
+<p>This tells us that the subscription must return an object with a top-level property name of <code>commentAdded</code> that has a value which is a <code>Comment</code> object. The important point to note is that the shape of the event payload emitted by the <code>PubSub#publish</code> method must correspond to the shape of the value expected to return from the subscription. So, in our example above, the <code>pubSub.publish({{ &#39;{&#39; }} topic: &#39;commentAdded&#39;, payload: {{ &#39;{&#39; }} commentAdded: newComment {{ &#39;}&#39; }} {{ &#39;}&#39; }})</code> statement publishes a <code>commentAdded</code> event with the appropriately shaped payload. If these shapes don&#39;t match, your subscription will fail during the GraphQL validation phase.</p>
+<h4 appAnchor id="filtering-subscriptions-1"><span>Filtering subscriptions</span></h4>
+<p>To filter out specific events, set the <code>filter</code> property to a filter function. This function acts similar to the function passed to an array <code>filter</code>. It takes two arguments: <code>payload</code> containing the event payload (as sent by the event publisher), and <code>variables</code> taking any arguments passed in during the subscription request. It returns a boolean determining whether this event should be published to client listeners.</p>
+<pre><code class="language-typescript">
+@Subscription(returns =&gt; Comment, &#123;
+  filter: (payload, variables) =&gt;
+    payload.commentAdded.title === variables.title,
+&#125;)
+commentAdded(@Args(&#39;title&#39;) title: string, @Context(&#39;pubsub&#39;) pubSub: PubSub) &#123;
+  return pubSub.subscribe(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<p>If you need to access injected providers (e.g., use an external service to validate the data), use the following construction.</p>
+<pre><code class="language-typescript">
+@Subscription(returns =&gt; Comment, &#123;
+  filter(this: AuthorResolver, payload, variables) &#123;
+    // &quot;this&quot; refers to an instance of &quot;AuthorResolver&quot;
+    return payload.commentAdded.title === variables.title;
+  &#125;
+&#125;)
+commentAdded(@Args(&#39;title&#39;) title: string, @Context(&#39;pubsub&#39;) pubSub: PubSub) &#123;
+  return pubSub.subscribe(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<h4 appAnchor id="schema-first-1"><span>Schema first</span></h4>
+<p>To create an equivalent subscription in Nest, we&#39;ll make use of the <code>@Subscription()</code> decorator.</p>
+<pre><code class="language-typescript">
+const pubSub = new PubSub();
+
+@Resolver(&#39;Author&#39;)
+export class AuthorResolver &#123;
+  // ...
+  @Subscription()
+  commentAdded(@Context(&#39;pubsub&#39;) pubSub: PubSub) &#123;
+    return pubSub.subscribe(&#39;commentAdded&#39;);
+  &#125;
+&#125;
+</code></pre>
+<p>To filter out specific events based on context and arguments, set the <code>filter</code> property.</p>
+<pre><code class="language-typescript">
+@Subscription(&#39;commentAdded&#39;, &#123;
+  filter: (payload, variables) =&gt;
+    payload.commentAdded.title === variables.title,
+&#125;)
+commentAdded(@Context(&#39;pubsub&#39;) pubSub: PubSub) &#123;
+  return pubSub.subscribe(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<p>If you need to access injected providers (e.g., use an external service to validate the data), use the following construction:</p>
+<pre><code class="language-typescript">
+@Subscription(&#39;commentAdded&#39;, &#123;
+  filter(this: AuthorResolver, payload, variables) &#123;
+    // &quot;this&quot; refers to an instance of &quot;AuthorResolver&quot;
+    return payload.commentAdded.title === variables.title;
+  &#125;
+&#125;)
+commentAdded(@Context(&#39;pubsub&#39;) pubSub: PubSub) &#123;
+  return pubSub.subscribe(&#39;commentAdded&#39;);
+&#125;
+</code></pre>
+<p>The last step is to update the type definitions file.</p>
+<pre><code class="language-graphql">
+type Author &#123;
+  id: Int!
+  firstName: String
+  lastName: String
+  posts: [Post]
+&#125;
+
+type Post &#123;
+  id: Int!
+  title: String
+  votes: Int
+&#125;
+
+type Query &#123;
+  author(id: Int!): Author
+&#125;
+
+type Comment &#123;
+  id: String
+  content: String
+&#125;
+
+type Subscription &#123;
+  commentAdded(title: String!): Comment
+&#125;
+</code></pre>
+<p>With this, we&#39;ve created a single <code>commentAdded(title: String!): Comment</code> subscription.</p>
+<h4 appAnchor id="pubsub-1"><span>PubSub</span></h4>
+<p>In the examples above, we used the default <code>PubSub</code> emitter (<a rel='nofollow' target='_blank' href="https://github.com/mcollina/mqemitter">mqemitter</a>)
+The preferred approach (for production) is to use <code>mqemitter-redis</code>. Alternatively, a custom <code>PubSub</code> implementation can be provided (read more <a rel='nofollow' target='_blank' href="https://github.com/mercurius-js/mercurius/blob/master/docs/subscriptions.md">here</a>)</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot&lt;MercuriusDriverConfig&gt;(&#123;
+  driver: MercuriusDriver,
+  subscription: &#123;
+    emitter: require(&#39;mqemitter-redis&#39;)(&#123;
+      port: 6579,
+      host: &#39;127.0.0.1&#39;,
+    &#125;),
+  &#125;,
+&#125;);
+</code></pre>
+<h4 appAnchor id="authentication-over-websockets-1"><span>Authentication over WebSockets</span></h4>
+<p>Checking whether the user is authenticated can be done inside the <code>verifyClient</code> callback function that you can specify in the <code>subscription</code> options.</p>
+<p>The <code>verifyClient</code> will receive the <code>info</code> object as a first argument which you can use to retrieve the request&#39;s headers.</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot&lt;MercuriusDriverConfig&gt;(&#123;
+  driver: MercuriusDriver,
+  subscription: &#123;
+    verifyClient: (info, next) =&gt; &#123;
+      const authorization = info.req.headers?.authorization as string;
+      if (!authorization?.startsWith(&#39;Bearer &#39;)) &#123;
+        return next(false);
+      &#125;
+      next(true);
+    &#125;,
+  &#125;
+&#125;),
+</code></pre>
+
+</div>
+

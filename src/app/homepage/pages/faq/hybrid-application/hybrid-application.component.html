@@ -1,0 +1,91 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/faq/hybrid-application.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="hybrid-application">Hybrid application</h3>
+<p>A hybrid application is one that listens for requests from two or more different sources. This can combine an HTTP server with a microservice listener or even just multiple different microservice listeners. The default <code>createMicroservice</code> method does not allow for multiple servers so in this case each microservice must be created and started manually. In order to do this, the <code>INestApplication</code> instance can be connected with <code>INestMicroservice</code> instances through the <code>connectMicroservice()</code> method.</p>
+<pre><code class="language-typescript">
+const app = await NestFactory.create(AppModule);
+const microservice = app.connectMicroservice&lt;MicroserviceOptions&gt;(&#123;
+  transport: Transport.TCP,
+&#125;);
+
+await app.startAllMicroservices();
+await app.listen(3001);
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> the <code>app.listen(port)</code> method starts an HTTP server on the specified address. If your application does not handle HTTP requests then you should use the <code>app.init()</code> method instead.
+</blockquote>
+<p>To connect multiple microservice instances, issue the call to <code>connectMicroservice()</code> for each microservice:</p>
+<pre><code class="language-typescript">
+const app = await NestFactory.create(AppModule);
+// microservice #1
+const microserviceTcp = app.connectMicroservice&lt;MicroserviceOptions&gt;(&#123;
+  transport: Transport.TCP,
+  options: &#123;
+    port: 3001,
+  &#125;,
+&#125;);
+// microservice #2
+const microserviceRedis = app.connectMicroservice&lt;MicroserviceOptions&gt;(&#123;
+  transport: Transport.REDIS,
+  options: &#123;
+    host: &#39;localhost&#39;,
+    port: 6379,
+  &#125;,
+&#125;);
+
+await app.startAllMicroservices();
+await app.listen(3001);
+</code></pre>
+<p>To bind <code>@MessagePattern()</code> to only one transport strategy (for example, MQTT) in a hybrid application with multiple microservices, we can pass the second argument of type <code>Transport</code> which is an enum with all the built-in transport strategies defined.</p>
+
+<span class="filename">
+<app-tabs #appc96ccc6a80c43b1638affd690e5a5d4b7a136c12></app-tabs>
+</span><pre [class.hide]="appc96ccc6a80c43b1638affd690e5a5d4b7a136c12.isJsActive"><code class="language-typescript">
+@MessagePattern(&#39;time.us.*&#39;, Transport.NATS)
+getDate(@Payload() data: number[], @Ctx() context: NatsContext) &#123;
+  console.log(`Subject: $&#123;context.getSubject()&#125;`); // e.g. &quot;time.us.east&quot;
+  return new Date().toLocaleTimeString(...);
+&#125;
+@MessagePattern(&#123; cmd: &#39;time.us&#39; &#125;, Transport.TCP)
+getTCPDate(@Payload() data: number[]) &#123;
+  return new Date().toLocaleTimeString(...);
+&#125;
+</code></pre>
+<pre [class.hide]="!appc96ccc6a80c43b1638affd690e5a5d4b7a136c12.isJsActive"><code class="language-typescript">
+@Bind(Payload(), Ctx())
+@MessagePattern(&#39;time.us.*&#39;, Transport.NATS)
+getDate(data, context) &#123;
+  console.log(`Subject: $&#123;context.getSubject()&#125;`); // e.g. &quot;time.us.east&quot;
+  return new Date().toLocaleTimeString(...);
+&#125;
+@Bind(Payload(), Ctx())
+@MessagePattern(&#123; cmd: &#39;time.us&#39; &#125;, Transport.TCP)
+getTCPDate(data, context) &#123;
+  return new Date().toLocaleTimeString(...);
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> <code>@Payload()</code>, <code>@Ctx()</code>, <code>Transport</code> and <code>NatsContext</code> are imported from <code>@nestjs/microservices</code>.
+</blockquote>
+<h4 appAnchor id="sharing-configuration"><span>Sharing configuration</span></h4>
+<p>By default a hybrid application will not inherit global pipes, interceptors, guards and filters configured for the main (HTTP-based) application.
+To inherit these configuration properties from the main application, set the <code>inheritAppConfig</code> property in the second argument (an optional options object) of the <code>connectMicroservice()</code> call, as follow:</p>
+<pre><code class="language-typescript">
+const microservice = app.connectMicroservice&lt;MicroserviceOptions&gt;(
+  &#123;
+    transport: Transport.TCP,
+  &#125;,
+  &#123; inheritAppConfig: true &#125;,
+);
+</code></pre>
+
+</div>
+

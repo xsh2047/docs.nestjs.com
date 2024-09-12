@@ -1,0 +1,116 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/graphql/directives.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="directives">Directives</h3>
+<p>A directive can be attached to a field or fragment inclusion, and can affect execution of the query in any way the server desires (read more <a rel='nofollow' target='_blank' href="https://graphql.org/learn/queries/#directives">here</a>). The GraphQL specification provides several default directives:</p>
+<ul>
+<li><code>@include(if: Boolean)</code> - only include this field in the result if the argument is true</li>
+<li><code>@skip(if: Boolean)</code> - skip this field if the argument is true</li>
+<li><code>@deprecated(reason: String)</code> - marks field as deprecated with message</li>
+</ul>
+<p>A directive is an identifier preceded by a <code>@</code> character, optionally followed by a list of named arguments, which can appear after almost any element in the GraphQL query and schema languages.</p>
+<h4 appAnchor id="custom-directives"><span>Custom directives</span></h4>
+<p>To instruct what should happen when Apollo/Mercurius encounters your directive, you can create a transformer function. This function uses the <code>mapSchema</code> function to iterate through locations in your schema (field definitions, type definitions, etc.) and perform corresponding transformations.</p>
+<pre><code class="language-typescript">
+import &#123; getDirective, MapperKind, mapSchema &#125; from &#39;@graphql-tools/utils&#39;;
+import &#123; defaultFieldResolver, GraphQLSchema &#125; from &#39;graphql&#39;;
+
+export function upperDirectiveTransformer(
+  schema: GraphQLSchema,
+  directiveName: string,
+) &#123;
+  return mapSchema(schema, &#123;
+    [MapperKind.OBJECT_FIELD]: (fieldConfig) =&gt; &#123;
+      const upperDirective = getDirective(
+        schema,
+        fieldConfig,
+        directiveName,
+      )?.[0];
+
+      if (upperDirective) &#123;
+        const &#123; resolve = defaultFieldResolver &#125; = fieldConfig;
+
+        // Replace the original resolver with a function that *first* calls
+        // the original resolver, then converts its result to upper case
+        fieldConfig.resolve = async function (source, args, context, info) &#123;
+          const result = await resolve(source, args, context, info);
+          if (typeof result === &#39;string&#39;) &#123;
+            return result.toUpperCase();
+          &#125;
+          return result;
+        &#125;;
+        return fieldConfig;
+      &#125;
+    &#125;,
+  &#125;);
+&#125;
+</code></pre>
+<p>Now, apply the <code>upperDirectiveTransformer</code> transformation function in the <code>GraphQLModule#forRoot</code> method using the <code>transformSchema</code> function:</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot(&#123;
+  // ...
+  transformSchema: (schema) =&gt; upperDirectiveTransformer(schema, &#39;upper&#39;),
+&#125;);
+</code></pre>
+<p>Once registered, the <code>@upper</code> directive can be used in our schema. However, the way you apply the directive will vary depending on the approach you use (code first or schema first).</p>
+<h4 appAnchor id="code-first"><span>Code first</span></h4>
+<p>In the code first approach, use the <code>@Directive()</code> decorator to apply the directive.</p>
+<pre><code class="language-typescript">
+@Directive(&#39;@upper&#39;)
+@Field()
+title: string;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>@Directive()</code> decorator is exported from the <code>@nestjs/graphql</code> package.
+</blockquote>
+<p>Directives can be applied on fields, field resolvers, input and object types, as well as queries, mutations, and subscriptions. Here&#39;s an example of the directive applied on the query handler level:</p>
+<pre><code class="language-typescript">
+@Directive(&#39;@deprecated(reason: &quot;This query will be removed in the next version&quot;)&#39;)
+@Query(returns =&gt; Author, &#123; name: &#39;author&#39; &#125;)
+async getAuthor(@Args(&#123; name: &#39;id&#39;, type: () =&gt; Int &#125;) id: number) &#123;
+  return this.authorsService.findOneById(id);
+&#125;
+</code></pre>
+<blockquote class="
+warn "><strong>Warning</strong> Directives applied through the <code>@Directive()</code> decorator will not be reflected in the generated schema definition file.
+</blockquote>
+<p>Lastly, make sure to declare directives in the <code>GraphQLModule</code>, as follows:</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot(&#123;
+  // ...,
+  transformSchema: schema =&gt; upperDirectiveTransformer(schema, &#39;upper&#39;),
+  buildSchemaOptions: &#123;
+    directives: [
+      new GraphQLDirective(&#123;
+        name: &#39;upper&#39;,
+        locations: [DirectiveLocation.FIELD_DEFINITION],
+      &#125;),
+    ],
+  &#125;,
+&#125;),
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Both <code>GraphQLDirective</code> and <code>DirectiveLocation</code> are exported from the <code>graphql</code> package.
+</blockquote>
+<h4 appAnchor id="schema-first"><span>Schema first</span></h4>
+<p>In the schema first approach, apply directives directly in SDL.</p>
+<pre><code class="language-graphql">
+directive @upper on FIELD_DEFINITION
+
+type Post &#123;
+  id: Int!
+  title: String! @upper
+  votes: Int
+&#125;
+</code></pre>
+
+</div>
+

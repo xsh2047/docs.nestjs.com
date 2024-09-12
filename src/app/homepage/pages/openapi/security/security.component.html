@@ -1,0 +1,73 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/openapi/security.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="security">Security</h3>
+<p>To define which security mechanisms should be used for a specific operation, use the <code>@ApiSecurity()</code> decorator.</p>
+<pre><code class="language-typescript">
+@ApiSecurity(&#39;basic&#39;)
+@Controller(&#39;cats&#39;)
+export class CatsController &#123;&#125;
+</code></pre>
+<p>Before you run your application, remember to add the security definition to your base document using <code>DocumentBuilder</code>:</p>
+<pre><code class="language-typescript">
+const options = new DocumentBuilder().addSecurity(&#39;basic&#39;, &#123;
+  type: &#39;http&#39;,
+  scheme: &#39;basic&#39;,
+&#125;);
+</code></pre>
+<p>Some of the most popular authentication techniques are built-in (e.g., <code>basic</code> and <code>bearer</code>) and therefore you don&#39;t have to define security mechanisms manually as shown above.</p>
+<h4 appAnchor id="basic-authentication"><span>Basic authentication</span></h4>
+<p>To enable basic authentication, use <code>@ApiBasicAuth()</code>.</p>
+<pre><code class="language-typescript">
+@ApiBasicAuth()
+@Controller(&#39;cats&#39;)
+export class CatsController &#123;&#125;
+</code></pre>
+<p>Before you run your application, remember to add the security definition to your base document using <code>DocumentBuilder</code>:</p>
+<pre><code class="language-typescript">
+const options = new DocumentBuilder().addBasicAuth();
+</code></pre>
+<h4 appAnchor id="bearer-authentication"><span>Bearer authentication</span></h4>
+<p>To enable bearer authentication, use <code>@ApiBearerAuth()</code>.</p>
+<pre><code class="language-typescript">
+@ApiBearerAuth()
+@Controller(&#39;cats&#39;)
+export class CatsController &#123;&#125;
+</code></pre>
+<p>Before you run your application, remember to add the security definition to your base document using <code>DocumentBuilder</code>:</p>
+<pre><code class="language-typescript">
+const options = new DocumentBuilder().addBearerAuth();
+</code></pre>
+<h4 appAnchor id="oauth2-authentication"><span>OAuth2 authentication</span></h4>
+<p>To enable OAuth2, use <code>@ApiOAuth2()</code>.</p>
+<pre><code class="language-typescript">
+@ApiOAuth2([&#39;pets:write&#39;])
+@Controller(&#39;cats&#39;)
+export class CatsController &#123;&#125;
+</code></pre>
+<p>Before you run your application, remember to add the security definition to your base document using <code>DocumentBuilder</code>:</p>
+<pre><code class="language-typescript">
+const options = new DocumentBuilder().addOAuth2();
+</code></pre>
+<h4 appAnchor id="cookie-authentication"><span>Cookie authentication</span></h4>
+<p>To enable cookie authentication, use <code>@ApiCookieAuth()</code>.</p>
+<pre><code class="language-typescript">
+@ApiCookieAuth()
+@Controller(&#39;cats&#39;)
+export class CatsController &#123;&#125;
+</code></pre>
+<p>Before you run your application, remember to add the security definition to your base document using <code>DocumentBuilder</code>:</p>
+<pre><code class="language-typescript">
+const options = new DocumentBuilder().addCookieAuth(&#39;optional-session-id&#39;);
+</code></pre>
+
+</div>
+

@@ -1,0 +1,303 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/recipes/async-local-storage.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="async-local-storage">Async Local Storage</h3>
+<p><code>AsyncLocalStorage</code> is a <a rel='nofollow' target='_blank' href="https://nodejs.org/api/async_context.html#async_context_class_asynclocalstorage">Node.js API</a> (based on the <code>async_hooks</code> API) that provides an alternative way of propagating local state through the application without the need to explicitly pass it as a function parameter. It is similar to a thread-local storage in other languages.</p>
+<p>The main idea of Async Local Storage is that we can <em>wrap</em> some function call with the <code>AsyncLocalStorage#run</code> call. All code that is invoked within the wrapped call gets access to the same <code>store</code>, which will be unique to each call chain.</p>
+<p>In the context of NestJS, that means if we can find a place within the request&#39;s lifecycle where we can wrap the rest of the request&#39;s code, we will be able to access and modify state visible only to that request, which may serve as an alternative to REQUEST-scoped providers and some of their limitations.</p>
+<p>Alternatively, we can use ALS to propagate context for only a part of the system (for example the <em>transaction</em> object) without passing it around explicitly across services, which can increase isolation and encapsulation.</p>
+<h4 appAnchor id="custom-implementation"><span>Custom implementation</span></h4>
+<p>NestJS itself does not provide any built-in abstraction for <code>AsyncLocalStorage</code>, so let&#39;s walk through how we could implement it ourselves for the simplest HTTP case to get a better understanding of the whole concept:</p>
+<blockquote class="
+info "><strong>info</strong> For a ready-made <a href="recipes/async-local-storage#nestjs-cls">dedicated package</a>, continue reading below.
+</blockquote>
+<ol>
+<li>First, create a new instance of the <code>AsyncLocalStorage</code> in some shared source file. Since we&#39;re using NestJS, let&#39;s also turn it into a module with a custom provider.</li>
+</ol>
+
+<span class="filename">
+  {{ 'als.module' | extension: app517e4112a914fd2563e13f059f7938c8944449a6.isJsActive }}
+<app-tabs #app517e4112a914fd2563e13f059f7938c8944449a6></app-tabs>
+</span><pre><code class="language-ts">
+@Module(&#123;
+  providers: [
+    &#123;
+      provide: AsyncLocalStorage,
+      useValue: new AsyncLocalStorage(),
+    &#125;,
+  ],
+  exports: [AsyncLocalStorage],
+&#125;)
+export class AlsModule &#123;&#125;
+</code></pre><blockquote class="
+ info "><strong>Hint</strong> <code>AsyncLocalStorage</code> is imported from <code>async_hooks</code>.
+</blockquote>
+<ol start="2">
+<li>We&#39;re only concerned with HTTP, so let&#39;s use a middleware to wrap the <code>next</code> function with <code>AsyncLocalStorage#run</code>. Since a middleware is the first thing that the request hits, this will make the <code>store</code> available in all enhancers and the rest of the system.</li>
+</ol>
+
+<span class="filename">
+  {{ 'app.module' | extension: appffbf8250aa5f48b69eb213ea4f839863c23eac09.isJsActive }}
+<app-tabs #appffbf8250aa5f48b69eb213ea4f839863c23eac09></app-tabs>
+</span><pre [class.hide]="appffbf8250aa5f48b69eb213ea4f839863c23eac09.isJsActive"><code class="language-typescript">
+@Module(&#123;
+  imports: [AlsModule]
+  providers: [CatService],
+  controllers: [CatController],
+&#125;)
+export class AppModule implements NestModule &#123;
+  constructor(
+    // inject the AsyncLocalStorage in the module constructor,
+    private readonly als: AsyncLocalStorage
+  ) &#123;&#125;
+
+  configure(consumer: MiddlewareConsumer) &#123;
+    // bind the middleware,
+    consumer
+      .apply((req, res, next) =&gt; &#123;
+        // populate the store with some default values
+        // based on the request,
+        const store = &#123;
+          userId: req.headers[&#39;x-user-id&#39;],
+        &#125;;
+        // and pass the &quot;next&quot; function as callback
+        // to the &quot;als.run&quot; method together with the store.
+        this.als.run(store, () =&gt; next());
+      &#125;)
+      // and register it for all routes (in case of Fastify use &#39;(.*)&#39;)
+      .forRoutes(&#39;*&#39;);
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!appffbf8250aa5f48b69eb213ea4f839863c23eac09.isJsActive"><code class="language-typescript">
+@Module(&#123;
+  imports: [AlsModule]
+  providers: [CatService],
+  controllers: [CatController],
+&#125;)
+@Dependencies(AsyncLocalStorage)
+export class AppModule &#123;
+  constructor(als) &#123;
+    // inject the AsyncLocalStorage in the module constructor,
+    this.als = als
+  &#125;
+
+  configure(consumer) &#123;
+    // bind the middleware,
+    consumer
+      .apply((req, res, next) =&gt; &#123;
+        // populate the store with some default values
+        // based on the request,
+        const store = &#123;
+          userId: req.headers[&#39;x-user-id&#39;],
+        &#125;;
+        // and pass the &quot;next&quot; function as callback
+        // to the &quot;als.run&quot; method together with the store.
+        this.als.run(store, () =&gt; next());
+      &#125;)
+      // and register it for all routes (in case of Fastify use &#39;(.*)&#39;)
+      .forRoutes(&#39;*&#39;);
+  &#125;
+&#125;
+</code></pre><ol start="3">
+<li>Now, anywhere within the lifecycle of a request, we can access the local store instance.</li>
+</ol>
+
+<span class="filename">
+  {{ 'cat.service' | extension: app737bb8e8e3ca56881ed326e9ee2ff35e5050f456.isJsActive }}
+<app-tabs #app737bb8e8e3ca56881ed326e9ee2ff35e5050f456></app-tabs>
+</span><pre [class.hide]="app737bb8e8e3ca56881ed326e9ee2ff35e5050f456.isJsActive"><code class="language-typescript">
+@Injectable()
+export class CatService &#123;
+  constructor(
+    // We can inject the provided ALS instance.
+    private readonly als: AsyncLocalStorage,
+    private readonly catRepository: CatRepository,
+  ) &#123;&#125;
+
+  getCatForUser() &#123;
+    // The &quot;getStore&quot; method will always return the
+    // store instance associated with the given request.
+    const userId = this.als.getStore()[&quot;userId&quot;] as number;
+    return this.catRepository.getForUser(userId);
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app737bb8e8e3ca56881ed326e9ee2ff35e5050f456.isJsActive"><code class="language-typescript">
+@Injectable()
+@Dependencies(AsyncLocalStorage, CatRepository)
+export class CatService &#123;
+  constructor(als, catRepository) &#123;
+    // We can inject the provided ALS instance.
+    this.als = als
+    this.catRepository = catRepository
+  &#125;
+
+  getCatForUser() &#123;
+    // The &quot;getStore&quot; method will always return the
+    // store instance associated with the given request.
+    const userId = this.als.getStore()[&quot;userId&quot;] as number;
+    return this.catRepository.getForUser(userId);
+  &#125;
+&#125;
+</code></pre><ol start="4">
+<li>That&#39;s it. Now we have a way to share request related state without needing to inject the whole <code>REQUEST</code> object.</li>
+</ol>
+<blockquote class="
+warning "><strong>warning</strong> Please be aware that while the technique is useful for many use-cases, it inherently obfuscates the code flow (creating implicit context), so use it responsibly and especially avoid creating contextual &quot;<a rel='nofollow' target='_blank' href="https://en.wikipedia.org/wiki/God_object">God objects</a>&quot;.
+</blockquote>
+<h3 id="nestjs-cls">NestJS CLS</h3>
+<p>The <a rel='nofollow' target='_blank' href="https://github.com/Papooch/nestjs-cls">nestjs-cls</a> package provides several DX improvements over using plain <code>AsyncLocalStorage</code> (<code>CLS</code> is an abbreviation of the term <em>continuation-local storage</em>). It abstracts the implementation into a <code>ClsModule</code> that offers various ways of initializing the <code>store</code> for different transports (not only HTTP), as well as a strong-typing support.</p>
+<p>The store can then be accessed with an injectable <code>ClsService</code>, or entirely abstracted away from the business logic by using <a rel='nofollow' target='_blank' href="https://www.npmjs.com/package/nestjs-cls#proxy-providers">Proxy Providers</a>.</p>
+<blockquote class="
+info "><strong>info</strong> <code>nestjs-cls</code> is a third party package and is not managed by the NestJS core team. Please, report any issues found with the library in the <a rel='nofollow' target='_blank' href="https://github.com/Papooch/nestjs-cls/issues">appropriate repository</a>.
+</blockquote>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>Apart from a peer dependency on the <code>@nestjs</code> libs, it only uses the built-in Node.js API. Install it as any other package.</p>
+<pre><code class="language-bash">
+npm i nestjs-cls
+</code></pre>
+<h4 appAnchor id="usage"><span>Usage</span></h4>
+<p>A similar functionality as described <a href="recipes/async-local-storage#custom-implementation">above</a> can be implemented using <code>nestjs-cls</code> as follows:</p>
+<ol>
+<li>Import the <code>ClsModule</code> in the root module.</li>
+</ol>
+
+<span class="filename">
+  {{ 'app.module' | extension: app37aa54a848a43151455548e20d3a91f8062cffd2.isJsActive }}
+<app-tabs #app37aa54a848a43151455548e20d3a91f8062cffd2></app-tabs>
+</span><pre><code class="language-ts">
+@Module(&#123;
+  imports: [
+    // Register the ClsModule,
+    ClsModule.forRoot(&#123;
+      middleware: &#123;
+        // automatically mount the
+        // ClsMiddleware for all routes
+        mount: true,
+        // and use the setup method to
+        // provide default store values.
+        setup: (cls, req) =&gt; &#123;
+          cls.set(&#39;userId&#39;, req.headers[&#39;x-user-id&#39;]);
+        &#125;,
+      &#125;,
+    &#125;),
+  ],
+  providers: [CatService],
+  controllers: [CatController],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><ol start="2">
+<li>And then can use the <code>ClsService</code> to access the store values.</li>
+</ol>
+
+<span class="filename">
+  {{ 'cat.service' | extension: app6d53a2da4aba4fa72442d5a0d9643b288605f8f1.isJsActive }}
+<app-tabs #app6d53a2da4aba4fa72442d5a0d9643b288605f8f1></app-tabs>
+</span><pre [class.hide]="app6d53a2da4aba4fa72442d5a0d9643b288605f8f1.isJsActive"><code class="language-typescript">
+@Injectable()
+export class CatService &#123;
+  constructor(
+    // We can inject the provided ClsService instance,
+    private readonly cls: ClsService,
+    private readonly catRepository: CatRepository,
+  ) &#123;&#125;
+
+  getCatForUser() &#123;
+    // and use the &quot;get&quot; method to retrieve any stored value.
+    const userId = this.cls.get(&#39;userId&#39;);
+    return this.catRepository.getForUser(userId);
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app6d53a2da4aba4fa72442d5a0d9643b288605f8f1.isJsActive"><code class="language-typescript">
+@Injectable()
+@Dependencies(AsyncLocalStorage, CatRepository)
+export class CatService &#123;
+  constructor(cls, catRepository) &#123;
+    // We can inject the provided ClsService instance,
+    this.cls = cls
+    this.catRepository = catRepository
+  &#125;
+
+  getCatForUser() &#123;
+    // and use the &quot;get&quot; method to retrieve any stored value.
+    const userId = this.cls.get(&#39;userId&#39;);
+    return this.catRepository.getForUser(userId);
+  &#125;
+&#125;
+</code></pre><ol start="3">
+<li>To get strong typing of the store values managed by the <code>ClsService</code> (and also get auto-suggestions of the string keys), we can use an optional type parameter <code>ClsService&lt;MyClsStore&gt;</code> when injecting it.</li>
+</ol>
+<pre><code class="language-ts">
+export interface MyClsStore extends ClsStore &#123;
+  userId: number;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>hint</strong> It it also possible to let the package automatically generate a Request ID and access it later with <code>cls.getId()</code>, or to get the whole Request object using <code>cls.get(CLS_REQ)</code>.
+</blockquote>
+<h4 appAnchor id="testing"><span>Testing</span></h4>
+<p>Since the <code>ClsService</code> is just another injectable provider, it can be entirely mocked out in unit tests.</p>
+<p>However, in certain integration tests, we might still want to use the real <code>ClsService</code> implementation. In that case, we will need to wrap the context-aware piece of code with a call to <code>ClsService#run</code> or <code>ClsService#runWith</code>.</p>
+<pre><code class="language-ts">
+describe(&#39;CatService&#39;, () =&gt; &#123;
+  let service: CatService
+  let cls: ClsService
+  const mockCatRepository = createMock&lt;CatRepository&gt;()
+
+  beforeEach(async () =&gt; &#123;
+    const module = await Test.createTestingModule(&#123;
+      // Set up most of the testing module as we normally would.
+      providers: [
+        CatService,
+        &#123;
+          provide: CatRepository
+          useValue: mockCatRepository
+        &#125;
+      ],
+      imports: [
+        // Import the static version of ClsModule which only provides
+        // the ClsService, but does not set up the store in any way.
+        ClsModule
+      ],
+    &#125;).compile()
+
+    service = module.get(CatService)
+
+    // Also retrieve the ClsService for later use.
+    cls = module.get(ClsService)
+  &#125;)
+
+  describe(&#39;getCatForUser&#39;, () =&gt; &#123;
+    it(&#39;retrieves cat based on user id&#39;, async () =&gt; &#123;
+      const expectedUserId = 42
+      mockCatRepository.getForUser.mockImplementationOnce(
+        (id) =&gt; (&#123; userId: id &#125;)
+      )
+
+      // Wrap the test call in the `runWith` method
+      // in which we can pass hand-crafted store values.
+      const cat = await cls.runWith(
+        &#123; userId: expectedUserId &#125;,
+        () =&gt; service.getCatForUser()
+      )
+
+      expect(cat.userId).toEqual(expectedUserId)
+    &#125;)
+  &#125;)
+&#125;)
+</code></pre>
+<h4 appAnchor id="more-information"><span>More information</span></h4>
+<p>Visit the <a rel='nofollow' target='_blank' href="https://github.com/Papooch/nestjs-cls">NestJS CLS GitHub Page</a> for the full API documentation and more code examples.</p>
+
+</div>
+

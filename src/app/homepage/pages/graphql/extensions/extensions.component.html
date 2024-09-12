@@ -1,0 +1,59 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/graphql/extensions.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="extensions">Extensions</h3>
+<blockquote class="
+warning "><strong>Warning</strong> This chapter applies only to the code first approach.
+</blockquote>
+<p>Extensions is an <strong>advanced, low-level feature</strong> that lets you define arbitrary data in the types configuration. Attaching custom metadata to certain fields allows you to create more sophisticated, generic solutions. For example, with extensions, you can define field-level roles required to access particular fields. Such roles can be reflected at runtime to determine whether the caller has sufficient permissions to retrieve a specific field.</p>
+<h4 appAnchor id="adding-custom-metadata"><span>Adding custom metadata</span></h4>
+<p>To attach custom metadata for a field, use the <code>@Extensions()</code> decorator exported from the <code>@nestjs/graphql</code> package.</p>
+<pre><code class="language-typescript">
+@Field()
+@Extensions(&#123; role: Role.ADMIN &#125;)
+password: string;
+</code></pre>
+<p>In the example above, we assigned the <code>role</code> metadata property the value of <code>Role.ADMIN</code>. <code>Role</code> is a simple TypeScript enum that groups all the user roles available in our system.</p>
+<p>Note, in addition to setting metadata on fields, you can use the <code>@Extensions()</code> decorator at the class level and method level (e.g., on the query handler).</p>
+<h4 appAnchor id="using-custom-metadata"><span>Using custom metadata</span></h4>
+<p>Logic that leverages the custom metadata can be as complex as needed. For example, you can create a simple interceptor that stores/logs events per method invocation, or a <a routerLink="/graphql/field-middleware">field middleware</a> that matches roles required to retrieve a field with the caller permissions (field-level permissions system).</p>
+<p>For illustration purposes, let&#39;s define a <code>checkRoleMiddleware</code> that compares a user&#39;s role (hardcoded here) with a role required to access a target field:</p>
+<pre><code class="language-typescript">
+export const checkRoleMiddleware: FieldMiddleware = async (
+  ctx: MiddlewareContext,
+  next: NextFn,
+) =&gt; &#123;
+  const &#123; info &#125; = ctx;
+  const &#123; extensions &#125; = info.parentType.getFields()[info.fieldName];
+
+  /**
+   * In a real-world application, the &quot;userRole&quot; variable
+   * should represent the caller&#39;s (user) role (for example, &quot;ctx.user.role&quot;).
+   */
+  const userRole = Role.USER;
+  if (userRole === extensions.role) &#123;
+    // or just &quot;return null&quot; to ignore
+    throw new ForbiddenException(
+      `User does not have sufficient permissions to access &quot;$&#123;info.fieldName&#125;&quot; field.`,
+    );
+  &#125;
+  return next();
+&#125;;
+</code></pre>
+<p>With this in place, we can register a middleware for the <code>password</code> field, as follows:</p>
+<pre><code class="language-typescript">
+@Field(&#123; middleware: [checkRoleMiddleware] &#125;)
+@Extensions(&#123; role: Role.ADMIN &#125;)
+password: string;
+</code></pre>
+
+</div>
+

@@ -1,0 +1,166 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/techniques/http-module.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="http-module">HTTP module</h3>
+<p><a rel='nofollow' target='_blank' href="https://github.com/axios/axios">Axios</a> is a richly featured HTTP client package that is widely used. Nest wraps Axios and exposes it via the built-in <code>HttpModule</code>. The <code>HttpModule</code> exports the <code>HttpService</code> class, which exposes Axios-based methods to perform HTTP requests. The library also transforms the resulting HTTP responses into <code>Observables</code>.</p>
+<blockquote class="
+info "><strong>Hint</strong> You can also use any general purpose Node.js HTTP client library directly, including <a rel='nofollow' target='_blank' href="https://github.com/sindresorhus/got">got</a> or <a rel='nofollow' target='_blank' href="https://github.com/nodejs/undici">undici</a>.
+</blockquote>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>To begin using it, we first install required dependencies.</p>
+<pre><code class="language-bash">
+$ npm i --save @nestjs/axios axios
+</code></pre>
+<h4 appAnchor id="getting-started"><span>Getting started</span></h4>
+<p>Once the installation process is complete, to use the <code>HttpService</code>, first import <code>HttpModule</code>.</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [HttpModule],
+  providers: [CatsService],
+&#125;)
+export class CatsModule &#123;&#125;
+</code></pre>
+<p>Next, inject <code>HttpService</code> using normal constructor injection.</p>
+<blockquote class="
+info "><strong>Hint</strong> <code>HttpModule</code> and <code>HttpService</code> are imported from <code>@nestjs/axios</code> package.
+</blockquote>
+
+<span class="filename">
+<app-tabs #appefde37210907b481b06d13f4e3bd13c29cd30b04></app-tabs>
+</span><pre [class.hide]="appefde37210907b481b06d13f4e3bd13c29cd30b04.isJsActive"><code class="language-typescript">
+@Injectable()
+export class CatsService &#123;
+  constructor(private readonly httpService: HttpService) &#123;&#125;
+
+  findAll(): Observable&lt;AxiosResponse&lt;Cat[]&gt;&gt; &#123;
+    return this.httpService.get(&#39;http://localhost:3000/cats&#39;);
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!appefde37210907b481b06d13f4e3bd13c29cd30b04.isJsActive"><code class="language-typescript">
+@Injectable()
+@Dependencies(HttpService)
+export class CatsService &#123;
+  constructor(httpService) &#123;
+    this.httpService = httpService;
+  &#125;
+
+  findAll() &#123;
+    return this.httpService.get(&#39;http://localhost:3000/cats&#39;);
+  &#125;
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> <code>AxiosResponse</code> is an interface exported from the <code>axios</code> package (<code>$ npm i axios</code>).
+</blockquote>
+<p>All <code>HttpService</code> methods return an <code>AxiosResponse</code> wrapped in an <code>Observable</code> object.</p>
+<h4 appAnchor id="configuration"><span>Configuration</span></h4>
+<p><a rel='nofollow' target='_blank' href="https://github.com/axios/axios">Axios</a> can be configured with a variety of options to customize the behavior of the <code>HttpService</code>. Read more about them <a rel='nofollow' target='_blank' href="https://github.com/axios/axios#request-config">here</a>. To configure the underlying Axios instance, pass an optional options object to the <code>register()</code> method of <code>HttpModule</code> when importing it. This options object will be passed directly to the underlying Axios constructor.</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    HttpModule.register(&#123;
+      timeout: 5000,
+      maxRedirects: 5,
+    &#125;),
+  ],
+  providers: [CatsService],
+&#125;)
+export class CatsModule &#123;&#125;
+</code></pre>
+<h4 appAnchor id="async-configuration"><span>Async configuration</span></h4>
+<p>When you need to pass module options asynchronously instead of statically, use the <code>registerAsync()</code> method. As with most dynamic modules, Nest provides several techniques to deal with async configuration.</p>
+<p>One technique is to use a factory function:</p>
+<pre><code class="language-typescript">
+HttpModule.registerAsync(&#123;
+  useFactory: () =&gt; (&#123;
+    timeout: 5000,
+    maxRedirects: 5,
+  &#125;),
+&#125;);
+</code></pre>
+<p>Like other factory providers, our factory function can be <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/fundamentals/custom-providers#factory-providers-usefactory">async</a> and can inject dependencies through <code>inject</code>.</p>
+<pre><code class="language-typescript">
+HttpModule.registerAsync(&#123;
+  imports: [ConfigModule],
+  useFactory: async (configService: ConfigService) =&gt; (&#123;
+    timeout: configService.get(&#39;HTTP_TIMEOUT&#39;),
+    maxRedirects: configService.get(&#39;HTTP_MAX_REDIRECTS&#39;),
+  &#125;),
+  inject: [ConfigService],
+&#125;);
+</code></pre>
+<p>Alternatively, you can configure the <code>HttpModule</code> using a class instead of a factory, as shown below.</p>
+<pre><code class="language-typescript">
+HttpModule.registerAsync(&#123;
+  useClass: HttpConfigService,
+&#125;);
+</code></pre>
+<p>The construction above instantiates <code>HttpConfigService</code> inside <code>HttpModule</code>, using it to create an options object. Note that in this example, the <code>HttpConfigService</code> has to implement <code>HttpModuleOptionsFactory</code> interface as shown below. The <code>HttpModule</code> will call the <code>createHttpOptions()</code> method on the instantiated object of the supplied class.</p>
+<pre><code class="language-typescript">
+@Injectable()
+class HttpConfigService implements HttpModuleOptionsFactory &#123;
+  createHttpOptions(): HttpModuleOptions &#123;
+    return &#123;
+      timeout: 5000,
+      maxRedirects: 5,
+    &#125;;
+  &#125;
+&#125;
+</code></pre>
+<p>If you want to reuse an existing options provider instead of creating a private copy inside the <code>HttpModule</code>, use the <code>useExisting</code> syntax.</p>
+<pre><code class="language-typescript">
+HttpModule.registerAsync(&#123;
+  imports: [ConfigModule],
+  useExisting: HttpConfigService,
+&#125;);
+</code></pre>
+<h4 appAnchor id="using-axios-directly"><span>Using Axios directly</span></h4>
+<p>If you think that <code>HttpModule.register</code>&#39;s options are not enough for you, or if you just want to access the underlying Axios instance created by <code>@nestjs/axios</code>, you can access it via <code>HttpService#axiosRef</code> as follows:</p>
+<pre><code class="language-typescript">
+@Injectable()
+export class CatsService &#123;
+  constructor(private readonly httpService: HttpService) &#123;&#125;
+
+  findAll(): Promise&lt;AxiosResponse&lt;Cat[]&gt;&gt; &#123;
+    return this.httpService.axiosRef.get(&#39;http://localhost:3000/cats&#39;);
+    //                      ^ AxiosInstance interface
+  &#125;
+&#125;
+</code></pre>
+<h4 appAnchor id="full-example"><span>Full example</span></h4>
+<p>Since the return value of the <code>HttpService</code> methods is an Observable, we can use <code>rxjs</code> - <code>firstValueFrom</code> or <code>lastValueFrom</code> to retrieve the data of the request in the form of a promise.</p>
+<pre><code class="language-typescript">
+import &#123; catchError, firstValueFrom &#125; from &#39;rxjs&#39;;
+
+@Injectable()
+export class CatsService &#123;
+  private readonly logger = new Logger(CatsService.name);
+  constructor(private readonly httpService: HttpService) &#123;&#125;
+
+  async findAll(): Promise&lt;Cat[]&gt; &#123;
+    const &#123; data &#125; = await firstValueFrom(
+      this.httpService.get&lt;Cat[]&gt;(&#39;http://localhost:3000/cats&#39;).pipe(
+        catchError((error: AxiosError) =&gt; &#123;
+          this.logger.error(error.response.data);
+          throw &#39;An error happened!&#39;;
+        &#125;),
+      ),
+    );
+    return data;
+  &#125;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Visit RxJS&#39;s documentation on <a rel='nofollow' target='_blank' href="https://rxjs.dev/api/index/function/firstValueFrom"><code>firstValueFrom</code></a> and <a rel='nofollow' target='_blank' href="https://rxjs.dev/api/index/function/lastValueFrom"><code>lastValueFrom</code></a> for differences between them.
+</blockquote>
+
+</div>
+

@@ -1,0 +1,122 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/openapi/mapped-types.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="mapped-types">Mapped types</h3>
+<p>As you build out features like <strong>CRUD</strong> (Create/Read/Update/Delete) it&#39;s often useful to construct variants on a base entity type. Nest provides several utility functions that perform type transformations to make this task more convenient.</p>
+<h4 appAnchor id="partial"><span>Partial</span></h4>
+<p>When building input validation types (also called DTOs), it&#39;s often useful to build <strong>create</strong> and <strong>update</strong> variations on the same type. For example, the <strong>create</strong> variant may require all fields, while the <strong>update</strong> variant may make all fields optional.</p>
+<p>Nest provides the <code>PartialType()</code> utility function to make this task easier and minimize boilerplate.</p>
+<p>The <code>PartialType()</code> function returns a type (class) with all the properties of the input type set to optional. For example, suppose we have a <strong>create</strong> type as follows:</p>
+<pre><code class="language-typescript">
+import &#123; ApiProperty &#125; from &#39;@nestjs/swagger&#39;;
+
+export class CreateCatDto &#123;
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  age: number;
+
+  @ApiProperty()
+  breed: string;
+&#125;
+</code></pre>
+<p>By default, all of these fields are required. To create a type with the same fields, but with each one optional, use <code>PartialType()</code> passing the class reference (<code>CreateCatDto</code>) as an argument:</p>
+<pre><code class="language-typescript">
+export class UpdateCatDto extends PartialType(CreateCatDto) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>PartialType()</code> function is imported from the <code>@nestjs/swagger</code> package.
+</blockquote>
+<h4 appAnchor id="pick"><span>Pick</span></h4>
+<p>The <code>PickType()</code> function constructs a new type (class) by picking a set of properties from an input type. For example, suppose we start with a type like:</p>
+<pre><code class="language-typescript">
+import &#123; ApiProperty &#125; from &#39;@nestjs/swagger&#39;;
+
+export class CreateCatDto &#123;
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  age: number;
+
+  @ApiProperty()
+  breed: string;
+&#125;
+</code></pre>
+<p>We can pick a set of properties from this class using the <code>PickType()</code> utility function:</p>
+<pre><code class="language-typescript">
+export class UpdateCatAgeDto extends PickType(CreateCatDto, [&#39;age&#39;] as const) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>PickType()</code> function is imported from the <code>@nestjs/swagger</code> package.
+</blockquote>
+<h4 appAnchor id="omit"><span>Omit</span></h4>
+<p>The <code>OmitType()</code> function constructs a type by picking all properties from an input type and then removing a particular set of keys. For example, suppose we start with a type like:</p>
+<pre><code class="language-typescript">
+import &#123; ApiProperty &#125; from &#39;@nestjs/swagger&#39;;
+
+export class CreateCatDto &#123;
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  age: number;
+
+  @ApiProperty()
+  breed: string;
+&#125;
+</code></pre>
+<p>We can generate a derived type that has every property <strong>except</strong> <code>name</code> as shown below. In this construct, the second argument to <code>OmitType</code> is an array of property names.</p>
+<pre><code class="language-typescript">
+export class UpdateCatDto extends OmitType(CreateCatDto, [&#39;name&#39;] as const) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>OmitType()</code> function is imported from the <code>@nestjs/swagger</code> package.
+</blockquote>
+<h4 appAnchor id="intersection"><span>Intersection</span></h4>
+<p>The <code>IntersectionType()</code> function combines two types into one new type (class). For example, suppose we start with two types like:</p>
+<pre><code class="language-typescript">
+import &#123; ApiProperty &#125; from &#39;@nestjs/swagger&#39;;
+
+export class CreateCatDto &#123;
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  breed: string;
+&#125;
+
+export class AdditionalCatInfo &#123;
+  @ApiProperty()
+  color: string;
+&#125;
+</code></pre>
+<p>We can generate a new type that combines all properties in both types.</p>
+<pre><code class="language-typescript">
+export class UpdateCatDto extends IntersectionType(
+  CreateCatDto,
+  AdditionalCatInfo,
+) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>IntersectionType()</code> function is imported from the <code>@nestjs/swagger</code> package.
+</blockquote>
+<h4 appAnchor id="composition"><span>Composition</span></h4>
+<p>The type mapping utility functions are composable. For example, the following will produce a type (class) that has all of the properties of the <code>CreateCatDto</code> type except for <code>name</code>, and those properties will be set to optional:</p>
+<pre><code class="language-typescript">
+export class UpdateCatDto extends PartialType(
+  OmitType(CreateCatDto, [&#39;name&#39;] as const),
+) &#123;&#125;
+</code></pre>
+
+</div>
+

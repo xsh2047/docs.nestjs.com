@@ -1,0 +1,223 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/devtools/ci-cd.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="cicd-integration">CI/CD integration</h3>
+<blockquote class="
+info "><strong>Hint</strong> This chapter covers the Nest Devtools integration with the Nest framework. If you are looking for the Devtools application, please visit the <a rel='nofollow' target='_blank' href="https://devtools.nestjs.com">Devtools</a> website.
+</blockquote>
+<p>CI/CD integration is available for users with the <strong><a routerLink="/settings">Enterprise</a></strong> plan.</p>
+<p>You can watch this video to learn why &amp; how CI/CD integration can help you:</p>
+<figure>
+  <iframe
+    width="1000"
+    height="565"
+    src="https://www.youtube.com/embed/r5RXcBrnEQ8"
+    title="YouTube video player"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowFullScreen
+  ></iframe>
+</figure>
+
+<h4 appAnchor id="publishing-graphs"><span>Publishing graphs</span></h4>
+<p>Let&#39;s first configure the application bootstrap file (<code>main.ts</code>) to use the <code>GraphPublisher</code> class (exported from the <code>@nestjs/devtools-integration</code> - see previous chapter for more details), as follows:</p>
+<pre><code class="language-typescript">
+async function bootstrap() &#123;
+  const shouldPublishGraph = process.env.PUBLISH_GRAPH === &quot;true&quot;;
+
+  const app = await NestFactory.create(AppModule, &#123;
+    snapshot: true,
+    preview: shouldPublishGraph,
+  &#125;);
+
+  if (shouldPublishGraph) &#123;
+    await app.init();
+
+    const publishOptions = &#123; ... &#125; // NOTE: this options object will vary depending on the CI/CD provider you&#39;re using
+    const graphPublisher = new GraphPublisher(app);
+    await graphPublisher.publish(publishOptions);
+
+    await app.close();
+  &#125; else &#123;
+    await app.listen(3000);
+  &#125;
+&#125;
+</code></pre>
+<p>As we can see, we&#39;re using the <code>GraphPublisher</code> here to publish our serialized graph to the centralized registry. The <code>PUBLISH_GRAPH</code> is a custom environment variable that will let us control whether the graph should be published (CI/CD workflow), or not (regular application bootstrap). Also, we set the <code>preview</code> attribute here to <code>true</code>. With this flag enabled, our application will bootstrap in the preview mode - which basically means that constructors (and lifecycle hooks) of all controllers, enhancers, and providers in our application will not be executed. Note - this isn&#39;t <strong>required</strong>, but makes things simpler for us since in this case we won&#39;t really have to connect to the database etc. when running our application in the CI/CD pipeline.</p>
+<p>The <code>publishOptions</code> object will vary depending on the CI/CD provider you&#39;re using. We will provide you with instructions for the most popular CI/CD providers below, in later sections.</p>
+<p>Once the graph is successfully published, you&#39;ll see the following output in your workflow view:</p>
+<figure><img src="/assets/devtools/graph-published-terminal.png" /></figure>
+
+<p>Every time our graph is published, we should see a new entry in the project&#39;s corresponding page:</p>
+<figure><img src="/assets/devtools/project.png" /></figure>
+
+<h4 appAnchor id="reports"><span>Reports</span></h4>
+<p>Devtools generate a report for every build <strong>IF</strong> there&#39;s a corresponding snapshot already stored in the centralized registry. So for example, if you create a PR against the <code>master</code> branch for which the graph was already published - then the application will be able to detect differences and generate a report. Otherwise, the report will not be generated.</p>
+<p>To see reports, navigate to the project&#39;s corresponding page (see organizations).</p>
+<figure><img src="/assets/devtools/report.png" /></figure>
+
+<p>This is particularly helpful in identifying changes that may have gone unnoticed during code reviews. For instance, let&#39;s say someone has changed the scope of a <strong>deeply nested provider</strong>. This change might not be immediately obvious to the reviewer, but with Devtools, we can easily spot such changes and make sure that they&#39;re intentional. Or if we remove a guard from a specific endpoint, it will show up as affected in the report. Now if we didn&#39;t have integration or e2e tests for that route, we might not notice that it&#39;s no longer protected, and by the time we do, it could be too late.</p>
+<p>Similarly, if we&#39;re working on a <strong>large codebase</strong> and we modify a module to be global, we&#39;ll see how many edges were added to the graph, and this - in most cases - is a sign that we&#39;re doing something wrong.</p>
+<h4 appAnchor id="build-preview"><span>Build preview</span></h4>
+<p>For every published graph we can go back in time and preview how it looked before by clicking at the <strong>Preview</strong> button. Furthermore, if the report was generated, we should see the differences highlighted on our graph:</p>
+<ul>
+<li>green nodes represent added elements</li>
+<li>light white nodes represent updated elements</li>
+<li>red nodes represent deleted elements</li>
+</ul>
+<p>See screenshot below:</p>
+<figure><img src="/assets/devtools/nodes-selection.png" /></figure>
+
+<p>The ability to go back in time lets you investigate and troubleshoot the issue by comparing the current graph with the previous one. Depending on how you set things up, every pull request (or even every commit) will have a corresponding snapshot in the registry, so you can easily go back in time and see what changed. Think of Devtools as a Git but with an understanding of how Nest constructs your application graph, and with the ability to <strong>visualize</strong> it.</p>
+<h4 appAnchor id="integrations-github-actions"><span>Integrations: GitHub Actions</span></h4>
+<p>First let&#39;s start from creating a new GitHub workflow in the <code>.github/workflows</code> directory in our project and call it, for example, <code>publish-graph.yml</code>. Inside this file, let&#39;s use the following definition:</p>
+<pre><code class="language-yaml">
+name: Devtools
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - &#39;*&#39;
+
+jobs:
+  publish:
+    if: github.actor!= &#39;dependabot[bot]&#39;
+    name: Publish graph
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: &#39;16&#39;
+          cache: &#39;npm&#39;
+      - name: Install dependencies
+        run: npm ci
+      - name: Setup Environment (PR)
+        if: &#123;&#123; &#39;$&#123;&#123;&#39; &#125;&#125; github.event_name == &#39;pull_request&#39; &#123;&#123; &#39;&#125;&#125;&#39; &#125;&#125;
+        shell: bash
+        run: |
+          echo &quot;COMMIT_SHA=&#123;&#123; &#39;$&#123;&#123;&#39; &#125;&#125; github.event.pull_request.head.sha &#123;&#123; &#39;&#125;&#125;&#39; &#125;&#125;&quot; &gt;&gt;\$&#123;GITHUB_ENV&#125;
+      - name: Setup Environment (Push)
+        if: &#123;&#123; &#39;$&#123;&#123;&#39; &#125;&#125; github.event_name == &#39;push&#39; &#123;&#123; &#39;&#125;&#125;&#39; &#125;&#125;
+        shell: bash
+        run: |
+          echo &quot;COMMIT_SHA=\$&#123;GITHUB_SHA&#125;&quot; &gt;&gt; \$&#123;GITHUB_ENV&#125;
+      - name: Publish
+        run: PUBLISH_GRAPH=true npm run start
+        env:
+          DEVTOOLS_API_KEY: CHANGE_THIS_TO_YOUR_API_KEY
+          REPOSITORY_NAME: &#123;&#123; &#39;$&#123;&#123;&#39; &#125;&#125; github.event.repository.name &#123;&#123; &#39;&#125;&#125;&#39; &#125;&#125;
+          BRANCH_NAME: &#123;&#123; &#39;$&#123;&#123;&#39; &#125;&#125; github.head_ref || github.ref_name &#123;&#123; &#39;&#125;&#125;&#39; &#125;&#125;
+          TARGET_SHA: &#123;&#123; &#39;$&#123;&#123;&#39; &#125;&#125; github.event.pull_request.base.sha &#123;&#123; &#39;&#125;&#125;&#39; &#125;&#125;
+</code></pre>
+<p>Ideally, <code>DEVTOOLS_API_KEY</code> environment variable should be retrieved from GitHub Secrets, read more <a rel='nofollow' target='_blank' href="https://docs.github.com/en/actions/security-guides/encrypted-secrets#creating-encrypted-secrets-for-a-repository">here</a> .</p>
+<p>This workflow will run per each pull request that&#39;s targeting the <code>master</code> branch OR in case there&#39;s a direct commit to the <code>master</code> branch. Feel free to align this configuration to whatever your project needs. What&#39;s essential here is that we provide necessary environment variables for our <code>GraphPublisher</code> class (to run).</p>
+<p>However, there&#39;s one variable that needs to be updated before we can start using this workflow - <code>DEVTOOLS_API_KEY</code>. We can generate an API key dedicated for our project on this <a rel='nofollow' target='_blank' href="https://devtools.nestjs.com/settings/manage-api-keys">page</a>.</p>
+<p>Lastly, let&#39;s navigate to the <code>main.ts</code> file again and update the <code>publishOptions</code> object we previously left empty.</p>
+<pre><code class="language-typescript">
+const publishOptions = &#123;
+  apiKey: process.env.DEVTOOLS_API_KEY,
+  repository: process.env.REPOSITORY_NAME,
+  owner: process.env.GITHUB_REPOSITORY_OWNER,
+  sha: process.env.COMMIT_SHA,
+  target: process.env.TARGET_SHA,
+  trigger: process.env.GITHUB_BASE_REF ? &#39;pull&#39; : &#39;push&#39;,
+  branch: process.env.BRANCH_NAME,
+&#125;;
+</code></pre>
+<p>For the best developer experience, make sure to integrate the <strong>GitHub application</strong> for your project by clicking on the &quot;Integrate GitHub app&quot; button (see screenshot below). Note - this isn&#39;t required.</p>
+<figure><img src="/assets/devtools/integrate-github-app.png" /></figure>
+
+<p>With this integration, you&#39;ll be able to see the status of the preview/report generation process right in your pull request:</p>
+<figure><img src="/assets/devtools/actions-preview.png" /></figure>
+
+<h4 appAnchor id="integrations-gitlab-pipelines"><span>Integrations: Gitlab Pipelines</span></h4>
+<p>First let&#39;s start from creating a new Gitlab CI configuration file in the root directory of our project and call it, for example, <code>.gitlab-ci.yml</code>. Inside this file, let&#39;s use the following definition:</p>
+<pre><code class="language-typescript">
+const publishOptions = &#123;
+  apiKey: process.env.DEVTOOLS_API_KEY,
+  repository: process.env.REPOSITORY_NAME,
+  owner: process.env.GITHUB_REPOSITORY_OWNER,
+  sha: process.env.COMMIT_SHA,
+  target: process.env.TARGET_SHA,
+  trigger: process.env.GITHUB_BASE_REF ? &#39;pull&#39; : &#39;push&#39;,
+  branch: process.env.BRANCH_NAME,
+&#125;;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Ideally, <code>DEVTOOLS_API_KEY</code> environment variable should be retrieved from secrets.
+</blockquote>
+<p>This workflow will run per each pull request that&#39;s targeting the <code>master</code> branch OR in case there&#39;s a direct commit to the <code>master</code> branch. Feel free to align this configuration to whatever your project needs. What&#39;s essential here is that we provide necessary environment variables for our <code>GraphPublisher</code> class (to run).</p>
+<p>However, there&#39;s one variable (in this workflow definition) that needs to be updated before we can start using this workflow - <code>DEVTOOLS_API_KEY</code>. We can generate an API key dedicated for our project on this <strong>page</strong> .</p>
+<p>Lastly, let&#39;s navigate to the <code>main.ts</code> file again and update the <code>publishOptions</code> object we previously left empty.</p>
+<pre><code class="language-yaml">
+image: node:16
+
+stages:
+  - build
+
+cache:
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - node_modules/
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == &quot;merge_request_event&quot;
+      when: always
+    - if: $CI_COMMIT_BRANCH == &quot;master&quot; &amp;&amp; $CI_PIPELINE_SOURCE == &quot;push&quot;
+      when: always
+    - when: never
+
+install_dependencies:
+  stage: build
+  script:
+    - npm ci
+
+publish_graph:
+  stage: build
+  needs:
+    - install_dependencies
+  script: npm run start
+  variables:
+    PUBLISH_GRAPH: &#39;true&#39;
+    DEVTOOLS_API_KEY: &#39;CHANGE_THIS_TO_YOUR_API_KEY&#39;
+</code></pre>
+<h4 appAnchor id="other-cicd-tools"><span>Other CI/CD tools</span></h4>
+<p>Nest Devtools CI/CD integration can be used with any CI/CD tool of your choice (e.g., <a rel='nofollow' target='_blank' href="https://bitbucket.org/product/features/pipelines">Bitbucket Pipelines</a> , <a rel='nofollow' target='_blank' href="https://circleci.com/">CircleCI</a>, etc) so don&#39;t feel limited to providers we described here.</p>
+<p>Look at the following <code>publishOptions</code> object configuration to understand what information is required to publish the graph for a given commit/build/PR.</p>
+<pre><code class="language-typescript">
+const publishOptions = &#123;
+  apiKey: process.env.DEVTOOLS_API_KEY,
+  repository: process.env.CI_PROJECT_NAME,
+  owner: process.env.CI_PROJECT_ROOT_NAMESPACE,
+  sha: process.env.CI_COMMIT_SHA,
+  target: process.env.CI_MERGE_REQUEST_DIFF_BASE_SHA,
+  trigger: process.env.CI_MERGE_REQUEST_DIFF_BASE_SHA ? &#39;pull&#39; : &#39;push&#39;,
+  branch:
+    process.env.CI_COMMIT_BRANCH ??
+    process.env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME,
+&#125;;
+</code></pre>
+<p>Most of this information is provided through CI/CD built-in environment variables (see <a rel='nofollow' target='_blank' href="https://circleci.com/docs/variables/#built-in-environment-variables">CircleCI built-in environment list</a> and <a rel='nofollow' target='_blank' href="https://support.atlassian.com/bitbucket-cloud/docs/variables-and-secrets/">Bitbucket variables</a> ).</p>
+<p>When it comes to the pipeline configuration for publishing graphs, we recommend using the following triggers:</p>
+<ul>
+<li><code>push</code> event - only if the current branch represents a deployment environment, for example <code>master</code>, <code>main</code>, <code>staging</code>, <code>production</code>, etc.</li>
+<li><code>pull request</code> event - always, or when the <strong>target branch</strong> represents a deployment environment (see above)</li>
+</ul>
+
+</div>
+

@@ -1,0 +1,32 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/microservices/interceptors.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="interceptors">Interceptors</h3>
+<p>There is no difference between <a routerLink="/interceptors">regular interceptors</a> and microservices interceptors. The following example uses a manually instantiated method-scoped interceptor. Just as with HTTP based applications, you can also use controller-scoped interceptors (i.e., prefix the controller class with a <code>@UseInterceptors()</code> decorator).</p>
+
+<span class="filename">
+<app-tabs #app21dbe759cf43e6ccb871766db1c148e6b07c5e06></app-tabs>
+</span><pre [class.hide]="app21dbe759cf43e6ccb871766db1c148e6b07c5e06.isJsActive"><code class="language-typescript">
+@UseInterceptors(new TransformInterceptor())
+@MessagePattern(&#123; cmd: &#39;sum&#39; &#125;)
+accumulate(data: number[]): number &#123;
+  return (data || []).reduce((a, b) =&gt; a + b);
+&#125;
+</code></pre>
+<pre [class.hide]="!app21dbe759cf43e6ccb871766db1c148e6b07c5e06.isJsActive"><code class="language-typescript">
+@UseInterceptors(new TransformInterceptor())
+@MessagePattern(&#123; cmd: &#39;sum&#39; &#125;)
+accumulate(data) &#123;
+  return (data || []).reduce((a, b) =&gt; a + b);
+&#125;
+</code></pre>
+</div>
+

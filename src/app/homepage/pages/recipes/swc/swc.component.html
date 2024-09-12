@@ -1,0 +1,320 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/recipes/swc.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="swc">SWC</h3>
+<p><a rel='nofollow' target='_blank' href="https://swc.rs/">SWC</a> (Speedy Web Compiler) is an extensible Rust-based platform that can be used for both compilation and bundling.
+Using SWC with Nest CLI is a great and simple way to significantly speed up your development process.</p>
+<blockquote class="
+info "><strong>Hint</strong> SWC is approximately <strong>x20 times faster</strong> than the default TypeScript compiler.
+</blockquote>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>To get started, first install a few packages:</p>
+<pre><code class="language-bash">
+$ npm i --save-dev @swc/cli @swc/core
+</code></pre>
+<h4 appAnchor id="getting-started"><span>Getting started</span></h4>
+<p>Once the installation process is complete, you can use the <code>swc</code> builder with Nest CLI, as follows:</p>
+<pre><code class="language-bash">
+$ nest start -b swc
+# OR nest start --builder swc
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> If your repository is a monorepo, check out <a href="/recipes/swc#monorepo">this section</a>.
+</blockquote>
+<p>Instead of passing the <code>-b</code> flag you can also just set the <code>compilerOptions.builder</code> property to <code>&quot;swc&quot;</code> in your <code>nest-cli.json</code> file, like so:</p>
+<pre><code class="language-json">
+&#123;
+  &quot;compilerOptions&quot;: &#123;
+    &quot;builder&quot;: &quot;swc&quot;
+  &#125;
+&#125;
+</code></pre>
+<p>To customize builder&#39;s behavior, you can pass an object containing two attributes, <code>type</code> (<code>&quot;swc&quot;</code>) and <code>options</code>, as follows:</p>
+<pre><code class="language-json">
+&quot;compilerOptions&quot;: &#123;
+  &quot;builder&quot;: &#123;
+    &quot;type&quot;: &quot;swc&quot;,
+    &quot;options&quot;: &#123;
+      &quot;swcrcPath&quot;: &quot;infrastructure/.swcrc&quot;,
+    &#125;
+  &#125;
+&#125;
+</code></pre>
+<p>To run the application in watch mode, use the following command:</p>
+<pre><code class="language-bash">
+$ nest start -b swc -w
+# OR nest start --builder swc --watch
+</code></pre>
+<h4 appAnchor id="type-checking"><span>Type checking</span></h4>
+<p>SWC does not perform any type checking itself (as opposed to the default TypeScript compiler), so to turn it on, you need to use the <code>--type-check</code> flag:</p>
+<pre><code class="language-bash">
+$ nest start -b swc --type-check
+</code></pre>
+<p>This command will instruct the Nest CLI to run <code>tsc</code> in <code>noEmit</code> mode alongside SWC, which will asynchronously perform type checking. Again, instead of passing the <code>--type-check</code> flag you can also just set the <code>compilerOptions.typeCheck</code> property to <code>true</code> in your <code>nest-cli.json</code> file, like so:</p>
+<pre><code class="language-json">
+&#123;
+  &quot;compilerOptions&quot;: &#123;
+    &quot;builder&quot;: &quot;swc&quot;,
+    &quot;typeCheck&quot;: true
+  &#125;
+&#125;
+</code></pre>
+<h4 appAnchor id="cli-plugins-swc"><span>CLI Plugins (SWC)</span></h4>
+<p>The <code>--type-check</code> flag will automatically execute <strong>NestJS CLI plugins</strong> and produce a serialized metadata file which then can be loaded by the application at runtime.</p>
+<h4 appAnchor id="swc-configuration"><span>SWC configuration</span></h4>
+<p>SWC builder is pre-configured to match the requirements of NestJS applications. However, you can customize the configuration by creating a <code>.swcrc</code> file in the root directory and tweaking the options as you wish.</p>
+<pre><code class="language-json">
+&#123;
+  &quot;$schema&quot;: &quot;https://json.schemastore.org/swcrc&quot;,
+  &quot;sourceMaps&quot;: true,
+  &quot;jsc&quot;: &#123;
+    &quot;parser&quot;: &#123;
+      &quot;syntax&quot;: &quot;typescript&quot;,
+      &quot;decorators&quot;: true,
+      &quot;dynamicImport&quot;: true
+    &#125;,
+    &quot;baseUrl&quot;: &quot;./&quot;
+  &#125;,
+  &quot;minify&quot;: false
+&#125;
+</code></pre>
+<h4 appAnchor id="monorepo"><span>Monorepo</span></h4>
+<p>If your repository is a monorepo, then instead of using <code>swc</code> builder you have to configure <code>webpack</code> to use <code>swc-loader</code>.</p>
+<p>First, let&#39;s install the required package:</p>
+<pre><code class="language-bash">
+$ npm i --save-dev swc-loader
+</code></pre>
+<p>Once the installation is complete, create a <code>webpack.config.js</code> file in the root directory of your application with the following content:</p>
+<pre><code class="language-js">
+const swcDefaultConfig = require(&#39;@nestjs/cli/lib/compiler/defaults/swc-defaults&#39;).swcDefaultsFactory().swcOptions;
+
+module.exports = &#123;
+  module: &#123;
+    rules: [
+      &#123;
+        test: /\.ts$/,
+        exclude: /node_modules/,
+        use: &#123;
+          loader: &#39;swc-loader&#39;,
+          options: swcDefaultConfig,
+        &#125;,
+      &#125;,
+    ],
+  &#125;,
+&#125;;
+</code></pre>
+<h4 appAnchor id="monorepo-and-cli-plugins"><span>Monorepo and CLI plugins</span></h4>
+<p>Now if you use CLI plugins, <code>swc-loader</code> will not load them automatically. Instead, you have to create a separate file that will load them manually. To do so,
+declare a <code>generate-metadata.ts</code> file near the <code>main.ts</code> file with the following content:</p>
+<pre><code class="language-ts">
+import &#123; PluginMetadataGenerator &#125; from &#39;@nestjs/cli/lib/compiler/plugins&#39;;
+import &#123; ReadonlyVisitor &#125; from &#39;@nestjs/swagger/dist/plugin&#39;;
+
+const generator = new PluginMetadataGenerator();
+generator.generate(&#123;
+  visitors: [new ReadonlyVisitor(&#123; introspectComments: true, pathToSource: __dirname &#125;)],
+  outputDir: __dirname,
+  watch: true,
+  tsconfigPath: &#39;apps/&lt;name&gt;/tsconfig.app.json&#39;,
+&#125;);
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> In this example we used <code>@nestjs/swagger</code> plugin, but you can use any plugin of your choice.
+</blockquote>
+<p>The <code>generate()</code> method accepts the following options:</p>
+<table>
+<thead>
+</thead>
+<tbody><tr>
+<td><code>watch</code></td>
+<td>Whether to watch the project for changes.</td>
+</tr>
+<tr>
+<td><code>tsconfigPath</code></td>
+<td>Path to the <code>tsconfig.json</code> file. Relative to the current working directory (<code>process.cwd()</code>).</td>
+</tr>
+<tr>
+<td><code>outputDir</code></td>
+<td>Path to the directory where the metadata file will be saved.</td>
+</tr>
+<tr>
+<td><code>visitors</code></td>
+<td>An array of visitors that will be used to generate metadata.</td>
+</tr>
+<tr>
+<td><code>filename</code></td>
+<td>The name of the metadata file. Defaults to <code>metadata.ts</code>.</td>
+</tr>
+<tr>
+<td><code>printDiagnostics</code></td>
+<td>Whether to print diagnostics to the console. Defaults to <code>true</code>.</td>
+</tr>
+</tbody></table>
+<p>Finally, you can run the <code>generate-metadata</code> script in a separate terminal window with the following command:</p>
+<pre><code class="language-bash">
+$ npx ts-node src/generate-metadata.ts
+# OR npx ts-node apps/&#123;YOUR_APP&#125;/src/generate-metadata.ts
+</code></pre>
+<h4 appAnchor id="common-pitfalls"><span>Common pitfalls</span></h4>
+<p>If you use TypeORM/MikroORM or any other ORM in your application, you may stumble upon circular import issues. SWC doesn&#39;t handle <strong>circular imports</strong> well, so you should use the following workaround:</p>
+<pre><code class="language-typescript">
+@Entity()
+export class User &#123;
+  @OneToOne(() =&gt; Profile, (profile) =&gt; profile.user)
+  profile: Relation&lt;Profile&gt;; // &lt;--- see &quot;Relation&lt;&gt;&quot; type here instead of just &quot;Profile&quot;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> <code>Relation</code> type is exported from the <code>typeorm</code> package.
+</blockquote>
+<p>Doing this prevents the type of the property from being saved in the transpiled code in the property metadata, preventing circular dependency issues.</p>
+<p>If your ORM does not provide a similar workaround, you can define the wrapper type yourself:</p>
+<pre><code class="language-typescript">
+/**
+ * Wrapper type used to circumvent ESM modules circular dependency issue
+ * caused by reflection metadata saving the type of the property.
+ */
+export type WrapperType&lt;T&gt; = T; // WrapperType === Relation
+</code></pre>
+<p>For all <a routerLink="/fundamentals/circular-dependency">circular dependency injections</a> in your project, you will also need to use the custom wrapper type described above:</p>
+<pre><code class="language-typescript">
+@Injectable()
+export class UserService &#123;
+  constructor(
+    @Inject(forwardRef(() =&gt; ProfileService))
+    private readonly profileService: WrapperType&lt;ProfileService&gt;,
+  ) &#123;&#125;;
+&#125;
+</code></pre>
+<h3 id="jest--swc">Jest + SWC</h3>
+<p>To use SWC with Jest, you need to install the following packages:</p>
+<pre><code class="language-bash">
+$ npm i --save-dev jest @swc/core @swc/jest
+</code></pre>
+<p>Once the installation is complete, update the <code>package.json</code>/<code>jest.config.js</code> file (depending on your configuration) with the following content:</p>
+<pre><code class="language-json">
+&#123;
+  &quot;jest&quot;: &#123;
+    &quot;transform&quot;: &#123;
+      &quot;^.+\\.(t|j)s?$&quot;: [&quot;@swc/jest&quot;]
+    &#125;
+  &#125;
+&#125;
+</code></pre>
+<p>Additionally you would need to add the following <code>transform</code> properties to your <code>.swcrc</code> file: <code>legacyDecorator</code>, <code>decoratorMetadata</code>:</p>
+<pre><code class="language-json">
+&#123;
+  &quot;$schema&quot;: &quot;https://json.schemastore.org/swcrc&quot;,
+  &quot;sourceMaps&quot;: true,
+  &quot;jsc&quot;: &#123;
+    &quot;parser&quot;: &#123;
+      &quot;syntax&quot;: &quot;typescript&quot;,
+      &quot;decorators&quot;: true,
+      &quot;dynamicImport&quot;: true
+    &#125;,
+    &quot;transform&quot;: &#123;
+      &quot;legacyDecorator&quot;: true,
+      &quot;decoratorMetadata&quot;: true
+    &#125;,
+    &quot;baseUrl&quot;: &quot;./&quot;
+  &#125;,
+  &quot;minify&quot;: false
+&#125;
+</code></pre>
+<p>If you use NestJS CLI Plugins in your project, you&#39;ll have to run <code>PluginMetadataGenerator</code> manually. Navigate to <a href="/recipes/swc#monorepo-and-cli-plugins">this section</a> to learn more.</p>
+<h3 id="vitest">Vitest</h3>
+<p><a rel='nofollow' target='_blank' href="https://vitest.dev/">Vitest</a> is a fast and lightweight test runner designed to work with Vite. It provides a modern, fast, and easy-to-use testing solution that can be integrated with NestJS projects.</p>
+<h4 appAnchor id="installation-1"><span>Installation</span></h4>
+<p>To get started, first install the required packages:</p>
+<pre><code class="language-bash">
+$ npm i --save-dev vitest unplugin-swc @swc/core @vitest/coverage-v8
+</code></pre>
+<h4 appAnchor id="configuration"><span>Configuration</span></h4>
+<p>Create a <code>vitest.config.ts</code> file in the root directory of your application with the following content:</p>
+<pre><code class="language-ts">
+import swc from &#39;unplugin-swc&#39;;
+import &#123; defineConfig &#125; from &#39;vitest/config&#39;;
+
+export default defineConfig(&#123;
+  test: &#123;
+    globals: true,
+    root: &#39;./&#39;,
+  &#125;,
+  plugins: [
+    // This is required to build the test files with SWC
+    swc.vite(&#123;
+      // Explicitly set the module type to avoid inheriting this value from a `.swcrc` config file
+      module: &#123; type: &#39;es6&#39; &#125;,
+    &#125;),
+  ],
+&#125;);
+</code></pre>
+<p>This configuration file sets up the Vitest environment, root directory, and SWC plugin. You should also create a separate configuration
+file for e2e tests, with an additional <code>include</code> field that specifies the test path regex:</p>
+<pre><code class="language-ts">
+import swc from &#39;unplugin-swc&#39;;
+import &#123; defineConfig &#125; from &#39;vitest/config&#39;;
+
+export default defineConfig(&#123;
+  test: &#123;
+    include: [&#39;**/*.e2e-spec.ts&#39;],
+    globals: true,
+    root: &#39;./&#39;,
+  &#125;,
+  plugins: [swc.vite()],
+&#125;);
+</code></pre>
+<p>Additionally, you can set the <code>alias</code> options to support TypeScript paths in your tests:</p>
+<pre><code class="language-ts">
+import swc from &#39;unplugin-swc&#39;;
+import &#123; defineConfig &#125; from &#39;vitest/config&#39;;
+
+export default defineConfig(&#123;
+  test: &#123;
+    include: [&#39;**/*.e2e-spec.ts&#39;],
+    globals: true,
+    alias: &#123;
+      &#39;@src&#39;: &#39;./src&#39;,
+      &#39;@test&#39;: &#39;./test&#39;,
+    &#125;,
+    root: &#39;./&#39;,
+  &#125;,
+  resolve: &#123;
+    alias: &#123;
+      &#39;@src&#39;: &#39;./src&#39;,
+      &#39;@test&#39;: &#39;./test&#39;,
+    &#125;,
+  &#125;,
+  plugins: [swc.vite()],
+&#125;);
+</code></pre>
+<h4 appAnchor id="update-imports-in-e2e-tests"><span>Update imports in E2E tests</span></h4>
+<p>Change any E2E test imports using <code>import * as request from &#39;supertest&#39;</code> to <code>import request from &#39;supertest&#39;</code>. This is necessary because Vitest, when bundled with Vite, expects a default import for supertest. Using a namespace import may cause issues in this specific setup.</p>
+<p>Lastly, update the test scripts in your package.json file to the following:</p>
+<pre><code class="language-json">
+&#123;
+  &quot;scripts&quot;: &#123;
+    &quot;test&quot;: &quot;vitest run&quot;,
+    &quot;test:watch&quot;: &quot;vitest&quot;,
+    &quot;test:cov&quot;: &quot;vitest run --coverage&quot;,
+    &quot;test:debug&quot;: &quot;vitest --inspect-brk --inspect --logHeapUsage --threads=false&quot;,
+    &quot;test:e2e&quot;: &quot;vitest run --config ./vitest.config.e2e.ts&quot;
+  &#125;
+&#125;
+</code></pre>
+<p>These scripts configure Vitest for running tests, watching for changes, generating code coverage reports, and debugging. The test:e2e script is specifically for running E2E tests with a custom configuration file.</p>
+<p>With this setup, you can now enjoy the benefits of using Vitest in your NestJS project, including faster test execution and a more modern testing experience.</p>
+<blockquote class="
+info "><strong>Hint</strong> You can check out a working example in this <a rel='nofollow' target='_blank' href="https://github.com/TrilonIO/nest-vitest">repository</a>
+</blockquote>
+
+</div>
+

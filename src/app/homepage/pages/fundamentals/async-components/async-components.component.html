@@ -1,0 +1,33 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/fundamentals/async-components.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="asynchronous-providers">Asynchronous providers</h3>
+<p>At times, the application start should be delayed until one or more <strong>asynchronous tasks</strong> are completed. For example, you may not want to start accepting requests until the connection with the database has been established. You can achieve this using asynchronous providers.</p>
+<p>The syntax for this is to use <code>async/await</code> with the <code>useFactory</code> syntax. The factory returns a <code>Promise</code>, and the factory function can <code>await</code> asynchronous tasks. Nest will await resolution of the promise before instantiating any class that depends on (injects) such a provider.</p>
+<pre><code class="language-typescript">
+&#123;
+  provide: &#39;ASYNC_CONNECTION&#39;,
+  useFactory: async () =&gt; &#123;
+    const connection = await createConnection(options);
+    return connection;
+  &#125;,
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Learn more about custom provider syntax <a routerLink="/fundamentals/custom-providers">here</a>.
+</blockquote>
+<h4 appAnchor id="injection"><span>Injection</span></h4>
+<p>Asynchronous providers are injected to other components by their tokens, like any other provider. In the example above, you would use the construct <code>@Inject(&#39;ASYNC_CONNECTION&#39;)</code>.</p>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p><a routerLink="/recipes/sql-typeorm">The TypeORM recipe</a> has a more substantial example of an asynchronous provider.</p>
+
+</div>
+

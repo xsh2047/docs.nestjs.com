@@ -1,0 +1,254 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/websockets/gateways.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="gateways">Gateways</h3>
+<p>Most of the concepts discussed elsewhere in this documentation, such as dependency injection, decorators, exception filters, pipes, guards and interceptors, apply equally to gateways. Wherever possible, Nest abstracts implementation details so that the same components can run across HTTP-based platforms, WebSockets, and Microservices. This section covers the aspects of Nest that are specific to WebSockets.</p>
+<p>In Nest, a gateway is simply a class annotated with <code>@WebSocketGateway()</code> decorator. Technically, gateways are platform-agnostic which makes them compatible with any WebSockets library once an adapter is created. There are two WS platforms supported out-of-the-box: <a rel='nofollow' target='_blank' href="https://github.com/socketio/socket.io">socket.io</a> and <a rel='nofollow' target='_blank' href="https://github.com/websockets/ws">ws</a>. You can choose the one that best suits your needs. Also, you can build your own adapter by following this <a routerLink="/websockets/adapter">guide</a>.</p>
+<figure><img class="illustrative-image" src="/assets/Gateways_1.png" /></figure>
+
+<blockquote class="
+info "><strong>Hint</strong> Gateways can be treated as <a routerLink="/providers">providers</a>; this means they can inject dependencies through the class constructor. Also, gateways can be injected by other classes (providers and controllers) as well.
+</blockquote>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>To start building WebSockets-based applications, first install the required package:</p>
+
+<span class="filename">
+<app-tabs #app519f17bca83c1e5670efe69e7e5eaf297b1b2cd5></app-tabs>
+</span><pre [class.hide]="app519f17bca83c1e5670efe69e7e5eaf297b1b2cd5.isJsActive"><code class="language-typescript">
+$ npm i --save @nestjs/websockets @nestjs/platform-socket.io
+</code></pre>
+<pre [class.hide]="!app519f17bca83c1e5670efe69e7e5eaf297b1b2cd5.isJsActive"><code class="language-typescript">
+$ npm i --save @nestjs/websockets @nestjs/platform-socket.io
+</code></pre><h4 appAnchor id="overview"><span>Overview</span></h4>
+<p>In general, each gateway is listening on the same port as the <strong>HTTP server</strong>, unless your app is not a web application, or you have changed the port manually. This default behavior can be modified by passing an argument to the <code>@WebSocketGateway(80)</code> decorator where <code>80</code> is a chosen port number. You can also set a <a rel='nofollow' target='_blank' href="https://socket.io/docs/v4/namespaces/">namespace</a> used by the gateway using the following construction:</p>
+<pre><code class="language-typescript">
+@WebSocketGateway(80, &#123; namespace: &#39;events&#39; &#125;)
+</code></pre>
+<blockquote class="
+warning "><strong>Warning</strong> Gateways are not instantiated until they are referenced in the providers array of an existing module.
+</blockquote>
+<p>You can pass any supported <a rel='nofollow' target='_blank' href="https://socket.io/docs/v4/server-options/">option</a> to the socket constructor with the second argument to the <code>@WebSocketGateway()</code> decorator, as shown below:</p>
+<pre><code class="language-typescript">
+@WebSocketGateway(81, &#123; transports: [&#39;websocket&#39;] &#125;)
+</code></pre>
+<p>The gateway is now listening, but we have not yet subscribed to any incoming messages. Let&#39;s create a handler that will subscribe to the <code>events</code> messages and respond to the user with the exact same data.</p>
+
+<span class="filename">
+  {{ 'events.gateway' | extension: app0f725cb130a431241e619165d47663813e3faacd.isJsActive }}
+<app-tabs #app0f725cb130a431241e619165d47663813e3faacd></app-tabs>
+</span><pre [class.hide]="app0f725cb130a431241e619165d47663813e3faacd.isJsActive"><code class="language-typescript">
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(@MessageBody() data: string): string &#123;
+  return data;
+&#125;
+</code></pre>
+<pre [class.hide]="!app0f725cb130a431241e619165d47663813e3faacd.isJsActive"><code class="language-typescript">
+@Bind(MessageBody())
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(data) &#123;
+  return data;
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> <code>@SubscribeMessage()</code> and <code>@MessageBody()</code> decorators are imported from <code>@nestjs/websockets</code> package.
+</blockquote>
+<p>Once the gateway is created, we can register it in our module.</p>
+
+<span class="filename">
+  {{ 'events.module' | extension: app9d40e29ef48d1ec25fba3ec630293d94662252a3.isJsActive }}
+<app-tabs #app9d40e29ef48d1ec25fba3ec630293d94662252a3></app-tabs>
+</span><pre><code class="language-typescript">
+@Module(&#123;
+  providers: [EventsGateway]
+&#125;)
+export class EventsModule &#123;&#125;
+</code></pre><p>You can also pass in a property key to the decorator to extract it from the incoming message body:</p>
+
+<span class="filename">
+  {{ 'events.gateway' | extension: app6aa3150675ad12d7d23736a841eb30b362e229b5.isJsActive }}
+<app-tabs #app6aa3150675ad12d7d23736a841eb30b362e229b5></app-tabs>
+</span><pre [class.hide]="app6aa3150675ad12d7d23736a841eb30b362e229b5.isJsActive"><code class="language-typescript">
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(@MessageBody(&#39;id&#39;) id: number): number &#123;
+  // id === messageBody.id
+  return id;
+&#125;
+</code></pre>
+<pre [class.hide]="!app6aa3150675ad12d7d23736a841eb30b362e229b5.isJsActive"><code class="language-typescript">
+@Bind(MessageBody(&#39;id&#39;))
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(id) &#123;
+  // id === messageBody.id
+  return id;
+&#125;
+</code></pre><p>If you would prefer not to use decorators, the following code is functionally equivalent:</p>
+
+<span class="filename">
+  {{ 'events.gateway' | extension: appe4aa06b89fcca2321c05c6f778a704d7eb7e1070.isJsActive }}
+<app-tabs #appe4aa06b89fcca2321c05c6f778a704d7eb7e1070></app-tabs>
+</span><pre [class.hide]="appe4aa06b89fcca2321c05c6f778a704d7eb7e1070.isJsActive"><code class="language-typescript">
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(client: Socket, data: string): string &#123;
+  return data;
+&#125;
+</code></pre>
+<pre [class.hide]="!appe4aa06b89fcca2321c05c6f778a704d7eb7e1070.isJsActive"><code class="language-typescript">
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(client, data) &#123;
+  return data;
+&#125;
+</code></pre><p>In the example above, the <code>handleEvent()</code> function takes two arguments. The first one is a platform-specific <a rel='nofollow' target='_blank' href="https://socket.io/docs/v4/server-api/#socket">socket instance</a>, while the second one is the data received from the client. This approach is not recommended though, because it requires mocking the <code>socket</code> instance in each unit test.</p>
+<p>Once the <code>events</code> message is received, the handler sends an acknowledgment with the same data that was sent over the network. In addition, it&#39;s possible to emit messages using a library-specific approach, for example, by making use of <code>client.emit()</code> method. In order to access a connected socket instance, use <code>@ConnectedSocket()</code> decorator.</p>
+
+<span class="filename">
+  {{ 'events.gateway' | extension: app9dca8f2a544a4b7dafe47b6e840bebbb683c415e.isJsActive }}
+<app-tabs #app9dca8f2a544a4b7dafe47b6e840bebbb683c415e></app-tabs>
+</span><pre [class.hide]="app9dca8f2a544a4b7dafe47b6e840bebbb683c415e.isJsActive"><code class="language-typescript">
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(
+  @MessageBody() data: string,
+  @ConnectedSocket() client: Socket,
+): string &#123;
+  return data;
+&#125;
+</code></pre>
+<pre [class.hide]="!app9dca8f2a544a4b7dafe47b6e840bebbb683c415e.isJsActive"><code class="language-typescript">
+@Bind(MessageBody(), ConnectedSocket())
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(data, client) &#123;
+  return data;
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> <code>@ConnectedSocket()</code> decorator is imported from <code>@nestjs/websockets</code> package.
+</blockquote>
+<p>However, in this case, you won&#39;t be able to leverage interceptors. If you don&#39;t want to respond to the user, you can simply skip the <code>return</code> statement (or explicitly return a &quot;falsy&quot; value, e.g. <code>undefined</code>).</p>
+<p>Now when a client emits the message as follows:</p>
+<pre><code class="language-typescript">
+socket.emit(&#39;events&#39;, &#123; name: &#39;Nest&#39; &#125;);
+</code></pre>
+<p>The <code>handleEvent()</code> method will be executed. In order to listen for messages emitted from within the above handler, the client has to attach a corresponding acknowledgment listener:</p>
+<pre><code class="language-typescript">
+socket.emit(&#39;events&#39;, &#123; name: &#39;Nest&#39; &#125;, (data) =&gt; console.log(data));
+</code></pre>
+<h4 appAnchor id="multiple-responses"><span>Multiple responses</span></h4>
+<p>The acknowledgment is dispatched only once. Furthermore, it is not supported by native WebSockets implementation. To solve this limitation, you may return an object which consists of two properties. The <code>event</code> which is a name of the emitted event and the <code>data</code> that has to be forwarded to the client.</p>
+
+<span class="filename">
+  {{ 'events.gateway' | extension: app02cc5777f1f496d76ef25f120838bc33645cce64.isJsActive }}
+<app-tabs #app02cc5777f1f496d76ef25f120838bc33645cce64></app-tabs>
+</span><pre [class.hide]="app02cc5777f1f496d76ef25f120838bc33645cce64.isJsActive"><code class="language-typescript">
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(@MessageBody() data: unknown): WsResponse&lt;unknown&gt; &#123;
+  const event = &#39;events&#39;;
+  return &#123; event, data &#125;;
+&#125;
+</code></pre>
+<pre [class.hide]="!app02cc5777f1f496d76ef25f120838bc33645cce64.isJsActive"><code class="language-typescript">
+@Bind(MessageBody())
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(data) &#123;
+  const event = &#39;events&#39;;
+  return &#123; event, data &#125;;
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> The <code>WsResponse</code> interface is imported from <code>@nestjs/websockets</code> package.
+</blockquote>
+<blockquote class="
+warning "><strong>Warning</strong> You should return a class instance that implements <code>WsResponse</code> if your <code>data</code> field relies on <code>ClassSerializerInterceptor</code>, as it ignores plain JavaScript object responses.
+</blockquote>
+<p>In order to listen for the incoming response(s), the client has to apply another event listener.</p>
+<pre><code class="language-typescript">
+socket.on(&#39;events&#39;, (data) =&gt; console.log(data));
+</code></pre>
+<h4 appAnchor id="asynchronous-responses"><span>Asynchronous responses</span></h4>
+<p>Message handlers are able to respond either synchronously or <strong>asynchronously</strong>. Hence, <code>async</code> methods are supported. A message handler is also able to return an <code>Observable</code>, in which case the result values will be emitted until the stream is completed.</p>
+
+<span class="filename">
+  {{ 'events.gateway' | extension: app85bd767d7f3f6bb801635c329308ae002a7475a6.isJsActive }}
+<app-tabs #app85bd767d7f3f6bb801635c329308ae002a7475a6></app-tabs>
+</span><pre [class.hide]="app85bd767d7f3f6bb801635c329308ae002a7475a6.isJsActive"><code class="language-typescript">
+@SubscribeMessage(&#39;events&#39;)
+onEvent(@MessageBody() data: unknown): Observable&lt;WsResponse&lt;number&gt;&gt; &#123;
+  const event = &#39;events&#39;;
+  const response = [1, 2, 3];
+
+  return from(response).pipe(
+    map(data =&gt; (&#123; event, data &#125;)),
+  );
+&#125;
+</code></pre>
+<pre [class.hide]="!app85bd767d7f3f6bb801635c329308ae002a7475a6.isJsActive"><code class="language-typescript">
+@Bind(MessageBody())
+@SubscribeMessage(&#39;events&#39;)
+onEvent(data) &#123;
+  const event = &#39;events&#39;;
+  const response = [1, 2, 3];
+
+  return from(response).pipe(
+    map(data =&gt; (&#123; event, data &#125;)),
+  );
+&#125;
+</code></pre><p>In the example above, the message handler will respond <strong>3 times</strong> (with each item from the array).</p>
+<h4 appAnchor id="lifecycle-hooks"><span>Lifecycle hooks</span></h4>
+<p>There are 3 useful lifecycle hooks available. All of them have corresponding interfaces and are described in the following table:</p>
+<table>
+  <tr>
+    <td>
+      <code>OnGatewayInit</code>
+    </td>
+    <td>
+      Forces to implement the <code>afterInit()</code> method. Takes library-specific server instance as an argument (and
+      spreads the rest if required).
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <code>OnGatewayConnection</code>
+    </td>
+    <td>
+      Forces to implement the <code>handleConnection()</code> method. Takes library-specific client socket instance as
+      an argument.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <code>OnGatewayDisconnect</code>
+    </td>
+    <td>
+      Forces to implement the <code>handleDisconnect()</code> method. Takes library-specific client socket instance as
+      an argument.
+    </td>
+  </tr>
+</table>
+
+<blockquote class="
+info "><strong>Hint</strong> Each lifecycle interface is exposed from <code>@nestjs/websockets</code> package.
+</blockquote>
+<h4 appAnchor id="server-and-namespace"><span>Server and Namespace</span></h4>
+<p>Occasionally, you may want to have a direct access to the native, <strong>platform-specific</strong> server instance. The reference to this object is passed as an argument to the <code>afterInit()</code> method (<code>OnGatewayInit</code> interface). Another option is to use the <code>@WebSocketServer()</code> decorator.</p>
+<pre><code class="language-typescript">
+@WebSocketServer()
+server: Server;
+</code></pre>
+<p>Also, you can retrieve the corresponding namespace using the <code>namespace</code> attribute, as follows:</p>
+<pre><code class="language-typescript">
+@WebSocketServer(&#123; namespace: &#39;my-namespace&#39; &#125;)
+namespace: Namespace;
+</code></pre>
+<blockquote class="
+warning "><strong>Notice</strong> The <code>@WebSocketServer()</code> decorator is imported from the <code>@nestjs/websockets</code> package.
+</blockquote>
+<p>Nest will automatically assign the server instance to this property once it is ready to use.</p>
+<p><app-banner-enterprise></app-banner-enterprise></p>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>A working example is available <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/tree/master/sample/02-gateways">here</a>.</p>
+
+</div>
+

@@ -1,0 +1,152 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/recipes/sql-sequelize.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="sql-sequelize">SQL (Sequelize)</h3>
+<h5 id="this-chapter-applies-only-to-typescript">This chapter applies only to TypeScript</h5>
+<blockquote class="
+"><strong>Warning</strong> In this article, you&#39;ll learn how to create a <code>DatabaseModule</code> based on the <strong>Sequelize</strong> package from scratch using custom components. As a consequence, this technique contains a lot of overhead that you can avoid by using the dedicated, out-of-the-box <code>@nestjs/sequelize</code> package. To learn more, see <a href="/techniques/database#sequelize-integration">here</a>.
+</blockquote>
+<p><a rel='nofollow' target='_blank' href="https://github.com/sequelize/sequelize">Sequelize</a> is a popular Object Relational Mapper (ORM) written in a vanilla JavaScript, but there is a <a rel='nofollow' target='_blank' href="https://github.com/RobinBuschmann/sequelize-typescript">sequelize-typescript</a> TypeScript wrapper which provides a set of decorators and other extras for the base sequelize.</p>
+<h4 appAnchor id="getting-started"><span>Getting started</span></h4>
+<p>To start the adventure with this library we have to install the following dependencies:</p>
+<pre><code class="language-bash">
+$ npm install --save sequelize sequelize-typescript mysql2
+$ npm install --save-dev @types/sequelize
+</code></pre>
+<p>The first step we need to do is create a <strong>Sequelize</strong> instance with an options object passed into the constructor. Also, we need to add all models (the alternative is to use <code>modelPaths</code> property) and <code>sync()</code> our database tables.</p>
+
+<span class="filename">
+  {{ 'database.providers' | extension: app64af986d1287ceb17107129bce10b6966ec6fe46.isJsActive }}
+<app-tabs #app64af986d1287ceb17107129bce10b6966ec6fe46></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Sequelize &#125; from &#39;sequelize-typescript&#39;;
+import &#123; Cat &#125; from &#39;../cats/cat.entity&#39;;
+
+export const databaseProviders = [
+  &#123;
+    provide: &#39;SEQUELIZE&#39;,
+    useFactory: async () =&gt; &#123;
+      const sequelize = new Sequelize(&#123;
+        dialect: &#39;mysql&#39;,
+        host: &#39;localhost&#39;,
+        port: 3306,
+        username: &#39;root&#39;,
+        password: &#39;password&#39;,
+        database: &#39;nest&#39;,
+      &#125;);
+      sequelize.addModels([Cat]);
+      await sequelize.sync();
+      return sequelize;
+    &#125;,
+  &#125;,
+];
+</code></pre><blockquote class="
+info "><strong>Hint</strong> Following best practices, we declared the custom provider in the separated file which has a <code>*.providers.ts</code> suffix.
+</blockquote>
+<p>Then, we need to export these providers to make them <strong>accessible</strong> for the rest part of the application.</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; databaseProviders &#125; from &#39;./database.providers&#39;;
+
+@Module(&#123;
+  providers: [...databaseProviders],
+  exports: [...databaseProviders],
+&#125;)
+export class DatabaseModule &#123;&#125;
+</code></pre>
+<p>Now we can inject the <code>Sequelize</code> object using <code>@Inject()</code> decorator. Each class that would depend on the <code>Sequelize</code> async provider will wait until a <code>Promise</code> is resolved.</p>
+<h4 appAnchor id="model-injection"><span>Model injection</span></h4>
+<p>In <a rel='nofollow' target='_blank' href="https://github.com/sequelize/sequelize">Sequelize</a> the <strong>Model</strong> defines a table in the database. Instances of this class represent a database row. Firstly, we need at least one entity:</p>
+
+<span class="filename">
+  {{ 'cat.entity' | extension: appe62cecde0d62d705576365105ab1c43cda61ef0d.isJsActive }}
+<app-tabs #appe62cecde0d62d705576365105ab1c43cda61ef0d></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Table, Column, Model &#125; from &#39;sequelize-typescript&#39;;
+
+@Table
+export class Cat extends Model &#123;
+  @Column
+  name: string;
+
+  @Column
+  age: number;
+
+  @Column
+  breed: string;
+&#125;
+</code></pre><p>The <code>Cat</code> entity belongs to the <code>cats</code> directory. This directory represents the <code>CatsModule</code>. Now it&#39;s time to create a <strong>Repository</strong> provider:</p>
+
+<span class="filename">
+  {{ 'cats.providers' | extension: app0f2aa7df78fd05bb1835946f3cc4f439e998e935.isJsActive }}
+<app-tabs #app0f2aa7df78fd05bb1835946f3cc4f439e998e935></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Cat &#125; from &#39;./cat.entity&#39;;
+
+export const catsProviders = [
+  &#123;
+    provide: &#39;CATS_REPOSITORY&#39;,
+    useValue: Cat,
+  &#125;,
+];
+</code></pre><blockquote class="
+warning "><strong>Warning</strong> In the real-world applications you should avoid <strong>magic strings</strong>. Both <code>CATS_REPOSITORY</code> and <code>SEQUELIZE</code> should be kept in the separated <code>constants.ts</code> file.
+</blockquote>
+<p>In Sequelize, we use static methods to manipulate the data, and thus we created an <strong>alias</strong> here.</p>
+<p>Now we can inject the <code>CATS_REPOSITORY</code> to the <code>CatsService</code> using the <code>@Inject()</code> decorator:</p>
+
+<span class="filename">
+  {{ 'cats.service' | extension: appace532c2c1f7fc36045ce5404ca44e84ee6b573c.isJsActive }}
+<app-tabs #appace532c2c1f7fc36045ce5404ca44e84ee6b573c></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Injectable, Inject &#125; from &#39;@nestjs/common&#39;;
+import &#123; CreateCatDto &#125; from &#39;./dto/create-cat.dto&#39;;
+import &#123; Cat &#125; from &#39;./cat.entity&#39;;
+
+@Injectable()
+export class CatsService &#123;
+  constructor(
+    @Inject(&#39;CATS_REPOSITORY&#39;)
+    private catsRepository: typeof Cat
+  ) &#123;&#125;
+
+  async findAll(): Promise&lt;Cat[]&gt; &#123;
+    return this.catsRepository.findAll&lt;Cat&gt;();
+  &#125;
+&#125;
+</code></pre><p>The database connection is <strong>asynchronous</strong>, but Nest makes this process completely invisible for the end-user. The <code>CATS_REPOSITORY</code> provider is waiting for the db connection, and the <code>CatsService</code> is delayed until repository is ready to use. The entire application can start when each class is instantiated.</p>
+<p>Here is a final <code>CatsModule</code>:</p>
+
+<span class="filename">
+  {{ 'cats.module' | extension: app7003755128bb62fe11f27a9d99e13244a5c75773.isJsActive }}
+<app-tabs #app7003755128bb62fe11f27a9d99e13244a5c75773></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; CatsController &#125; from &#39;./cats.controller&#39;;
+import &#123; CatsService &#125; from &#39;./cats.service&#39;;
+import &#123; catsProviders &#125; from &#39;./cats.providers&#39;;
+import &#123; DatabaseModule &#125; from &#39;../database/database.module&#39;;
+
+@Module(&#123;
+  imports: [DatabaseModule],
+  controllers: [CatsController],
+  providers: [
+    CatsService,
+    ...catsProviders,
+  ],
+&#125;)
+export class CatsModule &#123;&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> Do not forget to import the <code>CatsModule</code> into the root <code>AppModule</code>.
+</blockquote>
+
+</div>
+

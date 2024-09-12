@@ -1,0 +1,525 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/techniques/configuration.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="configuration">Configuration</h3>
+<p>Applications often run in different <strong>environments</strong>. Depending on the environment, different configuration settings should be used. For example, usually the local environment relies on specific database credentials, valid only for the local DB instance. The production environment would use a separate set of DB credentials. Since configuration variables change, best practice is to <a rel='nofollow' target='_blank' href="https://12factor.net/config">store configuration variables</a> in the environment.</p>
+<p>Externally defined environment variables are visible inside Node.js through the <code>process.env</code> global. We could try to solve the problem of multiple environments by setting the environment variables separately in each environment. This can quickly get unwieldy, especially in the development and testing environments where these values need to be easily mocked and/or changed.</p>
+<p>In Node.js applications, it&#39;s common to use <code>.env</code> files, holding key-value pairs where each key represents a particular value, to represent each environment. Running an app in different environments is then just a matter of swapping in the correct <code>.env</code> file.</p>
+<p>A good approach for using this technique in Nest is to create a <code>ConfigModule</code> that exposes a <code>ConfigService</code> which loads the appropriate <code>.env</code> file. While you may choose to write such a module yourself, for convenience Nest provides the <code>@nestjs/config</code> package out-of-the box. We&#39;ll cover this package in the current chapter.</p>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>To begin using it, we first install the required dependency.</p>
+<pre><code class="language-bash">
+$ npm i --save @nestjs/config
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>@nestjs/config</code> package internally uses <a rel='nofollow' target='_blank' href="https://github.com/motdotla/dotenv">dotenv</a>.
+</blockquote>
+<blockquote class="
+warning "><strong>Note</strong> <code>@nestjs/config</code> requires TypeScript 4.1 or later.
+</blockquote>
+<h4 appAnchor id="getting-started"><span>Getting started</span></h4>
+<p>Once the installation process is complete, we can import the <code>ConfigModule</code>. Typically, we&#39;ll import it into the root <code>AppModule</code> and control its behavior using the <code>.forRoot()</code> static method. During this step, environment variable key/value pairs are parsed and resolved. Later, we&#39;ll see several options for accessing the <code>ConfigService</code> class of the <code>ConfigModule</code> in our other feature modules.</p>
+
+<span class="filename">
+  {{ 'app.module' | extension: app5961f47f2bcec4c594d3f591ffcb153aa7e2a6a9.isJsActive }}
+<app-tabs #app5961f47f2bcec4c594d3f591ffcb153aa7e2a6a9></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; ConfigModule &#125; from &#39;@nestjs/config&#39;;
+
+@Module(&#123;
+  imports: [ConfigModule.forRoot()],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><p>The above code will load and parse a <code>.env</code> file from the default location (the project root directory), merge key/value pairs from the <code>.env</code> file with environment variables assigned to <code>process.env</code>, and store the result in a private structure that you can access through the <code>ConfigService</code>. The <code>forRoot()</code> method registers the <code>ConfigService</code> provider, which provides a <code>get()</code> method for reading these parsed/merged configuration variables. Since <code>@nestjs/config</code> relies on <a rel='nofollow' target='_blank' href="https://github.com/motdotla/dotenv">dotenv</a>, it uses that package&#39;s rules for resolving conflicts in environment variable names. When a key exists both in the runtime environment as an environment variable (e.g., via OS shell exports like <code>export DATABASE_USER=test</code>) and in a <code>.env</code> file, the runtime environment variable takes precedence.</p>
+<p>A sample <code>.env</code> file looks something like this:</p>
+<pre><code class="language-json">
+DATABASE_USER=test
+DATABASE_PASSWORD=test
+</code></pre>
+<h4 appAnchor id="custom-env-file-path"><span>Custom env file path</span></h4>
+<p>By default, the package looks for a <code>.env</code> file in the root directory of the application. To specify another path for the <code>.env</code> file, set the <code>envFilePath</code> property of an (optional) options object you pass to <code>forRoot()</code>, as follows:</p>
+<pre><code class="language-typescript">
+ConfigModule.forRoot(&#123;
+  envFilePath: &#39;.development.env&#39;,
+&#125;);
+</code></pre>
+<p>You can also specify multiple paths for <code>.env</code> files like this:</p>
+<pre><code class="language-typescript">
+ConfigModule.forRoot(&#123;
+  envFilePath: [&#39;.env.development.local&#39;, &#39;.env.development&#39;],
+&#125;);
+</code></pre>
+<p>If a variable is found in multiple files, the first one takes precedence.</p>
+<h4 appAnchor id="disable-env-variables-loading"><span>Disable env variables loading</span></h4>
+<p>If you don&#39;t want to load the <code>.env</code> file, but instead would like to simply access environment variables from the runtime environment (as with OS shell exports like <code>export DATABASE_USER=test</code>), set the options object&#39;s <code>ignoreEnvFile</code> property to <code>true</code>, as follows:</p>
+<pre><code class="language-typescript">
+ConfigModule.forRoot(&#123;
+  ignoreEnvFile: true,
+&#125;);
+</code></pre>
+<h4 appAnchor id="use-module-globally"><span>Use module globally</span></h4>
+<p>When you want to use <code>ConfigModule</code> in other modules, you&#39;ll need to import it (as is standard with any Nest module). Alternatively, declare it as a <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/modules#global-modules">global module</a> by setting the options object&#39;s <code>isGlobal</code> property to <code>true</code>, as shown below. In that case, you will not need to import <code>ConfigModule</code> in other modules once it&#39;s been loaded in the root module (e.g., <code>AppModule</code>).</p>
+<pre><code class="language-typescript">
+ConfigModule.forRoot(&#123;
+  isGlobal: true,
+&#125;);
+</code></pre>
+<h4 appAnchor id="custom-configuration-files"><span>Custom configuration files</span></h4>
+<p>For more complex projects, you may utilize custom configuration files to return nested configuration objects. This allows you to group related configuration settings by function (e.g., database-related settings), and to store related settings in individual files to help manage them independently.</p>
+<p>A custom configuration file exports a factory function that returns a configuration object. The configuration object can be any arbitrarily nested plain JavaScript object. The <code>process.env</code> object will contain the fully resolved environment variable key/value pairs (with <code>.env</code> file and externally defined variables resolved and merged as described <a href="techniques/configuration#getting-started">above</a>). Since you control the returned configuration object, you can add any required logic to cast values to an appropriate type, set default values, etc. For example:</p>
+
+<span class="filename">
+  {{ 'config/configuration' | extension: app3f777c79c0aeff32216d6a35185049378161e980.isJsActive }}
+<app-tabs #app3f777c79c0aeff32216d6a35185049378161e980></app-tabs>
+</span><pre><code class="language-typescript">
+export default () =&gt; (&#123;
+  port: parseInt(process.env.PORT, 10) || 3000,
+  database: &#123;
+    host: process.env.DATABASE_HOST,
+    port: parseInt(process.env.DATABASE_PORT, 10) || 5432
+  &#125;
+&#125;);
+</code></pre><p>We load this file using the <code>load</code> property of the options object we pass to the <code>ConfigModule.forRoot()</code> method:</p>
+<pre><code class="language-typescript">
+import configuration from &#39;./config/configuration&#39;;
+
+@Module(&#123;
+  imports: [
+    ConfigModule.forRoot(&#123;
+      load: [configuration],
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Notice</strong> The value assigned to the <code>load</code> property is an array, allowing you to load multiple configuration files (e.g. <code>load: [databaseConfig, authConfig]</code>)
+</blockquote>
+<p>With custom configuration files, we can also manage custom files such as YAML files. Here is an example of a configuration using YAML format:</p>
+<pre><code class="language-yaml">
+http:
+  host: &#39;localhost&#39;
+  port: 8080
+
+db:
+  postgres:
+    url: &#39;localhost&#39;
+    port: 5432
+    database: &#39;yaml-db&#39;
+
+  sqlite:
+    database: &#39;sqlite.db&#39;
+</code></pre>
+<p>To read and parse YAML files, we can leverage the <code>js-yaml</code> package.</p>
+<pre><code class="language-bash">
+$ npm i js-yaml
+$ npm i -D @types/js-yaml
+</code></pre>
+<p>Once the package is installed, we use <code>yaml#load</code> function to load YAML file we just created above.</p>
+
+<span class="filename">
+  {{ 'config/configuration' | extension: appf5e2f7bcc690a762cd232f55a24fbfdbaec83e3f.isJsActive }}
+<app-tabs #appf5e2f7bcc690a762cd232f55a24fbfdbaec83e3f></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; readFileSync &#125; from &#39;fs&#39;;
+import * as yaml from &#39;js-yaml&#39;;
+import &#123; join &#125; from &#39;path&#39;;
+
+const YAML_CONFIG_FILENAME = &#39;config.yaml&#39;;
+
+export default () =&gt; &#123;
+  return yaml.load(
+    readFileSync(join(__dirname, YAML_CONFIG_FILENAME), &#39;utf8&#39;),
+  ) as Record&lt;string, any&gt;;
+&#125;;
+</code></pre><blockquote class="
+warning "><strong>Note</strong> Nest CLI does not automatically move your &quot;assets&quot; (non-TS files) to the <code>dist</code> folder during the build process. To make sure that your YAML files are copied, you have to specify this in the <code>compilerOptions#assets</code> object in the <code>nest-cli.json</code> file. As an example, if the <code>config</code> folder is at the same level as the <code>src</code> folder, add <code>compilerOptions#assets</code> with the value <code>&quot;assets&quot;: [{{ &#39;{&#39; }}&quot;include&quot;: &quot;../config/*.yaml&quot;, &quot;outDir&quot;: &quot;./dist/config&quot;{{ &#39;}&#39; }}]</code>. Read more <a href="/cli/monorepo#assets">here</a>.
+</blockquote>
+<p><app-banner-devtools></app-banner-devtools></p>
+<h4 appAnchor id="using-the-configservice"><span>Using the <code>ConfigService</code></span></h4>
+<p>To access configuration values from our <code>ConfigService</code>, we first need to inject <code>ConfigService</code>. As with any provider, we need to import its containing module - the <code>ConfigModule</code> - into the module that will use it (unless you set the <code>isGlobal</code> property in the options object passed to the <code>ConfigModule.forRoot()</code> method to <code>true</code>). Import it into a feature module as shown below.</p>
+
+<span class="filename">
+  {{ 'feature.module' | extension: app78d9136e38895fbc7ccbdbac53b2a75cb05191c9.isJsActive }}
+<app-tabs #app78d9136e38895fbc7ccbdbac53b2a75cb05191c9></app-tabs>
+</span><pre><code class="language-typescript">
+@Module(&#123;
+  imports: [ConfigModule],
+  // ...
+&#125;)
+</code></pre><p>Then we can inject it using standard constructor injection:</p>
+<pre><code class="language-typescript">
+constructor(private configService: ConfigService) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>ConfigService</code> is imported from the <code>@nestjs/config</code> package.
+</blockquote>
+<p>And use it in our class:</p>
+<pre><code class="language-typescript">
+// get an environment variable
+const dbUser = this.configService.get&lt;string&gt;(&#39;DATABASE_USER&#39;);
+
+// get a custom configuration value
+const dbHost = this.configService.get&lt;string&gt;(&#39;database.host&#39;);
+</code></pre>
+<p>As shown above, use the <code>configService.get()</code> method to get a simple environment variable by passing the variable name. You can do TypeScript type hinting by passing the type, as shown above (e.g., <code>get&lt;string&gt;(...)</code>). The <code>get()</code> method can also traverse a nested custom configuration object (created via a <a href="techniques/configuration#custom-configuration-files">Custom configuration file</a>), as shown in the second example above.</p>
+<p>You can also get the whole nested custom configuration object using an interface as the type hint:</p>
+<pre><code class="language-typescript">
+interface DatabaseConfig &#123;
+  host: string;
+  port: number;
+&#125;
+
+const dbConfig = this.configService.get&lt;DatabaseConfig&gt;(&#39;database&#39;);
+
+// you can now use `dbConfig.port` and `dbConfig.host`
+const port = dbConfig.port;
+</code></pre>
+<p>The <code>get()</code> method also takes an optional second argument defining a default value, which will be returned when the key doesn&#39;t exist, as shown below:</p>
+<pre><code class="language-typescript">
+// use &quot;localhost&quot; when &quot;database.host&quot; is not defined
+const dbHost = this.configService.get&lt;string&gt;(&#39;database.host&#39;, &#39;localhost&#39;);
+</code></pre>
+<p><code>ConfigService</code> has two optional generics (type arguments). The first one is to help prevent accessing a config property that does not exist. Use it as shown below:</p>
+<pre><code class="language-typescript">
+interface EnvironmentVariables &#123;
+  PORT: number;
+  TIMEOUT: string;
+&#125;
+
+// somewhere in the code
+constructor(private configService: ConfigService&lt;EnvironmentVariables&gt;) &#123;
+  const port = this.configService.get(&#39;PORT&#39;, &#123; infer: true &#125;);
+
+  // TypeScript Error: this is invalid as the URL property is not defined in EnvironmentVariables
+  const url = this.configService.get(&#39;URL&#39;, &#123; infer: true &#125;);
+&#125;
+</code></pre>
+<p>With the <code>infer</code> property set to <code>true</code>, the <code>ConfigService#get</code> method will automatically infer the property type based on the interface, so for example, <code>typeof port === &quot;number&quot;</code> (if you&#39;re not using <code>strictNullChecks</code> flag from TypeScript) since <code>PORT</code> has a <code>number</code> type in the <code>EnvironmentVariables</code> interface.</p>
+<p>Also, with the <code>infer</code> feature, you can infer the type of a nested custom configuration object&#39;s property, even when using dot notation, as follows:</p>
+<pre><code class="language-typescript">
+constructor(private configService: ConfigService&lt;&#123; database: &#123; host: string &#125; &#125;&gt;) &#123;
+  const dbHost = this.configService.get(&#39;database.host&#39;, &#123; infer: true &#125;)!;
+  // typeof dbHost === &quot;string&quot;                                          |
+  //                                                                     +--&gt; non-null assertion operator
+&#125;
+</code></pre>
+<p>The second generic relies on the first one, acting as a type assertion to get rid of all <code>undefined</code> types that <code>ConfigService</code>&#39;s methods can return when <code>strictNullChecks</code> is on. For instance:</p>
+<pre><code class="language-typescript">
+// ...
+constructor(private configService: ConfigService&lt;&#123; PORT: number &#125;, true&gt;) &#123;
+  //                                                               ^^^^
+  const port = this.configService.get(&#39;PORT&#39;, &#123; infer: true &#125;);
+  //    ^^^ The type of port will be &#39;number&#39; thus you don&#39;t need TS type assertions anymore
+&#125;
+</code></pre>
+<h4 appAnchor id="configuration-namespaces"><span>Configuration namespaces</span></h4>
+<p>The <code>ConfigModule</code> allows you to define and load multiple custom configuration files, as shown in <a href="techniques/configuration#custom-configuration-files">Custom configuration files</a> above. You can manage complex configuration object hierarchies with nested configuration objects as shown in that section. Alternatively, you can return a &quot;namespaced&quot; configuration object with the <code>registerAs()</code> function as follows:</p>
+
+<span class="filename">
+  {{ 'config/database.config' | extension: app0e195f2758e380767e72e32ceab28080aae124cc.isJsActive }}
+<app-tabs #app0e195f2758e380767e72e32ceab28080aae124cc></app-tabs>
+</span><pre><code class="language-typescript">
+export default registerAs(&#39;database&#39;, () =&gt; (&#123;
+  host: process.env.DATABASE_HOST,
+  port: process.env.DATABASE_PORT || 5432
+&#125;));
+</code></pre><p>As with custom configuration files, inside your <code>registerAs()</code> factory function, the <code>process.env</code> object will contain the fully resolved environment variable key/value pairs (with <code>.env</code> file and externally defined variables resolved and merged as described <a href="techniques/configuration#getting-started">above</a>).</p>
+<blockquote class="
+info "><strong>Hint</strong> The <code>registerAs</code> function is exported from the <code>@nestjs/config</code> package.
+</blockquote>
+<p>Load a namespaced configuration with the <code>load</code> property of the <code>forRoot()</code> method&#39;s options object, in the same way you load a custom configuration file:</p>
+<pre><code class="language-typescript">
+import databaseConfig from &#39;./config/database.config&#39;;
+
+@Module(&#123;
+  imports: [
+    ConfigModule.forRoot(&#123;
+      load: [databaseConfig],
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>Now, to get the <code>host</code> value from the <code>database</code> namespace, use dot notation. Use <code>&#39;database&#39;</code> as the prefix to the property name, corresponding to the name of the namespace (passed as the first argument to the <code>registerAs()</code> function):</p>
+<pre><code class="language-typescript">
+const dbHost = this.configService.get&lt;string&gt;(&#39;database.host&#39;);
+</code></pre>
+<p>A reasonable alternative is to inject the <code>database</code> namespace directly. This allows us to benefit from strong typing:</p>
+<pre><code class="language-typescript">
+constructor(
+  @Inject(databaseConfig.KEY)
+  private dbConfig: ConfigType&lt;typeof databaseConfig&gt;,
+) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>ConfigType</code> is exported from the <code>@nestjs/config</code> package.
+</blockquote>
+<h4 appAnchor id="cache-environment-variables"><span>Cache environment variables</span></h4>
+<p>As accessing <code>process.env</code> can be slow, you can set the <code>cache</code> property of the options object passed to <code>ConfigModule.forRoot()</code> to increase the performance of <code>ConfigService#get</code> method when it comes to variables stored in <code>process.env</code>.</p>
+<pre><code class="language-typescript">
+ConfigModule.forRoot(&#123;
+  cache: true,
+&#125;);
+</code></pre>
+<h4 appAnchor id="partial-registration"><span>Partial registration</span></h4>
+<p>Thus far, we&#39;ve processed configuration files in our root module (e.g., <code>AppModule</code>), with the <code>forRoot()</code> method. Perhaps you have a more complex project structure, with feature-specific configuration files located in multiple different directories. Rather than load all these files in the root module, the <code>@nestjs/config</code> package provides a feature called <strong>partial registration</strong>, which references only the configuration files associated with each feature module. Use the <code>forFeature()</code> static method within a feature module to perform this partial registration, as follows:</p>
+<pre><code class="language-typescript">
+import databaseConfig from &#39;./config/database.config&#39;;
+
+@Module(&#123;
+  imports: [ConfigModule.forFeature(databaseConfig)],
+&#125;)
+export class DatabaseModule &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Warning</strong> In some circumstances, you may need to access properties loaded via partial registration using the <code>onModuleInit()</code> hook, rather than in a constructor. This is because the <code>forFeature()</code> method is run during module initialization, and the order of module initialization is indeterminate. If you access values loaded this way by another module, in a constructor, the module that the configuration depends upon may not yet have initialized. The <code>onModuleInit()</code> method runs only after all modules it depends upon have been initialized, so this technique is safe.
+</blockquote>
+<h4 appAnchor id="schema-validation"><span>Schema validation</span></h4>
+<p>It is standard practice to throw an exception during application startup if required environment variables haven&#39;t been provided or if they don&#39;t meet certain validation rules. The <code>@nestjs/config</code> package enables two different ways to do this:</p>
+<ul>
+<li><a rel='nofollow' target='_blank' href="https://github.com/sideway/joi">Joi</a> built-in validator. With Joi, you define an object schema and validate JavaScript objects against it.</li>
+<li>A custom <code>validate()</code> function which takes environment variables as an input.</li>
+</ul>
+<p>To use Joi, we must install Joi package:</p>
+<pre><code class="language-bash">
+$ npm install --save joi
+</code></pre>
+<p>Now we can define a Joi validation schema and pass it via the <code>validationSchema</code> property of the <code>forRoot()</code> method&#39;s options object, as shown below:</p>
+
+<span class="filename">
+  {{ 'app.module' | extension: app3e02ad8b5858bf87b428f3892dccd0f0e4ed890f.isJsActive }}
+<app-tabs #app3e02ad8b5858bf87b428f3892dccd0f0e4ed890f></app-tabs>
+</span><pre><code class="language-typescript">
+import * as Joi from &#39;joi&#39;;
+
+@Module(&#123;
+  imports: [
+    ConfigModule.forRoot(&#123;
+      validationSchema: Joi.object(&#123;
+        NODE_ENV: Joi.string()
+          .valid(&#39;development&#39;, &#39;production&#39;, &#39;test&#39;, &#39;provision&#39;)
+          .default(&#39;development&#39;),
+        PORT: Joi.number().port().default(3000),
+      &#125;),
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><p>By default, all schema keys are considered optional. Here, we set default values for <code>NODE_ENV</code> and <code>PORT</code> which will be used if we don&#39;t provide these variables in the environment (<code>.env</code> file or process environment). Alternatively, we can use the <code>required()</code> validation method to require that a value must be defined in the environment (<code>.env</code> file or process environment). In this case, the validation step will throw an exception if we don&#39;t provide the variable in the environment. See <a rel='nofollow' target='_blank' href="https://joi.dev/api/?v=17.3.0#example">Joi validation methods</a> for more on how to construct validation schemas.</p>
+<p>By default, unknown environment variables (environment variables whose keys are not present in the schema) are allowed and do not trigger a validation exception. By default, all validation errors are reported. You can alter these behaviors by passing an options object via the <code>validationOptions</code> key of the <code>forRoot()</code> options object. This options object can contain any of the standard validation options properties provided by <a rel='nofollow' target='_blank' href="https://joi.dev/api/?v=17.3.0#anyvalidatevalue-options">Joi validation options</a>. For example, to reverse the two settings above, pass options like this:</p>
+
+<span class="filename">
+  {{ 'app.module' | extension: appb0ae81b7fbdce6ee505e1876c78ade5e7cdabda0.isJsActive }}
+<app-tabs #appb0ae81b7fbdce6ee505e1876c78ade5e7cdabda0></app-tabs>
+</span><pre><code class="language-typescript">
+import * as Joi from &#39;joi&#39;;
+
+@Module(&#123;
+  imports: [
+    ConfigModule.forRoot(&#123;
+      validationSchema: Joi.object(&#123;
+        NODE_ENV: Joi.string()
+          .valid(&#39;development&#39;, &#39;production&#39;, &#39;test&#39;, &#39;provision&#39;)
+          .default(&#39;development&#39;),
+        PORT: Joi.number().port().default(3000),
+      &#125;),
+      validationOptions: &#123;
+        allowUnknown: false,
+        abortEarly: true,
+      &#125;,
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><p>The <code>@nestjs/config</code> package uses default settings of:</p>
+<ul>
+<li><code>allowUnknown</code>: controls whether or not to allow unknown keys in the environment variables. Default is <code>true</code></li>
+<li><code>abortEarly</code>: if true, stops validation on the first error; if false, returns all errors. Defaults to <code>false</code>.</li>
+</ul>
+<p>Note that once you decide to pass a <code>validationOptions</code> object, any settings you do not explicitly pass will default to <code>Joi</code> standard defaults (not the <code>@nestjs/config</code> defaults). For example, if you leave <code>allowUnknowns</code> unspecified in your custom <code>validationOptions</code> object, it will have the <code>Joi</code> default value of <code>false</code>. Hence, it is probably safest to specify <strong>both</strong> of these settings in your custom object.</p>
+<h4 appAnchor id="custom-validate-function"><span>Custom validate function</span></h4>
+<p>Alternatively, you can specify a <strong>synchronous</strong> <code>validate</code> function that takes an object containing the environment variables (from env file and process) and returns an object containing validated environment variables so that you can convert/mutate them if needed. If the function throws an error, it will prevent the application from bootstrapping.</p>
+<p>In this example, we&#39;ll proceed with the <code>class-transformer</code> and <code>class-validator</code> packages. First, we have to define:</p>
+<ul>
+<li>a class with validation constraints,</li>
+<li>a validate function that makes use of the <code>plainToInstance</code> and <code>validateSync</code> functions.</li>
+</ul>
+
+<span class="filename">
+  {{ 'env.validation' | extension: appd6c2b73dd31ec6a51e357260ec684e7583934bab.isJsActive }}
+<app-tabs #appd6c2b73dd31ec6a51e357260ec684e7583934bab></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; plainToInstance &#125; from &#39;class-transformer&#39;;
+import &#123; IsEnum, IsNumber, Max, Min, validateSync &#125; from &#39;class-validator&#39;;
+
+enum Environment &#123;
+  Development = &quot;development&quot;,
+  Production = &quot;production&quot;,
+  Test = &quot;test&quot;,
+  Provision = &quot;provision&quot;,
+&#125;
+
+class EnvironmentVariables &#123;
+  @IsEnum(Environment)
+  NODE_ENV: Environment;
+
+  @IsNumber()
+  @Min(0)
+  @Max(65535)
+  PORT: number;
+&#125;
+
+export function validate(config: Record&lt;string, unknown&gt;) &#123;
+  const validatedConfig = plainToInstance(
+    EnvironmentVariables,
+    config,
+    &#123; enableImplicitConversion: true &#125;,
+  );
+  const errors = validateSync(validatedConfig, &#123; skipMissingProperties: false &#125;);
+
+  if (errors.length &gt; 0) &#123;
+    throw new Error(errors.toString());
+  &#125;
+  return validatedConfig;
+&#125;
+</code></pre><p>With this in place, use the <code>validate</code> function as a configuration option of the <code>ConfigModule</code>, as follows:</p>
+
+<span class="filename">
+  {{ 'app.module' | extension: appf53bb158251a83177e6f4b8e64c43dbe31d0e234.isJsActive }}
+<app-tabs #appf53bb158251a83177e6f4b8e64c43dbe31d0e234></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; validate &#125; from &#39;./env.validation&#39;;
+
+@Module(&#123;
+  imports: [
+    ConfigModule.forRoot(&#123;
+      validate,
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><h4 appAnchor id="custom-getter-functions"><span>Custom getter functions</span></h4>
+<p><code>ConfigService</code> defines a generic <code>get()</code> method to retrieve a configuration value by key. We may also add <code>getter</code> functions to enable a little more natural coding style:</p>
+
+<span class="filename">
+<app-tabs #app21bb44427654d6cdfa08974f5479431d3ae65b40></app-tabs>
+</span><pre [class.hide]="app21bb44427654d6cdfa08974f5479431d3ae65b40.isJsActive"><code class="language-typescript">
+@Injectable()
+export class ApiConfigService &#123;
+  constructor(private configService: ConfigService) &#123;&#125;
+
+  get isAuthEnabled(): boolean &#123;
+    return this.configService.get(&#39;AUTH_ENABLED&#39;) === &#39;true&#39;;
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app21bb44427654d6cdfa08974f5479431d3ae65b40.isJsActive"><code class="language-typescript">
+@Dependencies(ConfigService)
+@Injectable()
+export class ApiConfigService &#123;
+  constructor(configService) &#123;
+    this.configService = configService;
+  &#125;
+
+  get isAuthEnabled() &#123;
+    return this.configService.get(&#39;AUTH_ENABLED&#39;) === &#39;true&#39;;
+  &#125;
+&#125;
+</code></pre><p>Now we can use the getter function as follows:</p>
+
+<span class="filename">
+  {{ 'app.service' | extension: app692f5002ad6f7e8ad323723209f052061d001adb.isJsActive }}
+<app-tabs #app692f5002ad6f7e8ad323723209f052061d001adb></app-tabs>
+</span><pre [class.hide]="app692f5002ad6f7e8ad323723209f052061d001adb.isJsActive"><code class="language-typescript">
+@Injectable()
+export class AppService &#123;
+  constructor(apiConfigService: ApiConfigService) &#123;
+    if (apiConfigService.isAuthEnabled) &#123;
+      // Authentication is enabled
+    &#125;
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app692f5002ad6f7e8ad323723209f052061d001adb.isJsActive"><code class="language-typescript">
+@Dependencies(ApiConfigService)
+@Injectable()
+export class AppService &#123;
+  constructor(apiConfigService) &#123;
+    if (apiConfigService.isAuthEnabled) &#123;
+      // Authentication is enabled
+    &#125;
+  &#125;
+&#125;
+</code></pre><h4 appAnchor id="environment-variables-loaded-hook"><span>Environment variables loaded hook</span></h4>
+<p>If a module configuration depends on the environment variables, and these variables are loaded from the <code>.env</code> file, you can use the <code>ConfigModule.envVariablesLoaded</code> hook to ensure that the file was loaded before interacting with the <code>process.env</code> object, see the following example:</p>
+<pre><code class="language-typescript">
+export async function getStorageModule() &#123;
+  await ConfigModule.envVariablesLoaded;
+  return process.env.STORAGE === &#39;S3&#39; ? S3StorageModule : DefaultStorageModule;
+&#125;
+</code></pre>
+<p>This construction guarantees that after the <code>ConfigModule.envVariablesLoaded</code> Promise resolves, all configuration variables are loaded up.</p>
+<h4 appAnchor id="conditional-module-configuration"><span>Conditional module configuration</span></h4>
+<p>There may be times where you want to conditionally load in a module and specify the condition in an env variable. Fortunately, <code>@nestjs/config</code> provides a <code>ConditionalModule</code> that allows you to do just that.</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [ConfigModule.forRoot(), ConditionalModule.registerWhen(FooModule, &#39;USE_FOO&#39;)],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>The above module would only load in the <code>FooModule</code> if in the <code>.env</code> file there is not a <code>false</code> value for the env variable <code>USE_FOO</code>. You can also pass a custom condition yourself, a function receiving the <code>process.env</code> reference that should return a boolean for the <code>ConditionalModule</code> to handle:</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [ConfigModule.forRoot(), ConditionalModule.registerWhen(FooBarModule, (env: NodeJS.ProcessEnv) =&gt; !!env[&#39;foo&#39;] &amp;&amp; !!env[&#39;bar&#39;])],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>It is important to be sure that when using the <code>ConditionalModule</code> you also have the <code>ConfigModule</code> loaded in the application, so that the <code>ConfigModule.envVariablesLoaded</code> hook can be properly referenced and utilized. If the hook is not flipped to true within 5 seconds, or a timeout in milliseconds, set by the user in the third options parameter of the <code>registerWhen</code> method, then the <code>ConditionalModule</code> will throw an error and Nest will abort starting the application.</p>
+<h4 appAnchor id="expandable-variables"><span>Expandable variables</span></h4>
+<p>The <code>@nestjs/config</code> package supports environment variable expansion. With this technique, you can create nested environment variables, where one variable is referred to within the definition of another. For example:</p>
+<pre><code class="language-json">
+APP_URL=mywebsite.com
+SUPPORT_EMAIL=support@$&#123;APP_URL&#125;
+</code></pre>
+<p>With this construction, the variable <code>SUPPORT_EMAIL</code> resolves to <code>&#39;support@mywebsite.com&#39;</code>. Note the use of the <code>${{ &#39;{&#39; }}...{{ &#39;}&#39; }}</code> syntax to trigger resolving the value of the variable <code>APP_URL</code> inside the definition of <code>SUPPORT_EMAIL</code>.</p>
+<blockquote class="
+info "><strong>Hint</strong> For this feature, <code>@nestjs/config</code> package internally uses <a rel='nofollow' target='_blank' href="https://github.com/motdotla/dotenv-expand">dotenv-expand</a>.
+</blockquote>
+<p>Enable environment variable expansion using the <code>expandVariables</code> property in the options object passed to the <code>forRoot()</code> method of the <code>ConfigModule</code>, as shown below:</p>
+
+<span class="filename">
+  {{ 'app.module' | extension: app218f483f40a1ebe2c373073de631c59695200df3.isJsActive }}
+<app-tabs #app218f483f40a1ebe2c373073de631c59695200df3></app-tabs>
+</span><pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    ConfigModule.forRoot(&#123;
+      // ...
+      expandVariables: true,
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><h4 appAnchor id="using-in-the-maints"><span>Using in the <code>main.ts</code></span></h4>
+<p>While our config is stored in a service, it can still be used in the <code>main.ts</code> file. This way, you can use it to store variables such as the application port or the CORS host.</p>
+<p>To access it, you must use the <code>app.get()</code> method, followed by the service reference:</p>
+<pre><code class="language-typescript">
+const configService = app.get(ConfigService);
+</code></pre>
+<p>You can then use it as usual, by calling the <code>get</code> method with the configuration key:</p>
+<pre><code class="language-typescript">
+const port = configService.get(&#39;PORT&#39;);
+</code></pre>
+
+</div>
+

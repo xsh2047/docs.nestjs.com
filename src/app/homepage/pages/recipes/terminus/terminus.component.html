@@ -1,0 +1,654 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/recipes/terminus.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="healthchecks-terminus">Healthchecks (Terminus)</h3>
+<p>Terminus integration provides you with <strong>readiness/liveness</strong> health checks. Healthchecks are crucial when it comes to complex
+backend setups. In a nutshell, a health check in the realm of web development usually consists of a special address, for example, <code>https://my-website.com/health/readiness</code>.
+A service or a component of your infrastructure (e.g., <a rel='nofollow' target='_blank' href="https://kubernetes.io/">Kubernetes</a> checks this address continuously. Depending on the HTTP status code returned from a <code>GET</code> request to this address the service will take action when it receives an &quot;unhealthy&quot; response.
+Since the definition of &quot;healthy&quot; or &quot;unhealthy&quot; varies with the type of service you provide, the <strong>Terminus</strong> integration supports you with a
+set of <strong>health indicators</strong>.</p>
+<p>As an example, if your web server uses MongoDB to store its data, it would be vital information whether MongoDB is still up and running.
+In that case, you can make use of the <code>MongooseHealthIndicator</code>. If configured correctly - more on that later - your health check address will return
+a healthy or unhealthy HTTP status code, depending on whether MongoDB is running.</p>
+<h4 appAnchor id="getting-started"><span>Getting started</span></h4>
+<p>To get started with <code>@nestjs/terminus</code> we need to install the required dependency.</p>
+<pre><code class="language-bash">
+$ npm install --save @nestjs/terminus
+</code></pre>
+<h4 appAnchor id="setting-up-a-healthcheck"><span>Setting up a Healthcheck</span></h4>
+<p>A health check represents a summary of <strong>health indicators</strong>. A health indicator executes a check of a service, whether it is in a healthy or unhealthy state. A health check is positive if all the assigned health indicators are up and running. Because a lot of applications will need similar health indicators, <a rel='nofollow' target='_blank' href="https://github.com/nestjs/terminus"><code>@nestjs/terminus</code></a> provides a set of predefined indicators, such as:</p>
+<ul>
+<li><code>HttpHealthIndicator</code></li>
+<li><code>TypeOrmHealthIndicator</code></li>
+<li><code>MongooseHealthIndicator</code></li>
+<li><code>SequelizeHealthIndicator</code></li>
+<li><code>MikroOrmHealthIndicator</code></li>
+<li><code>PrismaHealthIndicator</code></li>
+<li><code>MicroserviceHealthIndicator</code></li>
+<li><code>GRPCHealthIndicator</code></li>
+<li><code>MemoryHealthIndicator</code></li>
+<li><code>DiskHealthIndicator</code></li>
+</ul>
+<p>To get started with our first health check, let&#39;s create the <code>HealthModule</code> and import the <code>TerminusModule</code> into it in its imports array.</p>
+<blockquote class="
+info "><strong>Hint</strong> To create the module using the <a routerLink="cli/overview">Nest CLI</a>, simply execute the <code>$ nest g module health</code> command.
+</blockquote>
+
+<span class="filename">
+  {{ 'health.module' | extension: app1caf76c875f0bbd0a02abe440fc8e68cb3e2b9a3.isJsActive }}
+<app-tabs #app1caf76c875f0bbd0a02abe440fc8e68cb3e2b9a3></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; TerminusModule &#125; from &#39;@nestjs/terminus&#39;;
+
+@Module(&#123;
+  imports: [TerminusModule]
+&#125;)
+export class HealthModule &#123;&#125;
+</code></pre><p>Our healthcheck(s) can be executed using a <a routerLink="/controllers">controller</a>, which can be easily set up using the <a routerLink="cli/overview">Nest CLI</a>.</p>
+<pre><code class="language-bash">
+$ nest g controller health
+</code></pre>
+<blockquote class="
+info "><strong>Info</strong> It is highly recommended to enable shutdown hooks in your application. Terminus integration makes use of this lifecycle event if enabled. Read more about shutdown hooks <a href="fundamentals/lifecycle-events#application-shutdown">here</a>.
+</blockquote>
+<h4 appAnchor id="http-healthcheck"><span>HTTP Healthcheck</span></h4>
+<p>Once we have installed <code>@nestjs/terminus</code>, imported our <code>TerminusModule</code> and created a new controller, we are ready to create a health check.</p>
+<p>The <code>HTTPHealthIndicator</code> requires the <code>@nestjs/axios</code> package so make sure to have it installed:</p>
+<pre><code class="language-bash">
+$ npm i --save @nestjs/axios axios
+</code></pre>
+<p>Now we can setup our <code>HealthController</code>:</p>
+
+<span class="filename">
+  {{ 'health.controller' | extension: app51e424d7c586ede2e2364e833bc10a88d12444fe.isJsActive }}
+<app-tabs #app51e424d7c586ede2e2364e833bc10a88d12444fe></app-tabs>
+</span><pre [class.hide]="app51e424d7c586ede2e2364e833bc10a88d12444fe.isJsActive"><code class="language-typescript">
+import &#123; Controller, Get &#125; from &#39;@nestjs/common&#39;;
+import &#123; HealthCheckService, HttpHealthIndicator, HealthCheck &#125; from &#39;@nestjs/terminus&#39;;
+
+@Controller(&#39;health&#39;)
+export class HealthController &#123;
+  constructor(
+    private health: HealthCheckService,
+    private http: HttpHealthIndicator,
+  ) &#123;&#125;
+
+  @Get()
+  @HealthCheck()
+  check() &#123;
+    return this.health.check([
+      () =&gt; this.http.pingCheck(&#39;nestjs-docs&#39;, &#39;https://docs.nestjs.com&#39;),
+    ]);
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app51e424d7c586ede2e2364e833bc10a88d12444fe.isJsActive"><code class="language-typescript">
+import &#123; Controller, Dependencies, Get &#125; from &#39;@nestjs/common&#39;;
+import &#123; HealthCheckService, HttpHealthIndicator, HealthCheck &#125; from &#39;@nestjs/terminus&#39;;
+
+@Controller(&#39;health&#39;)
+@Dependencies(HealthCheckService, HttpHealthIndicator)
+export class HealthController &#123;
+  constructor(
+    private health,
+    private http,
+  ) &#123; &#125;
+
+  @Get()
+  @HealthCheck()
+  healthCheck() &#123;
+    return this.health.check([
+      () =&gt; this.http.pingCheck(&#39;nestjs-docs&#39;, &#39;https://docs.nestjs.com&#39;),
+    ])
+  &#125;
+&#125;
+</code></pre>
+<span class="filename">
+  {{ 'health.module' | extension: appf65cd7f534b1b15750064cbfec1799dc6bbffd84.isJsActive }}
+<app-tabs #appf65cd7f534b1b15750064cbfec1799dc6bbffd84></app-tabs>
+</span><pre [class.hide]="appf65cd7f534b1b15750064cbfec1799dc6bbffd84.isJsActive"><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; TerminusModule &#125; from &#39;@nestjs/terminus&#39;;
+import &#123; HttpModule &#125; from &#39;@nestjs/axios&#39;;
+import &#123; HealthController &#125; from &#39;./health.controller&#39;;
+
+@Module(&#123;
+  imports: [TerminusModule, HttpModule],
+  controllers: [HealthController],
+&#125;)
+export class HealthModule &#123;&#125;
+</code></pre>
+<pre [class.hide]="!appf65cd7f534b1b15750064cbfec1799dc6bbffd84.isJsActive"><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; TerminusModule &#125; from &#39;@nestjs/terminus&#39;;
+import &#123; HttpModule &#125; from &#39;@nestjs/axios&#39;;
+import &#123; HealthController &#125; from &#39;./health.controller&#39;;
+
+@Module(&#123;
+  imports: [TerminusModule, HttpModule],
+  controllers: [HealthController],
+&#125;)
+export class HealthModule &#123;&#125;
+</code></pre><p>Our health check will now send a <em>GET</em>-request to the <code>https://docs.nestjs.com</code> address. If
+we get a healthy response from that address, our route at <code>http://localhost:3000/health</code> will return
+the following object with a 200 status code.</p>
+<pre><code class="language-json">
+&#123;
+  &quot;status&quot;: &quot;ok&quot;,
+  &quot;info&quot;: &#123;
+    &quot;nestjs-docs&quot;: &#123;
+      &quot;status&quot;: &quot;up&quot;
+    &#125;
+  &#125;,
+  &quot;error&quot;: &#123;&#125;,
+  &quot;details&quot;: &#123;
+    &quot;nestjs-docs&quot;: &#123;
+      &quot;status&quot;: &quot;up&quot;
+    &#125;
+  &#125;
+&#125;
+</code></pre>
+<p>The interface of this response object can be accessed from the <code>@nestjs/terminus</code> package with the <code>HealthCheckResult</code> interface.</p>
+<table>
+<thead>
+</thead>
+<tbody><tr>
+<td><code>status</code></td>
+<td>If any health indicator failed the status will be <code>&#39;error&#39;</code>. If the NestJS app is shutting down but still accepting HTTP requests, the health check will have the <code>&#39;shutting_down&#39;</code> status.</td>
+<td><code>&#39;error&#39; | &#39;ok&#39; | &#39;shutting_down&#39;</code></td>
+</tr>
+<tr>
+<td><code>info</code></td>
+<td>Object containing information of each health indicator which is of status <code>&#39;up&#39;</code>, or in other words &quot;healthy&quot;.</td>
+<td><code>object</code></td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td>Object containing information of each health indicator which is of status <code>&#39;down&#39;</code>, or in other words &quot;unhealthy&quot;.</td>
+<td><code>object</code></td>
+</tr>
+<tr>
+<td><code>details</code></td>
+<td>Object containing all information of each health indicator</td>
+<td><code>object</code></td>
+</tr>
+</tbody></table>
+<h5 id="check-for-specific-http-response-codes">Check for specific HTTP response codes</h5>
+<p>In certain cases, you might want to check for specific criteria and validate the response. As an example, let&#39;s assume
+<code>https://my-external-service.com</code> returns a response code <code>204</code>. With <code>HttpHealthIndicator.responseCheck</code> you can
+check for that response code specifically and determine all other codes as unhealthy.</p>
+<p>In case any other response code other than <code>204</code> gets returned, the following example would be unhealthy. The third parameter
+requires you to provide a function (sync or async) which returns a boolean whether the response is considered
+healthy (<code>true</code>) or unhealthy (<code>false</code>).</p>
+
+<span class="filename">
+  {{ 'health.controller' | extension: app233f48caf46df2b0d5965562e1455e88d97dae9b.isJsActive }}
+<app-tabs #app233f48caf46df2b0d5965562e1455e88d97dae9b></app-tabs>
+</span><pre><code class="language-typescript">
+// Within the `HealthController`-class
+
+@Get()
+@HealthCheck()
+check() &#123;
+  return this.health.check([
+    () =&gt;
+      this.http.responseCheck(
+        &#39;my-external-service&#39;,
+        &#39;https://my-external-service.com&#39;,
+        (res) =&gt; res.status === 204,
+      ),
+  ]);
+&#125;
+</code></pre><h4 appAnchor id="typeorm-health-indicator"><span>TypeOrm health indicator</span></h4>
+<p>Terminus offers the capability to add database checks to your health check. In order to get started with this health indicator, you
+should check out the <a routerLink="/techniques/sql">Database chapter</a> and make sure your database connection within your application is established.</p>
+<blockquote class="
+info "><strong>Hint</strong> Behind the scenes the <code>TypeOrmHealthIndicator</code> simply executes a <code>SELECT 1</code>-SQL command which is often used to verify whether the database still alive. In case you are using an Oracle database it uses <code>SELECT 1 FROM DUAL</code>.
+</blockquote>
+
+<span class="filename">
+  {{ 'health.controller' | extension: appe9c8a8892f808828a61949ef6697cd95d1ac6f7f.isJsActive }}
+<app-tabs #appe9c8a8892f808828a61949ef6697cd95d1ac6f7f></app-tabs>
+</span><pre [class.hide]="appe9c8a8892f808828a61949ef6697cd95d1ac6f7f.isJsActive"><code class="language-typescript">
+@Controller(&#39;health&#39;)
+export class HealthController &#123;
+  constructor(
+    private health: HealthCheckService,
+    private db: TypeOrmHealthIndicator,
+  ) &#123;&#125;
+
+  @Get()
+  @HealthCheck()
+  check() &#123;
+    return this.health.check([
+      () =&gt; this.db.pingCheck(&#39;database&#39;),
+    ]);
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!appe9c8a8892f808828a61949ef6697cd95d1ac6f7f.isJsActive"><code class="language-typescript">
+@Controller(&#39;health&#39;)
+@Dependencies(HealthCheckService, TypeOrmHealthIndicator)
+export class HealthController &#123;
+  constructor(
+    private health,
+    private db,
+  ) &#123; &#125;
+
+  @Get()
+  @HealthCheck()
+  healthCheck() &#123;
+    return this.health.check([
+      () =&gt; this.db.pingCheck(&#39;database&#39;),
+    ])
+  &#125;
+&#125;
+</code></pre><p>If your database is reachable, you should now see the following JSON-result when requesting <code>http://localhost:3000/health</code> with a <code>GET</code> request:</p>
+<pre><code class="language-json">
+&#123;
+  &quot;status&quot;: &quot;ok&quot;,
+  &quot;info&quot;: &#123;
+    &quot;database&quot;: &#123;
+      &quot;status&quot;: &quot;up&quot;
+    &#125;
+  &#125;,
+  &quot;error&quot;: &#123;&#125;,
+  &quot;details&quot;: &#123;
+    &quot;database&quot;: &#123;
+      &quot;status&quot;: &quot;up&quot;
+    &#125;
+  &#125;
+&#125;
+</code></pre>
+<p>In case your app uses <a href="techniques/database#multiple-databases">multiple databases</a>, you need to inject each
+connection into your <code>HealthController</code>. Then, you can simply pass the connection reference to the <code>TypeOrmHealthIndicator</code>.</p>
+
+<span class="filename">
+  {{ 'health.controller' | extension: app69a6febcd362deabbe096ad09859ba9ec766359e.isJsActive }}
+<app-tabs #app69a6febcd362deabbe096ad09859ba9ec766359e></app-tabs>
+</span><pre><code class="language-typescript">
+@Controller(&#39;health&#39;)
+export class HealthController &#123;
+  constructor(
+    private health: HealthCheckService,
+    private db: TypeOrmHealthIndicator,
+    @InjectConnection(&#39;albumsConnection&#39;)
+    private albumsConnection: Connection,
+    @InjectConnection()
+    private defaultConnection: Connection,
+  ) &#123;&#125;
+
+  @Get()
+  @HealthCheck()
+  check() &#123;
+    return this.health.check([
+      () =&gt; this.db.pingCheck(&#39;albums-database&#39;, &#123; connection: this.albumsConnection &#125;),
+      () =&gt; this.db.pingCheck(&#39;database&#39;, &#123; connection: this.defaultConnection &#125;),
+    ]);
+  &#125;
+&#125;
+</code></pre><h4 appAnchor id="disk-health-indicator"><span>Disk health indicator</span></h4>
+<p>With the <code>DiskHealthIndicator</code> we can check how much storage is in use. To get started, make sure to inject the <code>DiskHealthIndicator</code>
+into your <code>HealthController</code>. The following example checks the storage used of the path <code>/</code> (or on Windows you can use <code>C:\\</code>).
+If that exceeds more than 50% of the total storage space it would response with an unhealthy Health Check.</p>
+
+<span class="filename">
+  {{ 'health.controller' | extension: appa5dcf113b48242cd48be1b875c4870dc79bfde99.isJsActive }}
+<app-tabs #appa5dcf113b48242cd48be1b875c4870dc79bfde99></app-tabs>
+</span><pre [class.hide]="appa5dcf113b48242cd48be1b875c4870dc79bfde99.isJsActive"><code class="language-typescript">
+@Controller(&#39;health&#39;)
+export class HealthController &#123;
+  constructor(
+    private readonly health: HealthCheckService,
+    private readonly disk: DiskHealthIndicator,
+  ) &#123;&#125;
+
+  @Get()
+  @HealthCheck()
+  check() &#123;
+    return this.health.check([
+      () =&gt; this.disk.checkStorage(&#39;storage&#39;, &#123; path: &#39;/&#39;, thresholdPercent: 0.5 &#125;),
+    ]);
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!appa5dcf113b48242cd48be1b875c4870dc79bfde99.isJsActive"><code class="language-typescript">
+@Controller(&#39;health&#39;)
+@Dependencies(HealthCheckService, DiskHealthIndicator)
+export class HealthController &#123;
+  constructor(health, disk) &#123;&#125;
+
+  @Get()
+  @HealthCheck()
+  healthCheck() &#123;
+    return this.health.check([
+      () =&gt; this.disk.checkStorage(&#39;storage&#39;, &#123; path: &#39;/&#39;, thresholdPercent: 0.5 &#125;),
+    ])
+  &#125;
+&#125;
+</code></pre><p>With the <code>DiskHealthIndicator.checkStorage</code> function you also have the possibility to check for a fixed amount of space.
+The following example would be unhealthy in case the path <code>/my-app/</code> would exceed 250GB.</p>
+
+<span class="filename">
+  {{ 'health.controller' | extension: appc094291fa581c9756a3d3a988ee55635d67708b7.isJsActive }}
+<app-tabs #appc094291fa581c9756a3d3a988ee55635d67708b7></app-tabs>
+</span><pre><code class="language-typescript">
+// Within the `HealthController`-class
+
+@Get()
+@HealthCheck()
+check() &#123;
+  return this.health.check([
+    () =&gt; this.disk.checkStorage(&#39;storage&#39;, &#123;  path: &#39;/&#39;, threshold: 250 * 1024 * 1024 * 1024, &#125;)
+  ]);
+&#125;
+</code></pre><h4 appAnchor id="memory-health-indicator"><span>Memory health indicator</span></h4>
+<p>To make sure your process does not exceed a certain memory limit the <code>MemoryHealthIndicator</code> can be used. 
+The following example can be used to check the heap of your process.</p>
+<blockquote class="
+info "><strong>Hint</strong> Heap is the portion of memory where dynamically allocated memory resides (i.e. memory allocated via malloc). Memory allocated from the heap will remain allocated until one of the following occurs:
+<ul>
+<li>The memory is <em>free</em>&#39;d</li>
+<li>The program terminates</li>
+</ul>
+</blockquote>
+
+<span class="filename">
+  {{ 'health.controller' | extension: appef0da57315132a70911f2da86a9f13b60b42184c.isJsActive }}
+<app-tabs #appef0da57315132a70911f2da86a9f13b60b42184c></app-tabs>
+</span><pre [class.hide]="appef0da57315132a70911f2da86a9f13b60b42184c.isJsActive"><code class="language-typescript">
+@Controller(&#39;health&#39;)
+export class HealthController &#123;
+  constructor(
+    private health: HealthCheckService,
+    private memory: MemoryHealthIndicator,
+  ) &#123;&#125;
+
+  @Get()
+  @HealthCheck()
+  check() &#123;
+    return this.health.check([
+      () =&gt; this.memory.checkHeap(&#39;memory_heap&#39;, 150 * 1024 * 1024),
+    ]);
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!appef0da57315132a70911f2da86a9f13b60b42184c.isJsActive"><code class="language-typescript">
+@Controller(&#39;health&#39;)
+@Dependencies(HealthCheckService, MemoryHealthIndicator)
+export class HealthController &#123;
+  constructor(health, memory) &#123;&#125;
+
+  @Get()
+  @HealthCheck()
+  healthCheck() &#123;
+    return this.health.check([
+      () =&gt; this.memory.checkHeap(&#39;memory_heap&#39;, 150 * 1024 * 1024),
+    ])
+  &#125;
+&#125;
+</code></pre><p>It is also possible to verify the memory RSS of your process with <code>MemoryHealthIndicator.checkRSS</code>. This example
+would return an unhealthy response code in case your process does have more than 150MB allocated.</p>
+<blockquote class="
+info "><strong>Hint</strong> RSS is the Resident Set Size and is used to show how much memory is allocated to that process and is in RAM.
+It does not include memory that is swapped out. It does include memory from shared libraries as long as the pages from
+those libraries are actually in memory. It does include all stack and heap memory.
+</blockquote>
+
+<span class="filename">
+  {{ 'health.controller' | extension: app9b99e02c48986b3e2808919ac6bbd845d559e199.isJsActive }}
+<app-tabs #app9b99e02c48986b3e2808919ac6bbd845d559e199></app-tabs>
+</span><pre><code class="language-typescript">
+// Within the `HealthController`-class
+
+@Get()
+@HealthCheck()
+check() &#123;
+  return this.health.check([
+    () =&gt; this.memory.checkRSS(&#39;memory_rss&#39;, 150 * 1024 * 1024),
+  ]);
+&#125;
+</code></pre><h4 appAnchor id="custom-health-indicator"><span>Custom health indicator</span></h4>
+<p>In some cases, the predefined health indicators provided by <code>@nestjs/terminus</code> do not cover all of your health check requirements. In that case, you can set up a custom health indicator according to your needs.</p>
+<p>Let&#39;s get started by creating a service that will represent our custom indicator. To get a basic understanding of how an indicator is structured, we will create an example <code>DogHealthIndicator</code>. This service should have the state <code>&#39;up&#39;</code> if every <code>Dog</code> object has the type <code>&#39;goodboy&#39;</code>. If that condition is not satisfied then it should throw an error.</p>
+
+<span class="filename">
+  {{ 'dog.health' | extension: appe2250eb6fada1996a7b736e39e3ec4c084902144.isJsActive }}
+<app-tabs #appe2250eb6fada1996a7b736e39e3ec4c084902144></app-tabs>
+</span><pre [class.hide]="appe2250eb6fada1996a7b736e39e3ec4c084902144.isJsActive"><code class="language-typescript">
+import &#123; Injectable &#125; from &#39;@nestjs/common&#39;;
+import &#123; HealthIndicator, HealthIndicatorResult, HealthCheckError &#125; from &#39;@nestjs/terminus&#39;;
+
+export interface Dog &#123;
+  name: string;
+  type: string;
+&#125;
+
+@Injectable()
+export class DogHealthIndicator extends HealthIndicator &#123;
+  private dogs: Dog[] = [
+    &#123; name: &#39;Fido&#39;, type: &#39;goodboy&#39; &#125;,
+    &#123; name: &#39;Rex&#39;, type: &#39;badboy&#39; &#125;,
+  ];
+
+  async isHealthy(key: string): Promise&lt;HealthIndicatorResult&gt; &#123;
+    const badboys = this.dogs.filter(dog =&gt; dog.type === &#39;badboy&#39;);
+    const isHealthy = badboys.length === 0;
+    const result = this.getStatus(key, isHealthy, &#123; badboys: badboys.length &#125;);
+
+    if (isHealthy) &#123;
+      return result;
+    &#125;
+    throw new HealthCheckError(&#39;Dogcheck failed&#39;, result);
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!appe2250eb6fada1996a7b736e39e3ec4c084902144.isJsActive"><code class="language-typescript">
+import &#123; Injectable &#125; from &#39;@nestjs/common&#39;;
+import &#123; HealthCheckError &#125; from &#39;@godaddy/terminus&#39;;
+
+@Injectable()
+export class DogHealthIndicator extends HealthIndicator &#123;
+  dogs = [
+    &#123; name: &#39;Fido&#39;, type: &#39;goodboy&#39; &#125;,
+    &#123; name: &#39;Rex&#39;, type: &#39;badboy&#39; &#125;,
+  ];
+
+  async isHealthy(key) &#123;
+    const badboys = this.dogs.filter(dog =&gt; dog.type === &#39;badboy&#39;);
+    const isHealthy = badboys.length === 0;
+    const result = this.getStatus(key, isHealthy, &#123; badboys: badboys.length &#125;);
+
+    if (isHealthy) &#123;
+      return result;
+    &#125;
+    throw new HealthCheckError(&#39;Dogcheck failed&#39;, result);
+  &#125;
+&#125;
+</code></pre><p>The next thing we need to do is register the health indicator as a provider.</p>
+
+<span class="filename">
+  {{ 'health.module' | extension: app41e5a066478453b61ff93668247fea2fc54931e8.isJsActive }}
+<app-tabs #app41e5a066478453b61ff93668247fea2fc54931e8></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; TerminusModule &#125; from &#39;@nestjs/terminus&#39;;
+import &#123; DogHealthIndicator &#125; from &#39;./dog.health&#39;;
+
+@Module(&#123;
+  controllers: [HealthController],
+  imports: [TerminusModule],
+  providers: [DogHealthIndicator]
+&#125;)
+export class HealthModule &#123; &#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> In a real-world application the <code>DogHealthIndicator</code> should be provided in a separate module, for example, <code>DogModule</code>, which then will be imported by the <code>HealthModule</code>.
+</blockquote>
+<p>The last required step is to add the now available health indicator in the required health check endpoint. For that, we go back to our <code>HealthController</code> and add it to our <code>check</code> function.</p>
+
+<span class="filename">
+  {{ 'health.controller' | extension: appcfb2e04b8728905fc716988069dd42d881c678a1.isJsActive }}
+<app-tabs #appcfb2e04b8728905fc716988069dd42d881c678a1></app-tabs>
+</span><pre [class.hide]="appcfb2e04b8728905fc716988069dd42d881c678a1.isJsActive"><code class="language-typescript">
+import &#123; HealthCheckService, HealthCheck &#125; from &#39;@nestjs/terminus&#39;;
+import &#123; Injectable, Dependencies, Get &#125; from &#39;@nestjs/common&#39;;
+import &#123; DogHealthIndicator &#125; from &#39;./dog.health&#39;;
+
+@Injectable()
+export class HealthController &#123;
+  constructor(
+    private health: HealthCheckService,
+    private dogHealthIndicator: DogHealthIndicator
+  ) &#123;&#125;
+
+  @Get()
+  @HealthCheck()
+  healthCheck() &#123;
+    return this.health.check([
+      () =&gt; this.dogHealthIndicator.isHealthy(&#39;dog&#39;),
+    ])
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!appcfb2e04b8728905fc716988069dd42d881c678a1.isJsActive"><code class="language-typescript">
+import &#123; HealthCheckService, HealthCheck &#125; from &#39;@nestjs/terminus&#39;;
+import &#123; Injectable, Get &#125; from &#39;@nestjs/common&#39;;
+import &#123; DogHealthIndicator &#125; from &#39;./dog.health&#39;;
+
+@Injectable()
+@Dependencies(HealthCheckService, DogHealthIndicator)
+export class HealthController &#123;
+  constructor(
+    private health,
+    private dogHealthIndicator
+  ) &#123;&#125;
+
+  @Get()
+  @HealthCheck()
+  healthCheck() &#123;
+    return this.health.check([
+      () =&gt; this.dogHealthIndicator.isHealthy(&#39;dog&#39;),
+    ])
+  &#125;
+&#125;
+</code></pre><h4 appAnchor id="logging"><span>Logging</span></h4>
+<p>Terminus only logs error messages, for instance when a Healthcheck has failed. With the <code>TerminusModule.forRoot()</code> method you have more control over how errors are being logged
+as well as completely take over the logging itself.</p>
+<p>In this section, we are going to walk you through how you create a custom logger <code>TerminusLogger</code>. This logger extends the built-in logger.
+Therefore you can pick and choose which part of the logger you would like to overwrite</p>
+<blockquote class="
+info "><strong>Info</strong> If you want to learn more about custom loggers in NestJS, <a href="/techniques/logger#injecting-a-custom-logger">read more here</a>.
+</blockquote>
+
+<span class="filename">
+  {{ 'terminus-logger.service' | extension: appf0f1ea0179a4157adc02802500a972efb9880553.isJsActive }}
+<app-tabs #appf0f1ea0179a4157adc02802500a972efb9880553></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Injectable, Scope, ConsoleLogger &#125; from &#39;@nestjs/common&#39;;
+
+@Injectable(&#123; scope: Scope.TRANSIENT &#125;)
+export class TerminusLogger extends ConsoleLogger &#123;
+  error(message: any, stack?: string, context?: string): void;
+  error(message: any, ...optionalParams: any[]): void;
+  error(
+    message: unknown,
+    stack?: unknown,
+    context?: unknown,
+    ...rest: unknown[]
+  ): void &#123;
+    // Overwrite here how error messages should be logged
+  &#125;
+&#125;
+</code></pre><p>Once you have created your custom logger, all you need to do is simply pass it into the <code>TerminusModule.forRoot()</code> as such.</p>
+
+<span class="filename">
+  {{ 'health.module' | extension: app753f923ed6aa53d3e2a2f6370e2966eda86cedc0.isJsActive }}
+<app-tabs #app753f923ed6aa53d3e2a2f6370e2966eda86cedc0></app-tabs>
+</span><pre><code class="language-typescript">
+@Module(&#123;
+imports: [
+  TerminusModule.forRoot(&#123;
+    logger: TerminusLogger,
+  &#125;),
+],
+&#125;)
+export class HealthModule &#123;&#125;
+</code></pre><p>To completely suppress any log messages coming from Terminus, including error messages, configure Terminus as such.</p>
+
+<span class="filename">
+  {{ 'health.module' | extension: app199818525e7e319c9c1fa6fe0baa790ad40fda4d.isJsActive }}
+<app-tabs #app199818525e7e319c9c1fa6fe0baa790ad40fda4d></app-tabs>
+</span><pre><code class="language-typescript">
+@Module(&#123;
+imports: [
+  TerminusModule.forRoot(&#123;
+    logger: false,
+  &#125;),
+],
+&#125;)
+export class HealthModule &#123;&#125;
+</code></pre><p>Terminus allows you to configure how Healthcheck errors should be displayed in your logs.</p>
+<table>
+<thead>
+<tr>
+<th align="left">Error Log Style</th>
+<th align="left">Description</th>
+<th align="left">Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><code>json</code>  (default)</td>
+<td align="left">Prints a summary of the health check result in case of an error as JSON object</td>
+<td align="left"><figure><img src="/assets/Terminus_Error_Log_Json.png" /></figure></td>
+</tr>
+<tr>
+<td align="left"><code>pretty</code></td>
+<td align="left">Prints a summary of the health check result in case of an error within formatted boxes and highlights successful/erroneous results</td>
+<td align="left"><figure><img src="/assets/Terminus_Error_Log_Pretty.png" /></figure></td>
+</tr>
+</tbody></table>
+<p>You can change the log style using the <code>errorLogStyle</code> configuration option as in the following snippet.</p>
+
+<span class="filename">
+  {{ 'health.module' | extension: appccd76d2d479d4ed05281e92ab23955f73197f8e4.isJsActive }}
+<app-tabs #appccd76d2d479d4ed05281e92ab23955f73197f8e4></app-tabs>
+</span><pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    TerminusModule.forRoot(&#123;
+      errorLogStyle: &#39;pretty&#39;,
+    &#125;),
+  ]
+&#125;)
+export class HealthModule &#123;&#125;
+</code></pre><h4 appAnchor id="graceful-shutdown-timeout"><span>Graceful shutdown timeout</span></h4>
+<p>If your application requires postponing its shutdown process, Terminus can handle it for you.
+This setting can prove particularly beneficial when working with an orchestrator such as Kubernetes.
+By setting a delay slightly longer than the readiness check interval, you can achieve zero downtime when shutting down containers.</p>
+
+<span class="filename">
+  {{ 'health.module' | extension: app36e90299830db5be13ad90a77385cac38bb8761c.isJsActive }}
+<app-tabs #app36e90299830db5be13ad90a77385cac38bb8761c></app-tabs>
+</span><pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    TerminusModule.forRoot(&#123;
+      gracefulShutdownTimeoutMs: 1000,
+    &#125;),
+  ]
+&#125;)
+export class HealthModule &#123;&#125;
+</code></pre><h4 appAnchor id="more-examples"><span>More examples</span></h4>
+<p>More working examples are available <a rel='nofollow' target='_blank' href="https://github.com/nestjs/terminus/tree/master/sample">here</a>.</p>
+
+</div>
+

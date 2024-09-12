@@ -1,0 +1,94 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/techniques/streaming-files.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="streaming-files">Streaming files</h3>
+<blockquote class="
+info "><strong>Note</strong> This chapter shows how you can stream files from your <strong>HTTP application</strong>. The examples presented below do not apply to GraphQL or Microservice applications.
+</blockquote>
+<p>There may be times where you would like to send back a file from your REST API to the client. To do this with Nest, normally you&#39;d do the following:</p>
+<pre><code class="language-ts">
+@Controller(&#39;file&#39;)
+export class FileController &#123;
+  @Get()
+  getFile(@Res() res: Response) &#123;
+    const file = createReadStream(join(process.cwd(), &#39;package.json&#39;));
+    file.pipe(res);
+  &#125;
+&#125;
+</code></pre>
+<p>But in doing so you end up losing access to your post-controller interceptor logic. To handle this, you can return a <code>StreamableFile</code> instance and under the hood, the framework will take care of piping the response.</p>
+<h4 appAnchor id="streamable-file-class"><span>Streamable File class</span></h4>
+<p>A <code>StreamableFile</code> is a class that holds onto the stream that is to be returned. To create a new <code>StreamableFile</code>, you can pass either a <code>Buffer</code> or a <code>Stream</code> to the <code>StreamableFile</code> constructor.</p>
+<blockquote class="
+info "><strong>hint</strong> The <code>StreamableFile</code> class can be imported from <code>@nestjs/common</code>.
+</blockquote>
+<h4 appAnchor id="cross-platform-support"><span>Cross-platform support</span></h4>
+<p>Fastify, by default, can support sending files without needing to call <code>stream.pipe(res)</code>, so you don&#39;t need to use the <code>StreamableFile</code> class at all. However, Nest supports the use of <code>StreamableFile</code> in both platform types, so if you end up switching between Express and Fastify there&#39;s no need to worry about compatibility between the two engines.</p>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>You can find a simple example of returning the <code>package.json</code> as a file instead of a JSON below, but the idea extends out naturally to images, documents, and any other file type.</p>
+<pre><code class="language-ts">
+import &#123; Controller, Get, StreamableFile &#125; from &#39;@nestjs/common&#39;;
+import &#123; createReadStream &#125; from &#39;fs&#39;;
+import &#123; join &#125; from &#39;path&#39;;
+
+@Controller(&#39;file&#39;)
+export class FileController &#123;
+  @Get()
+  getFile(): StreamableFile &#123;
+    const file = createReadStream(join(process.cwd(), &#39;package.json&#39;));
+    return new StreamableFile(file);
+  &#125;
+&#125;
+</code></pre>
+<p>The default content type (the value for <code>Content-Type</code> HTTP response header) is <code>application/octet-stream</code>. If you need to customize this value you can use the <code>type</code> option from <code>StreamableFile</code>, or use the <code>res.set</code> method or the <a href="/controllers#headers"><code>@Header()</code></a> decorator, like this:</p>
+<pre><code class="language-ts">
+import &#123; Controller, Get, StreamableFile, Res &#125; from &#39;@nestjs/common&#39;;
+import &#123; createReadStream &#125; from &#39;fs&#39;;
+import &#123; join &#125; from &#39;path&#39;;
+import type &#123; Response &#125; from &#39;express&#39;; // Assuming that we are using the ExpressJS HTTP Adapter
+
+@Controller(&#39;file&#39;)
+export class FileController &#123;
+  @Get()
+  getFile(): StreamableFile &#123;
+    const file = createReadStream(join(process.cwd(), &#39;package.json&#39;));
+    return new StreamableFile(file, &#123;
+      type: &#39;application/json&#39;,
+      disposition: &#39;attachment; filename=&quot;package.json&quot;&#39;,
+      // If you want to define the Content-Length value to another value instead of file&#39;s length:
+      // length: 123,
+    &#125;);
+  &#125;
+
+  // Or even:
+  @Get()
+  getFileChangingResponseObjDirectly(@Res(&#123; passthrough: true &#125;) res: Response): StreamableFile &#123;
+    const file = createReadStream(join(process.cwd(), &#39;package.json&#39;));
+    res.set(&#123;
+      &#39;Content-Type&#39;: &#39;application/json&#39;,
+      &#39;Content-Disposition&#39;: &#39;attachment; filename=&quot;package.json&quot;&#39;,
+    &#125;);
+    return new StreamableFile(file);
+  &#125;
+
+  // Or even:
+  @Get()
+  @Header(&#39;Content-Type&#39;, &#39;application/json&#39;)
+  @Header(&#39;Content-Disposition&#39;, &#39;attachment; filename=&quot;package.json&quot;&#39;)
+  getFileUsingStaticValues(): StreamableFile &#123;
+    const file = createReadStream(join(process.cwd(), &#39;package.json&#39;));
+    return new StreamableFile(file);
+  &#125;  
+&#125;
+</code></pre>
+
+</div>
+

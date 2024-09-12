@@ -1,0 +1,131 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/recipes/crud-generator.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="crud-generator-typescript-only">CRUD generator (TypeScript only)</h3>
+<p>Throughout the life span of a project, when we build new features, we often need to add new resources to our application. These resources typically require multiple, repetitive operations that we have to repeat each time we define a new resource.</p>
+<h4 appAnchor id="introduction"><span>Introduction</span></h4>
+<p>Let&#39;s imagine a real-world scenario, where we need to expose CRUD endpoints for 2 entities, let&#39;s say <strong>User</strong> and <strong>Product</strong> entities.
+Following the best practices, for each entity we would have to perform several operations, as follows:</p>
+<ul>
+<li>Generate a module (<code>nest g mo</code>) to keep code organized and establish clear boundaries (grouping related components)</li>
+<li>Generate a controller (<code>nest g co</code>) to define CRUD routes (or queries/mutations for GraphQL applications)</li>
+<li>Generate a service (<code>nest g s</code>) to implement &amp; isolate business logic</li>
+<li>Generate an entity class/interface to represent the resource data shape</li>
+<li>Generate Data Transfer Objects (or inputs for GraphQL applications) to define how the data will be sent over the network</li>
+</ul>
+<p>That&#39;s a lot of steps!</p>
+<p>To help speed up this repetitive process, <a routerLink="/cli/overview">Nest CLI</a> provides a generator (schematic) that automatically generates all the boilerplate code to help us avoid doing all of this, and make the developer experience much simpler.</p>
+<blockquote class="
+info "><strong>Note</strong> The schematic supports generating <strong>HTTP</strong> controllers, <strong>Microservice</strong> controllers, <strong>GraphQL</strong> resolvers (both code first and schema first), and <strong>WebSocket</strong> Gateways.
+</blockquote>
+<h4 appAnchor id="generating-a-new-resource"><span>Generating a new resource</span></h4>
+<p>To create a new resource, simply run the following command in the root directory of your project:</p>
+<pre><code class="language-shell">
+$ nest g resource
+</code></pre>
+<p><code>nest g resource</code> command not only generates all the NestJS building blocks (module, service, controller classes) but also an entity class, DTO classes as well as the testing (<code>.spec</code>) files.</p>
+<p>Below you can see the generated controller file (for REST API):</p>
+<pre><code class="language-typescript">
+@Controller(&#39;users&#39;)
+export class UsersController &#123;
+  constructor(private readonly usersService: UsersService) &#123;&#125;
+
+  @Post()
+  create(@Body() createUserDto: CreateUserDto) &#123;
+    return this.usersService.create(createUserDto);
+  &#125;
+
+  @Get()
+  findAll() &#123;
+    return this.usersService.findAll();
+  &#125;
+
+  @Get(&#39;:id&#39;)
+  findOne(@Param(&#39;id&#39;) id: string) &#123;
+    return this.usersService.findOne(+id);
+  &#125;
+
+  @Patch(&#39;:id&#39;)
+  update(@Param(&#39;id&#39;) id: string, @Body() updateUserDto: UpdateUserDto) &#123;
+    return this.usersService.update(+id, updateUserDto);
+  &#125;
+
+  @Delete(&#39;:id&#39;)
+  remove(@Param(&#39;id&#39;) id: string) &#123;
+    return this.usersService.remove(+id);
+  &#125;
+&#125;
+</code></pre>
+<p>Also, it automatically creates placeholders for all the CRUD endpoints (routes for REST APIs, queries and mutations for GraphQL, message subscribes for both Microservices and WebSocket Gateways) - all without having to lift a finger.</p>
+<blockquote class="
+warning "><strong>Note</strong> Generated service classes are <strong>not</strong> tied to any specific <strong>ORM (or data source)</strong>. This makes the generator generic enough to meet the needs of any project. By default, all methods will contain placeholders, allowing you to populate it with the data sources specific to your project.
+</blockquote>
+<p>Likewise, if you want to generate resolvers for a GraphQL application, simply select the <code>GraphQL (code first)</code> (or <code>GraphQL (schema first)</code>) as your transport layer.</p>
+<p>In this case, NestJS will generate a resolver class instead of a REST API controller:</p>
+<pre><code class="language-shell">
+$ nest g resource users
+
+&gt; ? What transport layer do you use? GraphQL (code first)
+&gt; ? Would you like to generate CRUD entry points? Yes
+&gt; CREATE src/users/users.module.ts (224 bytes)
+&gt; CREATE src/users/users.resolver.spec.ts (525 bytes)
+&gt; CREATE src/users/users.resolver.ts (1109 bytes)
+&gt; CREATE src/users/users.service.spec.ts (453 bytes)
+&gt; CREATE src/users/users.service.ts (625 bytes)
+&gt; CREATE src/users/dto/create-user.input.ts (195 bytes)
+&gt; CREATE src/users/dto/update-user.input.ts (281 bytes)
+&gt; CREATE src/users/entities/user.entity.ts (187 bytes)
+&gt; UPDATE src/app.module.ts (312 bytes)
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> To avoid generating test files, you can pass the <code>--no-spec</code> flag, as follows: <code>nest g resource users --no-spec</code>
+</blockquote>
+<p>We can see below, that not only were all boilerplate mutations and queries created, but everything is all tied together. We&#39;re utilizing the <code>UsersService</code>, <code>User</code> Entity, and our DTO&#39;s.</p>
+<pre><code class="language-typescript">
+import &#123; Resolver, Query, Mutation, Args, Int &#125; from &#39;@nestjs/graphql&#39;;
+import &#123; UsersService &#125; from &#39;./users.service&#39;;
+import &#123; User &#125; from &#39;./entities/user.entity&#39;;
+import &#123; CreateUserInput &#125; from &#39;./dto/create-user.input&#39;;
+import &#123; UpdateUserInput &#125; from &#39;./dto/update-user.input&#39;;
+
+@Resolver(() =&gt; User)
+export class UsersResolver &#123;
+  constructor(private readonly usersService: UsersService) &#123;&#125;
+
+  @Mutation(() =&gt; User)
+  createUser(@Args(&#39;createUserInput&#39;) createUserInput: CreateUserInput) &#123;
+    return this.usersService.create(createUserInput);
+  &#125;
+
+  @Query(() =&gt; [User], &#123; name: &#39;users&#39; &#125;)
+  findAll() &#123;
+    return this.usersService.findAll();
+  &#125;
+
+  @Query(() =&gt; User, &#123; name: &#39;user&#39; &#125;)
+  findOne(@Args(&#39;id&#39;, &#123; type: () =&gt; Int &#125;) id: number) &#123;
+    return this.usersService.findOne(id);
+  &#125;
+
+  @Mutation(() =&gt; User)
+  updateUser(@Args(&#39;updateUserInput&#39;) updateUserInput: UpdateUserInput) &#123;
+    return this.usersService.update(updateUserInput.id, updateUserInput);
+  &#125;
+
+  @Mutation(() =&gt; User)
+  removeUser(@Args(&#39;id&#39;, &#123; type: () =&gt; Int &#125;) id: number) &#123;
+    return this.usersService.remove(id);
+  &#125;
+&#125;
+</code></pre>
+
+</div>
+

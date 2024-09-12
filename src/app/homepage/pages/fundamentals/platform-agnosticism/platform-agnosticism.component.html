@@ -1,0 +1,21 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/fundamentals/platform-agnosticism.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="platform-agnosticism">Platform agnosticism</h3>
+<p>Nest is a platform-agnostic framework. This means you can develop <strong>reusable logical parts</strong> that can be used across different types of applications. For example, most components can be re-used without change across different underlying HTTP server frameworks (e.g., Express and Fastify), and even across different <em>types</em> of applications (e.g., HTTP server frameworks, Microservices with different transport layers, and Web Sockets).</p>
+<h4 appAnchor id="build-once-use-everywhere"><span>Build once, use everywhere</span></h4>
+<p>The <strong>Overview</strong> section of the documentation primarily shows coding techniques using HTTP server frameworks (e.g., apps providing a REST API or providing an MVC-style server-side rendered app). However, all those building blocks can be used on top of different transport layers (<a routerLink="/microservices/basics">microservices</a> or <a routerLink="/websockets/gateways">websockets</a>).</p>
+<p>Furthermore, Nest comes with a dedicated <a routerLink="/graphql/quick-start">GraphQL</a> module. You can use GraphQL as your API layer interchangeably with providing a REST API.</p>
+<p>In addition, the <a routerLink="/application-context">application context</a> feature helps to create any kind of Node.js application - including things like CRON jobs and CLI apps - on top of Nest.</p>
+<p>Nest aspires to be a full-fledged platform for Node.js apps that brings a higher-level of modularity and reusability to your applications. Build once, use everywhere!</p>
+
+</div>
+

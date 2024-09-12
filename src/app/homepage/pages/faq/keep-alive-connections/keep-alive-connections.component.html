@@ -1,0 +1,35 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/faq/keep-alive-connections.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="keep-alive-connections">Keep alive connections</h3>
+<p>By default, the HTTP adapters of NestJS will wait until the response is finished before closing the application. But sometimes, this behavior is not desired, or unexpected. There might be some requests that use <code>Connection: Keep-Alive</code> headers that live for a long time.</p>
+<p>For these scenarios where you always want your application to exit without waiting for requests to end, you can enable the <code>forceCloseConnections</code> option when creating your NestJS application.</p>
+<blockquote class="
+warning "><strong>Tip</strong> Most users will not need to enable this option. But the symptom of needing this option is that your application will not exit when you expect it to. Usually when <code>app.enableShutdownHooks()</code> is enabled and you notice that the application is not restarting/exiting. Most likely while running the NestJS application during development with <code>--watch</code>.
+</blockquote>
+<h4 appAnchor id="usage"><span>Usage</span></h4>
+<p>In your <code>main.ts</code> file, enable the option when creating your NestJS application:</p>
+<pre><code class="language-typescript">
+import &#123; NestFactory &#125; from &#39;@nestjs/core&#39;;
+import &#123; AppModule &#125; from &#39;./app.module&#39;;
+
+async function bootstrap() &#123;
+  const app = await NestFactory.create(AppModule, &#123;
+    forceCloseConnections: true,
+  &#125;);
+  await app.listen(3000);
+&#125;
+
+bootstrap();
+</code></pre>
+
+</div>
+

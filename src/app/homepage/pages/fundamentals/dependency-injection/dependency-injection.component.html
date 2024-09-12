@@ -1,0 +1,380 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/fundamentals/dependency-injection.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="custom-providers">Custom providers</h3>
+<p>In earlier chapters, we touched on various aspects of <strong>Dependency Injection (DI)</strong> and how it is used in Nest. One example of this is the <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/providers#dependency-injection">constructor based</a> dependency injection used to inject instances (often service providers) into classes. You won&#39;t be surprised to learn that Dependency Injection is built into the Nest core in a fundamental way. So far, we&#39;ve only explored one main pattern. As your application grows more complex, you may need to take advantage of the full features of the DI system, so let&#39;s explore them in more detail.</p>
+<h4 appAnchor id="di-fundamentals"><span>DI fundamentals</span></h4>
+<p>Dependency injection is an <a rel='nofollow' target='_blank' href="https://en.wikipedia.org/wiki/Inversion_of_control">inversion of control (IoC)</a> technique wherein you delegate instantiation of dependencies to the IoC container (in our case, the NestJS runtime system), instead of doing it in your own code imperatively. Let&#39;s examine what&#39;s happening in this example from the <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/providers">Providers chapter</a>.</p>
+<p>First, we define a provider. The <code>@Injectable()</code> decorator marks the <code>CatsService</code> class as a provider.</p>
+
+<span class="filename">
+  {{ 'cats.service' | extension: app73744cae3364eb3bede7591dc07757a68d5f27b7.isJsActive }}
+<app-tabs #app73744cae3364eb3bede7591dc07757a68d5f27b7></app-tabs>
+</span><pre [class.hide]="app73744cae3364eb3bede7591dc07757a68d5f27b7.isJsActive"><code class="language-typescript">
+import &#123; Injectable &#125; from &#39;@nestjs/common&#39;;
+import &#123; Cat &#125; from &#39;./interfaces/cat.interface&#39;;
+
+@Injectable()
+export class CatsService &#123;
+  private readonly cats: Cat[] = [];
+
+  findAll(): Cat[] &#123;
+    return this.cats;
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app73744cae3364eb3bede7591dc07757a68d5f27b7.isJsActive"><code class="language-typescript">
+import &#123; Injectable &#125; from &#39;@nestjs/common&#39;;
+
+@Injectable()
+export class CatsService &#123;
+  constructor() &#123;
+    this.cats = [];
+  &#125;
+
+  findAll() &#123;
+    return this.cats;
+  &#125;
+&#125;
+</code></pre><p>Then we request that Nest inject the provider into our controller class:</p>
+
+<span class="filename">
+  {{ 'cats.controller' | extension: appfcd72083be770228efe06a3cc7c6459b42152cc8.isJsActive }}
+<app-tabs #appfcd72083be770228efe06a3cc7c6459b42152cc8></app-tabs>
+</span><pre [class.hide]="appfcd72083be770228efe06a3cc7c6459b42152cc8.isJsActive"><code class="language-typescript">
+import &#123; Controller, Get &#125; from &#39;@nestjs/common&#39;;
+import &#123; CatsService &#125; from &#39;./cats.service&#39;;
+import &#123; Cat &#125; from &#39;./interfaces/cat.interface&#39;;
+
+@Controller(&#39;cats&#39;)
+export class CatsController &#123;
+  constructor(private catsService: CatsService) &#123;&#125;
+
+  @Get()
+  async findAll(): Promise&lt;Cat[]&gt; &#123;
+    return this.catsService.findAll();
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!appfcd72083be770228efe06a3cc7c6459b42152cc8.isJsActive"><code class="language-typescript">
+import &#123; Controller, Get, Bind, Dependencies &#125; from &#39;@nestjs/common&#39;;
+import &#123; CatsService &#125; from &#39;./cats.service&#39;;
+
+@Controller(&#39;cats&#39;)
+@Dependencies(CatsService)
+export class CatsController &#123;
+  constructor(catsService) &#123;
+    this.catsService = catsService;
+  &#125;
+
+  @Get()
+  async findAll() &#123;
+    return this.catsService.findAll();
+  &#125;
+&#125;
+</code></pre><p>Finally, we register the provider with the Nest IoC container:</p>
+
+<span class="filename">
+  {{ 'app.module' | extension: appa369bededa2c80b5749f36ec3ec2b68459655d7e.isJsActive }}
+<app-tabs #appa369bededa2c80b5749f36ec3ec2b68459655d7e></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; CatsController &#125; from &#39;./cats/cats.controller&#39;;
+import &#123; CatsService &#125; from &#39;./cats/cats.service&#39;;
+
+@Module(&#123;
+  controllers: [CatsController],
+  providers: [CatsService],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><p>What exactly is happening under the covers to make this work? There are three key steps in the process:</p>
+<ol>
+<li>In <code>cats.service.ts</code>, the <code>@Injectable()</code> decorator declares the <code>CatsService</code> class as a class that can be managed by the Nest IoC container.</li>
+<li>In <code>cats.controller.ts</code>, <code>CatsController</code> declares a dependency on the <code>CatsService</code> token with constructor injection:</li>
+</ol>
+<pre><code class="language-typescript">
+  constructor(private catsService: CatsService)
+</code></pre>
+<ol start="3">
+<li>In <code>app.module.ts</code>, we associate the token <code>CatsService</code> with the class <code>CatsService</code> from the <code>cats.service.ts</code> file. We&#39;ll <a href="/fundamentals/custom-providers#standard-providers">see below</a> exactly how this association (also called <em>registration</em>) occurs.</li>
+</ol>
+<p>When the Nest IoC container instantiates a <code>CatsController</code>, it first looks for any dependencies*. When it finds the <code>CatsService</code> dependency, it performs a lookup on the <code>CatsService</code> token, which returns the <code>CatsService</code> class, per the registration step (#3 above). Assuming <code>SINGLETON</code> scope (the default behavior), Nest will then either create an instance of <code>CatsService</code>, cache it, and return it, or if one is already cached, return the existing instance.</p>
+<p>*This explanation is a bit simplified to illustrate the point. One important area we glossed over is that the process of analyzing the code for dependencies is very sophisticated, and happens during application bootstrapping. One key feature is that dependency analysis (or &quot;creating the dependency graph&quot;), is <strong>transitive</strong>. In the above example, if the <code>CatsService</code> itself had dependencies, those too would be resolved. The dependency graph ensures that dependencies are resolved in the correct order - essentially &quot;bottom up&quot;. This mechanism relieves the developer from having to manage such complex dependency graphs.</p>
+<p><app-banner-courses></app-banner-courses></p>
+<h4 appAnchor id="standard-providers"><span>Standard providers</span></h4>
+<p>Let&#39;s take a closer look at the <code>@Module()</code> decorator. In <code>app.module</code>, we declare:</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  controllers: [CatsController],
+  providers: [CatsService],
+&#125;)
+</code></pre>
+<p>The <code>providers</code> property takes an array of <code>providers</code>. So far, we&#39;ve supplied those providers via a list of class names. In fact, the syntax <code>providers: [CatsService]</code> is short-hand for the more complete syntax:</p>
+<pre><code class="language-typescript">
+providers: [
+  &#123;
+    provide: CatsService,
+    useClass: CatsService,
+  &#125;,
+];
+</code></pre>
+<p>Now that we see this explicit construction, we can understand the registration process. Here, we are clearly associating the token <code>CatsService</code> with the class <code>CatsService</code>. The short-hand notation is merely a convenience to simplify the most common use-case, where the token is used to request an instance of a class by the same name.</p>
+<h4 appAnchor id="custom-providers-1"><span>Custom providers</span></h4>
+<p>What happens when your requirements go beyond those offered by <em>Standard providers</em>? Here are a few examples:</p>
+<ul>
+<li>You want to create a custom instance instead of having Nest instantiate (or return a cached instance of) a class</li>
+<li>You want to re-use an existing class in a second dependency</li>
+<li>You want to override a class with a mock version for testing</li>
+</ul>
+<p>Nest allows you to define Custom providers to handle these cases. It provides several ways to define custom providers. Let&#39;s walk through them.</p>
+<blockquote class="
+info "><strong>Hint</strong> If you are having problems with dependency resolution you can set the <code>NEST_DEBUG</code> environment variable and get extra dependency resolution logs during startup.
+</blockquote>
+<h4 appAnchor id="value-providers-usevalue"><span>Value providers: <code>useValue</code></span></h4>
+<p>The <code>useValue</code> syntax is useful for injecting a constant value, putting an external library into the Nest container, or replacing a real implementation with a mock object. Let&#39;s say you&#39;d like to force Nest to use a mock <code>CatsService</code> for testing purposes.</p>
+<pre><code class="language-typescript">
+import &#123; CatsService &#125; from &#39;./cats.service&#39;;
+
+const mockCatsService = &#123;
+  /* mock implementation
+  ...
+  */
+&#125;;
+
+@Module(&#123;
+  imports: [CatsModule],
+  providers: [
+    &#123;
+      provide: CatsService,
+      useValue: mockCatsService,
+    &#125;,
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>In this example, the <code>CatsService</code> token will resolve to the <code>mockCatsService</code> mock object. <code>useValue</code> requires a value - in this case a literal object that has the same interface as the <code>CatsService</code> class it is replacing. Because of TypeScript&#39;s <a rel='nofollow' target='_blank' href="https://www.typescriptlang.org/docs/handbook/type-compatibility.html">structural typing</a>, you can use any object that has a compatible interface, including a literal object or a class instance instantiated with <code>new</code>.</p>
+<h4 appAnchor id="non-class-based-provider-tokens"><span>Non-class-based provider tokens</span></h4>
+<p>So far, we&#39;ve used class names as our provider tokens (the value of the <code>provide</code> property in a provider listed in the <code>providers</code> array). This is matched by the standard pattern used with <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/providers#dependency-injection">constructor based injection</a>, where the token is also a class name. (Refer back to <a href="/fundamentals/custom-providers#di-fundamentals">DI Fundamentals</a> for a refresher on tokens if this concept isn&#39;t entirely clear). Sometimes, we may want the flexibility to use strings or symbols as the DI token. For example:</p>
+<pre><code class="language-typescript">
+import &#123; connection &#125; from &#39;./connection&#39;;
+
+@Module(&#123;
+  providers: [
+    &#123;
+      provide: &#39;CONNECTION&#39;,
+      useValue: connection,
+    &#125;,
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>In this example, we are associating a string-valued token (<code>&#39;CONNECTION&#39;</code>) with a pre-existing <code>connection</code> object we&#39;ve imported from an external file.</p>
+<blockquote class="
+warning "><strong>Notice</strong> In addition to using strings as token values, you can also use JavaScript <a rel='nofollow' target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol">symbols</a> or TypeScript <a rel='nofollow' target='_blank' href="https://www.typescriptlang.org/docs/handbook/enums.html">enums</a>.
+</blockquote>
+<p>We&#39;ve previously seen how to inject a provider using the standard <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/providers#dependency-injection">constructor based injection</a> pattern. This pattern <strong>requires</strong> that the dependency be declared with a class name. The <code>&#39;CONNECTION&#39;</code> custom provider uses a string-valued token. Let&#39;s see how to inject such a provider. To do so, we use the <code>@Inject()</code> decorator. This decorator takes a single argument - the token.</p>
+
+<span class="filename">
+<app-tabs #app1f24b932c8b1edfb081393d3af40154817c82625></app-tabs>
+</span><pre [class.hide]="app1f24b932c8b1edfb081393d3af40154817c82625.isJsActive"><code class="language-typescript">
+@Injectable()
+export class CatsRepository &#123;
+  constructor(@Inject(&#39;CONNECTION&#39;) connection: Connection) &#123;&#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app1f24b932c8b1edfb081393d3af40154817c82625.isJsActive"><code class="language-typescript">
+@Injectable()
+@Dependencies(&#39;CONNECTION&#39;)
+export class CatsRepository &#123;
+  constructor(connection) &#123;&#125;
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> The <code>@Inject()</code> decorator is imported from <code>@nestjs/common</code> package.
+</blockquote>
+<p>While we directly use the string <code>&#39;CONNECTION&#39;</code> in the above examples for illustration purposes, for clean code organization, it&#39;s best practice to define tokens in a separate file, such as <code>constants.ts</code>. Treat them much as you would symbols or enums that are defined in their own file and imported where needed.</p>
+<h4 appAnchor id="class-providers-useclass"><span>Class providers: <code>useClass</code></span></h4>
+<p>The <code>useClass</code> syntax allows you to dynamically determine a class that a token should resolve to. For example, suppose we have an abstract (or default) <code>ConfigService</code> class. Depending on the current environment, we want Nest to provide a different implementation of the configuration service. The following code implements such a strategy.</p>
+<pre><code class="language-typescript">
+const configServiceProvider = &#123;
+  provide: ConfigService,
+  useClass:
+    process.env.NODE_ENV === &#39;development&#39;
+      ? DevelopmentConfigService
+      : ProductionConfigService,
+&#125;;
+
+@Module(&#123;
+  providers: [configServiceProvider],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>Let&#39;s look at a couple of details in this code sample. You&#39;ll notice that we define <code>configServiceProvider</code> with a literal object first, then pass it in the module decorator&#39;s <code>providers</code> property. This is just a bit of code organization, but is functionally equivalent to the examples we&#39;ve used thus far in this chapter.</p>
+<p>Also, we have used the <code>ConfigService</code> class name as our token. For any class that depends on <code>ConfigService</code>, Nest will inject an instance of the provided class (<code>DevelopmentConfigService</code> or <code>ProductionConfigService</code>) overriding any default implementation that may have been declared elsewhere (e.g., a <code>ConfigService</code> declared with an <code>@Injectable()</code> decorator).</p>
+<h4 appAnchor id="factory-providers-usefactory"><span>Factory providers: <code>useFactory</code></span></h4>
+<p>The <code>useFactory</code> syntax allows for creating providers <strong>dynamically</strong>. The actual provider will be supplied by the value returned from a factory function. The factory function can be as simple or complex as needed. A simple factory may not depend on any other providers. A more complex factory can itself inject other providers it needs to compute its result. For the latter case, the factory provider syntax has a pair of related mechanisms:</p>
+<ol>
+<li>The factory function can accept (optional) arguments.</li>
+<li>The (optional) <code>inject</code> property accepts an array of providers that Nest will resolve and pass as arguments to the factory function during the instantiation process. Also, these providers can be marked as optional. The two lists should be correlated: Nest will pass instances from the <code>inject</code> list as arguments to the factory function in the same order. The example below demonstrates this.</li>
+</ol>
+
+<span class="filename">
+<app-tabs #app4f5a6cf42dbdcd37a89b99b57ad38025214a4367></app-tabs>
+</span><pre [class.hide]="app4f5a6cf42dbdcd37a89b99b57ad38025214a4367.isJsActive"><code class="language-typescript">
+const connectionProvider = &#123;
+  provide: &#39;CONNECTION&#39;,
+  useFactory: (optionsProvider: OptionsProvider, optionalProvider?: string) =&gt; &#123;
+    const options = optionsProvider.get();
+    return new DatabaseConnection(options);
+  &#125;,
+  inject: [OptionsProvider, &#123; token: &#39;SomeOptionalProvider&#39;, optional: true &#125;],
+  //       \_____________/            \__________________/
+  //        This provider              The provider with this
+  //        is mandatory.              token can resolve to `undefined`.
+&#125;;
+
+@Module(&#123;
+  providers: [
+    connectionProvider,
+    OptionsProvider,
+    // &#123; provide: &#39;SomeOptionalProvider&#39;, useValue: &#39;anything&#39; &#125;,
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<pre [class.hide]="!app4f5a6cf42dbdcd37a89b99b57ad38025214a4367.isJsActive"><code class="language-typescript">
+const connectionProvider = &#123;
+  provide: &#39;CONNECTION&#39;,
+  useFactory: (optionsProvider, optionalProvider) =&gt; &#123;
+    const options = optionsProvider.get();
+    return new DatabaseConnection(options);
+  &#125;,
+  inject: [OptionsProvider, &#123; token: &#39;SomeOptionalProvider&#39;, optional: true &#125;],
+  //       \_____________/            \__________________/
+  //        This provider              The provider with this
+  //        is mandatory.              token can resolve to `undefined`.
+&#125;;
+
+@Module(&#123;
+  providers: [
+    connectionProvider,
+    OptionsProvider,
+    // &#123; provide: &#39;SomeOptionalProvider&#39;, useValue: &#39;anything&#39; &#125;,
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><h4 appAnchor id="alias-providers-useexisting"><span>Alias providers: <code>useExisting</code></span></h4>
+<p>The <code>useExisting</code> syntax allows you to create aliases for existing providers. This creates two ways to access the same provider. In the example below, the (string-based) token <code>&#39;AliasedLoggerService&#39;</code> is an alias for the (class-based) token <code>LoggerService</code>. Assume we have two different dependencies, one for <code>&#39;AliasedLoggerService&#39;</code> and one for <code>LoggerService</code>. If both dependencies are specified with <code>SINGLETON</code> scope, they&#39;ll both resolve to the same instance.</p>
+<pre><code class="language-typescript">
+@Injectable()
+class LoggerService &#123;
+  /* implementation details */
+&#125;
+
+const loggerAliasProvider = &#123;
+  provide: &#39;AliasedLoggerService&#39;,
+  useExisting: LoggerService,
+&#125;;
+
+@Module(&#123;
+  providers: [LoggerService, loggerAliasProvider],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<h4 appAnchor id="non-service-based-providers"><span>Non-service based providers</span></h4>
+<p>While providers often supply services, they are not limited to that usage. A provider can supply <strong>any</strong> value. For example, a provider may supply an array of configuration objects based on the current environment, as shown below:</p>
+<pre><code class="language-typescript">
+const configFactory = &#123;
+  provide: &#39;CONFIG&#39;,
+  useFactory: () =&gt; &#123;
+    return process.env.NODE_ENV === &#39;development&#39; ? devConfig : prodConfig;
+  &#125;,
+&#125;;
+
+@Module(&#123;
+  providers: [configFactory],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<h4 appAnchor id="export-custom-provider"><span>Export custom provider</span></h4>
+<p>Like any provider, a custom provider is scoped to its declaring module. To make it visible to other modules, it must be exported. To export a custom provider, we can either use its token or the full provider object.</p>
+<p>The following example shows exporting using the token:</p>
+
+<span class="filename">
+<app-tabs #appd39d9c1033336c71d92666c5889575171acacc54></app-tabs>
+</span><pre [class.hide]="appd39d9c1033336c71d92666c5889575171acacc54.isJsActive"><code class="language-typescript">
+const connectionFactory = &#123;
+  provide: &#39;CONNECTION&#39;,
+  useFactory: (optionsProvider: OptionsProvider) =&gt; &#123;
+    const options = optionsProvider.get();
+    return new DatabaseConnection(options);
+  &#125;,
+  inject: [OptionsProvider],
+&#125;;
+
+@Module(&#123;
+  providers: [connectionFactory],
+  exports: [&#39;CONNECTION&#39;],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<pre [class.hide]="!appd39d9c1033336c71d92666c5889575171acacc54.isJsActive"><code class="language-typescript">
+const connectionFactory = &#123;
+  provide: &#39;CONNECTION&#39;,
+  useFactory: (optionsProvider) =&gt; &#123;
+    const options = optionsProvider.get();
+    return new DatabaseConnection(options);
+  &#125;,
+  inject: [OptionsProvider],
+&#125;;
+
+@Module(&#123;
+  providers: [connectionFactory],
+  exports: [&#39;CONNECTION&#39;],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><p>Alternatively, export with the full provider object:</p>
+
+<span class="filename">
+<app-tabs #appa9491cee76af59d964a5c7b8f5907435f861c59c></app-tabs>
+</span><pre [class.hide]="appa9491cee76af59d964a5c7b8f5907435f861c59c.isJsActive"><code class="language-typescript">
+const connectionFactory = &#123;
+  provide: &#39;CONNECTION&#39;,
+  useFactory: (optionsProvider: OptionsProvider) =&gt; &#123;
+    const options = optionsProvider.get();
+    return new DatabaseConnection(options);
+  &#125;,
+  inject: [OptionsProvider],
+&#125;;
+
+@Module(&#123;
+  providers: [connectionFactory],
+  exports: [connectionFactory],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<pre [class.hide]="!appa9491cee76af59d964a5c7b8f5907435f861c59c.isJsActive"><code class="language-typescript">
+const connectionFactory = &#123;
+  provide: &#39;CONNECTION&#39;,
+  useFactory: (optionsProvider) =&gt; &#123;
+    const options = optionsProvider.get();
+    return new DatabaseConnection(options);
+  &#125;,
+  inject: [OptionsProvider],
+&#125;;
+
+@Module(&#123;
+  providers: [connectionFactory],
+  exports: [connectionFactory],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+</div>
+

@@ -1,0 +1,281 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/techniques/caching.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="caching">Caching</h3>
+<p>Caching is a great and simple <strong>technique</strong> that helps improve your app&#39;s performance. It acts as a temporary data store providing high performance data access.</p>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>First install required packages:</p>
+<pre><code class="language-bash">
+$ npm install @nestjs/cache-manager cache-manager
+</code></pre>
+<blockquote class="
+warning "><strong>Warning</strong> <code>cache-manager</code> version 4 uses seconds for <code>TTL (Time-To-Live)</code>. The current version of <code>cache-manager</code> (v5) has switched to using milliseconds instead. NestJS doesn&#39;t convert the value, and simply forwards the ttl you provide to the library. In other words:
+<ul>
+<li>If using <code>cache-manager</code> v4, provide ttl in seconds</li>
+<li>If using <code>cache-manager</code> v5, provide ttl in milliseconds</li>
+<li>Documentation is referring to seconds, since NestJS was released targeting version 4 of cache-manager.</li>
+</ul>
+</blockquote>
+<h4 appAnchor id="in-memory-cache"><span>In-memory cache</span></h4>
+<p>Nest provides a unified API for various cache storage providers. The built-in one is an in-memory data store. However, you can easily switch to a more comprehensive solution, like Redis.</p>
+<p>In order to enable caching, import the <code>CacheModule</code> and call its <code>register()</code> method.</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; CacheModule &#125; from &#39;@nestjs/cache-manager&#39;;
+import &#123; AppController &#125; from &#39;./app.controller&#39;;
+
+@Module(&#123;
+  imports: [CacheModule.register()],
+  controllers: [AppController],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<h4 appAnchor id="interacting-with-the-cache-store"><span>Interacting with the Cache store</span></h4>
+<p>To interact with the cache manager instance, inject it to your class using the <code>CACHE_MANAGER</code> token, as follows:</p>
+<pre><code class="language-typescript">
+constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>Cache</code> class is imported from the <code>cache-manager</code>, while <code>CACHE_MANAGER</code> token from the <code>@nestjs/cache-manager</code> package.
+</blockquote>
+<p>The <code>get</code> method on the <code>Cache</code> instance (from the <code>cache-manager</code> package) is used to retrieve items from the cache. If the item does not exist in the cache, <code>null</code> will be returned.</p>
+<pre><code class="language-typescript">
+const value = await this.cacheManager.get(&#39;key&#39;);
+</code></pre>
+<p>To add an item to the cache, use the <code>set</code> method:</p>
+<pre><code class="language-typescript">
+await this.cacheManager.set(&#39;key&#39;, &#39;value&#39;);
+</code></pre>
+<blockquote class="
+warning "><strong>Note</strong> The in-memory cache storage can only store values of types that are supported by <a rel='nofollow' target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm#javascript_types">the structured clone algorithm</a>.
+</blockquote>
+<p>The default expiration time of the cache is 5 seconds.</p>
+<p>You can manually specify a TTL (expiration time in seconds) for this specific key, as follows:</p>
+<pre><code class="language-typescript">
+await this.cacheManager.set(&#39;key&#39;, &#39;value&#39;, 1000);
+</code></pre>
+<p>To disable expiration of the cache, set the <code>ttl</code> configuration property to <code>0</code>:</p>
+<pre><code class="language-typescript">
+await this.cacheManager.set(&#39;key&#39;, &#39;value&#39;, 0);
+</code></pre>
+<p>To remove an item from the cache, use the <code>del</code> method:</p>
+<pre><code class="language-typescript">
+await this.cacheManager.del(&#39;key&#39;);
+</code></pre>
+<p>To clear the entire cache, use the <code>reset</code> method:</p>
+<pre><code class="language-typescript">
+await this.cacheManager.reset();
+</code></pre>
+<h4 appAnchor id="auto-caching-responses"><span>Auto-caching responses</span></h4>
+<blockquote class="
+warning "><strong>Warning</strong> In <a routerLink="/graphql/quick-start">GraphQL</a> applications, interceptors are executed separately for each field resolver. Thus, <code>CacheModule</code> (which uses interceptors to cache responses) will not work properly.
+</blockquote>
+<p>To enable auto-caching responses, just tie the <code>CacheInterceptor</code> where you want to cache data.</p>
+<pre><code class="language-typescript">
+@Controller()
+@UseInterceptors(CacheInterceptor)
+export class AppController &#123;
+  @Get()
+  findAll(): string[] &#123;
+    return [];
+  &#125;
+&#125;
+</code></pre>
+<blockquote class="
+warning"><strong>Warning</strong> Only <code>GET</code> endpoints are cached. Also, HTTP server routes that inject the native response object (<code>@Res()</code>) cannot use the Cache Interceptor. See
+<a href="https://docs.nestjs.com/interceptors#response-mapping">response mapping</a> for more details.
+</blockquote>
+<p>To reduce the amount of required boilerplate, you can bind <code>CacheInterceptor</code> to all endpoints globally:</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; CacheModule, CacheInterceptor &#125; from &#39;@nestjs/cache-manager&#39;;
+import &#123; AppController &#125; from &#39;./app.controller&#39;;
+import &#123; APP_INTERCEPTOR &#125; from &#39;@nestjs/core&#39;;
+
+@Module(&#123;
+  imports: [CacheModule.register()],
+  controllers: [AppController],
+  providers: [
+    &#123;
+      provide: APP_INTERCEPTOR,
+      useClass: CacheInterceptor,
+    &#125;,
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<h4 appAnchor id="customize-caching"><span>Customize caching</span></h4>
+<p>All cached data has its own expiration time (<a rel='nofollow' target='_blank' href="https://en.wikipedia.org/wiki/Time_to_live">TTL</a>). To customize default values, pass the options object to the <code>register()</code> method.</p>
+<pre><code class="language-typescript">
+CacheModule.register(&#123;
+  ttl: 5, // seconds
+  max: 10, // maximum number of items in cache
+&#125;);
+</code></pre>
+<h4 appAnchor id="use-module-globally"><span>Use module globally</span></h4>
+<p>When you want to use <code>CacheModule</code> in other modules, you&#39;ll need to import it (as is standard with any Nest module). Alternatively, declare it as a <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/modules#global-modules">global module</a> by setting the options object&#39;s <code>isGlobal</code> property to <code>true</code>, as shown below. In that case, you will not need to import <code>CacheModule</code> in other modules once it&#39;s been loaded in the root module (e.g., <code>AppModule</code>).</p>
+<pre><code class="language-typescript">
+CacheModule.register(&#123;
+  isGlobal: true,
+&#125;);
+</code></pre>
+<h4 appAnchor id="global-cache-overrides"><span>Global cache overrides</span></h4>
+<p>While global cache is enabled, cache entries are stored under a <code>CacheKey</code> that is auto-generated based on the route path. You may override certain cache settings (<code>@CacheKey()</code> and <code>@CacheTTL()</code>) on a per-method basis, allowing customized caching strategies for individual controller methods. This may be most relevant while using <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/techniques/caching#different-stores">different cache stores.</a></p>
+<p>You can apply the <code>@CacheTTL()</code> decorator on a per-controller basis to set a caching TTL for the entire controller. In situations where both controller-level and method-level cache TTL settings are defined, the cache TTL settings specified at the method level will take priority over the ones set at the controller level.</p>
+<pre><code class="language-typescript">
+@Controller()
+@CacheTTL(50)
+export class AppController &#123;
+  @CacheKey(&#39;custom_key&#39;)
+  @CacheTTL(20)
+  findAll(): string[] &#123;
+    return [];
+  &#125;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>@CacheKey()</code> and <code>@CacheTTL()</code> decorators are imported from the <code>@nestjs/cache-manager</code> package.
+</blockquote>
+<p>The <code>@CacheKey()</code> decorator may be used with or without a corresponding <code>@CacheTTL()</code> decorator and vice versa. One may choose to override only the <code>@CacheKey()</code> or only the <code>@CacheTTL()</code>. Settings that are not overridden with a decorator will use the default values as registered globally (see <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/techniques/caching#customize-caching">Customize caching</a>).</p>
+<h4 appAnchor id="websockets-and-microservices"><span>WebSockets and Microservices</span></h4>
+<p>You can also apply the <code>CacheInterceptor</code> to WebSocket subscribers as well as Microservice&#39;s patterns (regardless of the transport method that is being used).</p>
+
+<span class="filename">
+<app-tabs #appe0d08fc8c8acd5a5ff0753e09188b0511a7dae77></app-tabs>
+</span><pre [class.hide]="appe0d08fc8c8acd5a5ff0753e09188b0511a7dae77.isJsActive"><code class="language-typescript">
+@CacheKey(&#39;events&#39;)
+@UseInterceptors(CacheInterceptor)
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(client: Client, data: string[]): Observable&lt;string[]&gt; &#123;
+  return [];
+&#125;
+</code></pre>
+<pre [class.hide]="!appe0d08fc8c8acd5a5ff0753e09188b0511a7dae77.isJsActive"><code class="language-typescript">
+@CacheKey(&#39;events&#39;)
+@UseInterceptors(CacheInterceptor)
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(client, data) &#123;
+  return [];
+&#125;
+</code></pre><p>However, the additional <code>@CacheKey()</code> decorator is required in order to specify a key used to subsequently store and retrieve cached data. Also, please note that you <strong>shouldn&#39;t cache everything</strong>. Actions which perform some business operations rather than simply querying the data should never be cached.</p>
+<p>Additionally, you may specify a cache expiration time (TTL) by using the <code>@CacheTTL()</code> decorator, which will override the global default TTL value.</p>
+
+<span class="filename">
+<app-tabs #app43d9e91a671700e2df386bf79d0889bfd8683eb3></app-tabs>
+</span><pre [class.hide]="app43d9e91a671700e2df386bf79d0889bfd8683eb3.isJsActive"><code class="language-typescript">
+@CacheTTL(10)
+@UseInterceptors(CacheInterceptor)
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(client: Client, data: string[]): Observable&lt;string[]&gt; &#123;
+  return [];
+&#125;
+</code></pre>
+<pre [class.hide]="!app43d9e91a671700e2df386bf79d0889bfd8683eb3.isJsActive"><code class="language-typescript">
+@CacheTTL(10)
+@UseInterceptors(CacheInterceptor)
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(client, data) &#123;
+  return [];
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> The <code>@CacheTTL()</code> decorator may be used with or without a corresponding <code>@CacheKey()</code> decorator.
+</blockquote>
+<h4 appAnchor id="adjust-tracking"><span>Adjust tracking</span></h4>
+<p>By default, Nest uses the request URL (in an HTTP app) or cache key (in websockets and microservices apps, set through the <code>@CacheKey()</code> decorator) to associate cache records with your endpoints. Nevertheless, sometimes you might want to set up tracking based on different factors, for example, using HTTP headers (e.g. <code>Authorization</code> to properly identify <code>profile</code> endpoints).</p>
+<p>In order to accomplish that, create a subclass of <code>CacheInterceptor</code> and override the <code>trackBy()</code> method.</p>
+<pre><code class="language-typescript">
+@Injectable()
+class HttpCacheInterceptor extends CacheInterceptor &#123;
+  trackBy(context: ExecutionContext): string | undefined &#123;
+    return &#39;key&#39;;
+  &#125;
+&#125;
+</code></pre>
+<h4 appAnchor id="different-stores"><span>Different stores</span></h4>
+<p>This service takes advantage of <a rel='nofollow' target='_blank' href="https://github.com/node-cache-manager/node-cache-manager">cache-manager</a> under the hood. The <code>cache-manager</code> package supports a wide-range of useful stores, for example, <a rel='nofollow' target='_blank' href="https://github.com/dabroek/node-cache-manager-redis-store">Redis store</a>. A full list of supported stores is available <a rel='nofollow' target='_blank' href="https://github.com/node-cache-manager/node-cache-manager#store-engines">here</a>. To set up the Redis store, simply pass the package together with corresponding options to the <code>register()</code> method.</p>
+<pre><code class="language-typescript">
+import type &#123; RedisClientOptions &#125; from &#39;redis&#39;;
+import * as redisStore from &#39;cache-manager-redis-store&#39;;
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; CacheModule &#125; from &#39;@nestjs/cache-manager&#39;;
+import &#123; AppController &#125; from &#39;./app.controller&#39;;
+
+@Module(&#123;
+  imports: [
+    CacheModule.register&lt;RedisClientOptions&gt;(&#123;
+      store: redisStore,
+
+      // Store-specific configuration:
+      host: &#39;localhost&#39;,
+      port: 6379,
+    &#125;),
+  ],
+  controllers: [AppController],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<blockquote class="
+warning"><strong>Warning</strong> <code>cache-manager-redis-store</code> does not support redis v4. In order for the <code>ClientOpts</code> interface to exist and work correctly you need to install the
+latest <code>redis</code> 3.x.x major release. See this <a rel='nofollow' target='_blank' href="https://github.com/dabroek/node-cache-manager-redis-store/issues/40">issue</a> to track the progress of this upgrade.
+</blockquote>
+<h4 appAnchor id="async-configuration"><span>Async configuration</span></h4>
+<p>You may want to asynchronously pass in module options instead of passing them statically at compile time. In this case, use the <code>registerAsync()</code> method, which provides several ways to deal with async configuration.</p>
+<p>One approach is to use a factory function:</p>
+<pre><code class="language-typescript">
+CacheModule.registerAsync(&#123;
+  useFactory: () =&gt; (&#123;
+    ttl: 5,
+  &#125;),
+&#125;);
+</code></pre>
+<p>Our factory behaves like all other asynchronous module factories (it can be <code>async</code> and is able to inject dependencies through <code>inject</code>).</p>
+<pre><code class="language-typescript">
+CacheModule.registerAsync(&#123;
+  imports: [ConfigModule],
+  useFactory: async (configService: ConfigService) =&gt; (&#123;
+    ttl: configService.get(&#39;CACHE_TTL&#39;),
+  &#125;),
+  inject: [ConfigService],
+&#125;);
+</code></pre>
+<p>Alternatively, you can use the <code>useClass</code> method:</p>
+<pre><code class="language-typescript">
+CacheModule.registerAsync(&#123;
+  useClass: CacheConfigService,
+&#125;);
+</code></pre>
+<p>The above construction will instantiate <code>CacheConfigService</code> inside <code>CacheModule</code> and will use it to get the options object. The <code>CacheConfigService</code> has to implement the <code>CacheOptionsFactory</code> interface in order to provide the configuration options:</p>
+<pre><code class="language-typescript">
+@Injectable()
+class CacheConfigService implements CacheOptionsFactory &#123;
+  createCacheOptions(): CacheModuleOptions &#123;
+    return &#123;
+      ttl: 5,
+    &#125;;
+  &#125;
+&#125;
+</code></pre>
+<p>If you wish to use an existing configuration provider imported from a different module, use the <code>useExisting</code> syntax:</p>
+<pre><code class="language-typescript">
+CacheModule.registerAsync(&#123;
+  imports: [ConfigModule],
+  useExisting: ConfigService,
+&#125;);
+</code></pre>
+<p>This works the same as <code>useClass</code> with one critical difference - <code>CacheModule</code> will lookup imported modules to reuse any already-created <code>ConfigService</code>, instead of instantiating its own.</p>
+<blockquote class="
+info "><strong>Hint</strong> <code>CacheModule#register</code> and <code>CacheModule#registerAsync</code> and <code>CacheOptionsFactory</code> has an optional generic (type argument) to narrow down store-specific configuration options, making it type safe.
+</blockquote>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>A working example is available <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/tree/master/sample/20-cache">here</a>.</p>
+
+</div>
+

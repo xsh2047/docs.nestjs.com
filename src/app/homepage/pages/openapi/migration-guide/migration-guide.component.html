@@ -1,0 +1,48 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/openapi/migration-guide.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="migration-guide">Migration guide</h3>
+<p>If you&#39;re currently using <code>@nestjs/swagger@3.*</code>, note the following breaking/API changes in version 4.0.</p>
+<h4 appAnchor id="breaking-changes"><span>Breaking changes</span></h4>
+<p>The following decorators have been changed/renamed:</p>
+<ul>
+<li><code>@ApiModelProperty</code> is now <code>@ApiProperty</code></li>
+<li><code>@ApiModelPropertyOptional</code> is now <code>@ApiPropertyOptional</code></li>
+<li><code>@ApiResponseModelProperty</code> is now <code>@ApiResponseProperty</code></li>
+<li><code>@ApiImplicitQuery</code> is now <code>@ApiQuery</code></li>
+<li><code>@ApiImplicitParam</code> is now <code>@ApiParam</code></li>
+<li><code>@ApiImplicitBody</code> is now <code>@ApiBody</code></li>
+<li><code>@ApiImplicitHeader</code> is now <code>@ApiHeader</code></li>
+<li><code>@ApiOperation({{ &#39;{&#39; }} title: &#39;test&#39; {{ &#39;}&#39; }})</code> is now <code>@ApiOperation({{ &#39;{&#39; }} summary: &#39;test&#39; {{ &#39;}&#39; }})</code></li>
+<li><code>@ApiUseTags</code> is now <code>@ApiTags</code></li>
+</ul>
+<p><code>DocumentBuilder</code> breaking changes (updated method signatures):</p>
+<ul>
+<li><code>addTag</code></li>
+<li><code>addBearerAuth</code></li>
+<li><code>addOAuth2</code></li>
+<li><code>setContactEmail</code> is now <code>setContact</code></li>
+<li><code>setHost</code> has been removed</li>
+<li><code>setSchemes</code> has been removed (use the <code>addServer</code> instead, e.g., <code>addServer(&#39;http://&#39;)</code>)</li>
+</ul>
+<h4 appAnchor id="new-methods"><span>New methods</span></h4>
+<p>The following methods have been added:</p>
+<ul>
+<li><code>addServer</code></li>
+<li><code>addApiKey</code></li>
+<li><code>addBasicAuth</code></li>
+<li><code>addSecurity</code></li>
+<li><code>addSecurityRequirements</code></li>
+</ul>
+<p><app-banner-devtools></app-banner-devtools></p>
+
+</div>
+

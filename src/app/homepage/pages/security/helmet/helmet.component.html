@@ -1,0 +1,89 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/security/helmet.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="helmet">Helmet</h3>
+<p><a rel='nofollow' target='_blank' href="https://github.com/helmetjs/helmet">Helmet</a> can help protect your app from some well-known web vulnerabilities by setting HTTP headers appropriately. Generally, Helmet is just a collection of smaller middleware functions that set security-related HTTP headers (read <a rel='nofollow' target='_blank' href="https://github.com/helmetjs/helmet#how-it-works">more</a>).</p>
+<blockquote class="
+info "><strong>Hint</strong> Note that applying <code>helmet</code> as global or registering it must come before other calls to <code>app.use()</code> or setup functions that may call <code>app.use()</code>. This is due to the way the underlying platform (i.e., Express or Fastify) works, where the order that middleware/routes are defined matters. If you use middleware like <code>helmet</code> or <code>cors</code> after you define a route, then that middleware will not apply to that route, it will only apply to routes defined after the middleware.
+</blockquote>
+<h4 appAnchor id="use-with-express-default"><span>Use with Express (default)</span></h4>
+<p>Start by installing the required package.</p>
+<pre><code class="language-bash">
+$ npm i --save helmet
+</code></pre>
+<p>Once the installation is complete, apply it as a global middleware.</p>
+<pre><code class="language-typescript">
+import helmet from &#39;helmet&#39;;
+// somewhere in your initialization file
+app.use(helmet());
+</code></pre>
+<blockquote class="
+warning "><strong>Warning</strong> When using <code>helmet</code>, <code>@apollo/server</code> (4.x), and the <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/graphql/quick-start#apollo-sandbox">Apollo Sandbox</a>, there may be a problem with <a rel='nofollow' target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP">CSP</a> on the Apollo Sandbox. To solve this issue configure the CSP as shown below:
+<pre><code class="language-typescript">
+app.use(helmet(&#123;
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: &#123;
+    directives: &#123;
+      imgSrc: [`&#39;self&#39;`, &#39;data:&#39;, &#39;apollo-server-landing-page.cdn.apollographql.com&#39;],
+      scriptSrc: [`&#39;self&#39;`, `https: &#39;unsafe-inline&#39;`],
+      manifestSrc: [`&#39;self&#39;`, &#39;apollo-server-landing-page.cdn.apollographql.com&#39;],
+      frameSrc: [`&#39;self&#39;`, &#39;sandbox.embed.apollographql.com&#39;],
+    &#125;,
+  &#125;,
+&#125;));
+</code></pre>
+</blockquote>
+<h4 appAnchor id="use-with-fastify"><span>Use with Fastify</span></h4>
+<p>If you are using the <code>FastifyAdapter</code>, install the <a rel='nofollow' target='_blank' href="https://github.com/fastify/fastify-helmet">@fastify/helmet</a> package:</p>
+<pre><code class="language-bash">
+$ npm i --save @fastify/helmet
+</code></pre>
+<p><a rel='nofollow' target='_blank' href="https://github.com/fastify/fastify-helmet">fastify-helmet</a> should not be used as a middleware, but as a <a rel='nofollow' target='_blank' href="https://www.fastify.io/docs/latest/Reference/Plugins/">Fastify plugin</a>, i.e., by using <code>app.register()</code>:</p>
+<pre><code class="language-typescript">
+import helmet from &#39;@fastify/helmet&#39;
+// somewhere in your initialization file
+await app.register(helmet)
+</code></pre>
+<blockquote class="
+warning "><strong>Warning</strong> When using <code>apollo-server-fastify</code> and <code>@fastify/helmet</code>, there may be a problem with <a rel='nofollow' target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP">CSP</a> on the GraphQL playground, to solve this collision, configure the CSP as shown below:
+<pre><code class="language-typescript">
+await app.register(fastifyHelmet, &#123;
+   contentSecurityPolicy: &#123;
+     directives: &#123;
+       defaultSrc: [`&#39;self&#39;`, &#39;unpkg.com&#39;],
+       styleSrc: [
+         `&#39;self&#39;`,
+         `&#39;unsafe-inline&#39;`,
+         &#39;cdn.jsdelivr.net&#39;,
+         &#39;fonts.googleapis.com&#39;,
+         &#39;unpkg.com&#39;,
+       ],
+       fontSrc: [`&#39;self&#39;`, &#39;fonts.gstatic.com&#39;, &#39;data:&#39;],
+       imgSrc: [`&#39;self&#39;`, &#39;data:&#39;, &#39;cdn.jsdelivr.net&#39;],
+       scriptSrc: [
+         `&#39;self&#39;`,
+         `https: &#39;unsafe-inline&#39;`,
+         `cdn.jsdelivr.net`,
+         `&#39;unsafe-eval&#39;`,
+       ],
+     &#125;,
+   &#125;,
+ &#125;);
+
+// If you are not going to use CSP at all, you can use this:
+await app.register(fastifyHelmet, &#123;
+  contentSecurityPolicy: false,
+&#125;);
+</code></pre>
+</blockquote>
+
+</div>
+

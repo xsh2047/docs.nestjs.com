@@ -1,0 +1,779 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/techniques/queues.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="queues">Queues</h3>
+<p>Queues are a powerful design pattern that help you deal with common application scaling and performance challenges. Some examples of problems that Queues can help you solve are:</p>
+<ul>
+<li>Smooth out processing peaks. For example, if users can initiate resource-intensive tasks at arbitrary times, you can add these tasks to a queue instead of performing them synchronously. Then you can have worker processes pull tasks from the queue in a controlled manner. You can easily add new Queue consumers to scale up the back-end task handling as the application scales up.</li>
+<li>Break up monolithic tasks that may otherwise block the Node.js event loop. For example, if a user request requires CPU intensive work like audio transcoding, you can delegate this task to other processes, freeing up user-facing processes to remain responsive.</li>
+<li>Provide a reliable communication channel across various services. For example, you can queue tasks (jobs) in one process or service, and consume them in another. You can be notified (by listening for status events) upon completion, error or other state changes in the job life cycle from any process or service. When Queue producers or consumers fail, their state is preserved and task handling can restart automatically when nodes are restarted.</li>
+</ul>
+<p>Nest provides the <code>@nestjs/bullmq</code> package for BullMQ integration and <code>@nestjs/bull</code> package for Bull integration. Both packages are abstractions/wrappers on top of their respective libraries, which were developed by the same team. Bull is currently in maintenance mode, with the team focusing on fixing bugs, while BullMQ is actively developed, featuring a modern TypeScript implementation and a different set of features. If Bull meets your requirements, it remains a reliable and battle-tested choice. The Nest packages make it easy to integrate both, BullMQ or Bull Queues, into your Nest application in a friendly way.</p>
+<p>Both BullMQ and Bull use <a rel='nofollow' target='_blank' href="https://redis.io/">Redis</a> to persist job data, so you&#39;ll need to have Redis installed on your system. Because they are Redis-backed, your Queue architecture can be completely distributed and platform-independent. For example, you can have some Queue <a href="techniques/queues#producers">producers</a> and <a href="techniques/queues#consumers">consumers</a> and <a href="techniques/queues#event-listeners">listeners</a> running in Nest on one (or several) nodes, and other producers, consumers and listeners running on other Node.js platforms on other network nodes.</p>
+<p>This chapter covers the <code>@nestjs/bullmq</code> and <code>@nestjs/bull</code> packages. We also recommend reading the <a rel='nofollow' target='_blank' href="https://docs.bullmq.io/">BullMQ</a> and <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md">Bull</a> documentation for more background and specific implementation details.</p>
+<h4 appAnchor id="bullmq-installation"><span>BullMQ installation</span></h4>
+<p>To begin using BullMQ, we first install the required dependencies.</p>
+<pre><code class="language-bash">
+$ npm install --save @nestjs/bullmq bullmq
+</code></pre>
+<p>Once the installation process is complete, we can import the <code>BullModule</code> into the root <code>AppModule</code>.</p>
+
+<span class="filename">
+  {{ 'app.module' | extension: app531139ef71745cd94a5e5a2903d4066e886b20e8.isJsActive }}
+<app-tabs #app531139ef71745cd94a5e5a2903d4066e886b20e8></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; BullModule &#125; from &#39;@nestjs/bullmq&#39;;
+
+@Module(&#123;
+  imports: [
+    BullModule.forRoot(&#123;
+      connection: &#123;
+        host: &#39;localhost&#39;,
+        port: 6379,
+      &#125;,
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><p>The <code>forRoot()</code> method is used to register a <code>bullmq</code> package configuration object that will be used by all queues registered in the application (unless specified otherwise). For your reference, the following are a few of the properties within a configuration object:</p>
+<ul>
+<li><code>connection: ConnectionOptions</code> - Options to configure the Redis connection. See <a rel='nofollow' target='_blank' href="https://docs.bullmq.io/guide/connections">Connections</a> for more information. Optional.</li>
+<li><code>prefix: string</code> - Prefix for all queue keys. Optional.</li>
+<li><code>defaultJobOptions: JobOpts</code> - Options to control the default settings for new jobs. See <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#queueadd">JobOpts</a> for more information. Optional.</li>
+<li><code>settings: AdvancedSettings</code> - Advanced Queue configuration settings. These should usually not be changed. See <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#queue">AdvancedSettings</a> for more information. Optional.</li>
+</ul>
+<p>All the options are optional, providing detailed control over queue behavior. These are passed directly to the BullMQ <code>Queue</code> constructor. Read more about these options and other options <a rel='nofollow' target='_blank' href="https://api.docs.bullmq.io/interfaces/v4.QueueOptions.html">here</a>.</p>
+<p>To register a queue, import the <code>BullModule.registerQueue()</code> dynamic module, as follows:</p>
+<pre><code class="language-typescript">
+BullModule.registerQueue(&#123;
+  name: &#39;audio&#39;,
+&#125;);
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Create multiple queues by passing multiple comma-separated configuration objects to the <code>registerQueue()</code> method.
+</blockquote>
+<p>The <code>registerQueue()</code> method is used to instantiate and/or register queues. Queues are shared across modules and processes that connect to the same underlying Redis database with the same credentials. Each queue is unique by its name property. A queue name is used as both an injection token (for injecting the queue into controllers/providers), and as an argument to decorators to associate consumer classes and listeners with queues.</p>
+<p>You can also override some of the pre-configured options for a specific queue, as follows:</p>
+<pre><code class="language-typescript">
+BullModule.registerQueue(&#123;
+  name: &#39;audio&#39;,
+  connection: &#123;
+    port: 6380,
+  &#125;,
+&#125;);
+</code></pre>
+<p>BullMQ also supports parent - child relationships between jobs. This functionality enables the creation of flows where jobs are the node of trees of arbitrary depth. To read more about them check <a rel='nofollow' target='_blank' href="https://docs.bullmq.io/guide/flows">here</a>.</p>
+<p>To add a flow, you can do the following:</p>
+<pre><code class="language-typescript">
+BullModule.registerFlowProducer(&#123;
+  name: &#39;flowProducerName&#39;,
+&#125;);
+</code></pre>
+<p>Since jobs are persisted in Redis, each time a specific named queue is instantiated (e.g., when an app is started/restarted), it attempts to process any old jobs that may exist from a previous unfinished session.</p>
+<p>Each queue can have one or many producers, consumers, and listeners. Consumers retrieve jobs from the queue in a specific order: FIFO (the default), LIFO, or according to priorities. Controlling queue processing order is discussed <a href="techniques/queues#consumers">here</a>.</p>
+<p><app-banner-enterprise></app-banner-enterprise></p>
+<h4 appAnchor id="named-configurations"><span>Named configurations</span></h4>
+<p>If your queues connect to multiple different Redis instances, you can use a technique called <strong>named configurations</strong>. This feature allows you to register several configurations under specified keys, which then you can refer to in the queue options.</p>
+<p>For example, assuming that you have an additional Redis instance (apart from the default one) used by a few queues registered in your application, you can register its configuration as follows:</p>
+<pre><code class="language-typescript">
+BullModule.forRoot(&#39;alternative-config&#39;, &#123;
+  connection: &#123;
+    port: 6381,
+  &#125;,
+&#125;);
+</code></pre>
+<p>In the example above, <code>&#39;alternative-config&#39;</code> is just a configuration key (it can be any arbitrary string).</p>
+<p>With this in place, you can now point to this configuration in the <code>registerQueue()</code> options object:</p>
+<pre><code class="language-typescript">
+BullModule.registerQueue(&#123;
+  configKey: &#39;alternative-config&#39;,
+  name: &#39;video&#39;,
+&#125;);
+</code></pre>
+<h4 appAnchor id="producers"><span>Producers</span></h4>
+<p>Job producers add jobs to queues. Producers are typically application services (Nest <a routerLink="/providers">providers</a>). To add jobs to a queue, first inject the queue into the service as follows:</p>
+<pre><code class="language-typescript">
+import &#123; Injectable &#125; from &#39;@nestjs/common&#39;;
+import &#123; Queue &#125; from &#39;bullmq&#39;;
+import &#123; InjectQueue &#125; from &#39;@nestjs/bullmq&#39;;
+
+@Injectable()
+export class AudioService &#123;
+  constructor(@InjectQueue(&#39;audio&#39;) private audioQueue: Queue) &#123;&#125;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>@InjectQueue()</code> decorator identifies the queue by its name, as provided in the <code>registerQueue()</code> method call (e.g., <code>&#39;audio&#39;</code>).
+</blockquote>
+<p>Now, add a job by calling the queue&#39;s <code>add()</code> method, passing a user-defined job object. Jobs are represented as serializable JavaScript objects (since that is how they are stored in the Redis database). The shape of the job you pass is arbitrary; use it to represent the semantics of your job object. You also need to give it a name. This allows you to create specialized <a href="techniques/queues#consumers">consumers</a> that will only process jobs with a given name.</p>
+<pre><code class="language-typescript">
+const job = await this.audioQueue.add(&#39;transcode&#39;, &#123;
+  foo: &#39;bar&#39;,
+&#125;);
+</code></pre>
+<h4 appAnchor id="job-options"><span>Job options</span></h4>
+<p>Jobs can have additional options associated with them. Pass an options object after the <code>job</code> argument in the <code>Queue.add()</code> method. Some of the job options properties are:</p>
+<ul>
+<li><code>priority</code>: <code>number</code> - Optional priority value. Ranges from 1 (highest priority) to MAX_INT (lowest priority). Note that using priorities has a slight impact on performance, so use them with caution.</li>
+<li><code>delay</code>: <code>number</code> - An amount of time (milliseconds) to wait until this job can be processed. Note that for accurate delays, both server and clients should have their clocks synchronized.</li>
+<li><code>attempts</code>: <code>number</code> - The total number of attempts to try the job until it completes.</li>
+<li><code>repeat</code>: <code>RepeatOpts</code> - Repeat job according to a cron specification. See <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#queueadd">RepeatOpts</a>.</li>
+<li><code>backoff</code>: <code>number | BackoffOpts</code> - Backoff setting for automatic retries if the job fails. See <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#queueadd">BackoffOpts</a>.</li>
+<li><code>lifo</code>: <code>boolean</code> - If true, adds the job to the right end of the queue instead of the left (default false).</li>
+<li><code>jobId</code>: <code>number</code> | <code>string</code> - Override the job ID - by default, the job ID is a unique
+integer, but you can use this setting to override it. If you use this option, it is up to you to ensure the jobId is unique. If you attempt to add a job with an id that already exists, it will not be added.</li>
+<li><code>removeOnComplete</code>: <code>boolean | number</code> - If true, removes the job when it successfully completes. A number specifies the amount of jobs to keep. Default behavior is to keep the job in the completed set.</li>
+<li><code>removeOnFail</code>: <code>boolean | number</code> - If true, removes the job when it fails after all attempts. A number specifies the amount of jobs to keep. Default behavior is to keep the job in the failed set.</li>
+<li><code>stackTraceLimit</code>: <code>number</code> - Limits the amount of stack trace lines that will be recorded in the stacktrace.</li>
+</ul>
+<p>Here are a few examples of customizing jobs with job options.</p>
+<p>To delay the start of a job, use the <code>delay</code> configuration property.</p>
+<pre><code class="language-typescript">
+const job = await this.audioQueue.add(
+  &#39;transcode&#39;,
+  &#123;
+    foo: &#39;bar&#39;,
+  &#125;,
+  &#123; delay: 3000 &#125;, // 3 seconds delayed
+);
+</code></pre>
+<p>To add a job to the right end of the queue (process the job as <strong>LIFO</strong> (Last In First Out)), set the <code>lifo</code> property of the configuration object to <code>true</code>.</p>
+<pre><code class="language-typescript">
+const job = await this.audioQueue.add(
+  &#39;transcode&#39;,
+  &#123;
+    foo: &#39;bar&#39;,
+  &#125;,
+  &#123; lifo: true &#125;,
+);
+</code></pre>
+<p>To prioritize a job, use the <code>priority</code> property.</p>
+<pre><code class="language-typescript">
+const job = await this.audioQueue.add(
+  &#39;transcode&#39;,
+  &#123;
+    foo: &#39;bar&#39;,
+  &#125;,
+  &#123; priority: 2 &#125;,
+);
+</code></pre>
+<p>For a full list of options, check the API documentation <a rel='nofollow' target='_blank' href="https://api.docs.bullmq.io/types/v4.JobsOptions.html">here</a> and <a rel='nofollow' target='_blank' href="https://api.docs.bullmq.io/interfaces/v4.BaseJobOptions.html">here</a>.</p>
+<h4 appAnchor id="consumers"><span>Consumers</span></h4>
+<p>A consumer is a <strong>class</strong> defining methods that either process jobs added into the queue, or listen for events on the queue, or both. Declare a consumer class using the <code>@Processor()</code> decorator as follows:</p>
+<pre><code class="language-typescript">
+import &#123; Processor &#125; from &#39;@nestjs/bullmq&#39;;
+
+@Processor(&#39;audio&#39;)
+export class AudioConsumer &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Consumers must be registered as <code>providers</code> so the <code>@nestjs/bullmq</code> package can pick them up.
+</blockquote>
+<p>Where the decorator&#39;s string argument (e.g., <code>&#39;audio&#39;</code>) is the name of the queue to be associated with the class methods.</p>
+<pre><code class="language-typescript">
+import &#123; Processor, WorkerHost &#125; from &#39;@nestjs/bullmq&#39;;
+import &#123; Job &#125; from &#39;bullmq&#39;;
+
+@Processor(&#39;audio&#39;)
+export class AudioConsumer extends WorkerHost &#123;
+  async process(job: Job&lt;any, any, string&gt;): Promise&lt;any&gt; &#123;
+    let progress = 0;
+    for (i = 0; i &lt; 100; i++) &#123;
+      await doSomething(job.data);
+      progress += 1;
+      await job.progress(progress);
+    &#125;
+    return &#123;&#125;;
+  &#125;
+&#125;
+</code></pre>
+<p>The process method is called whenever the worker is idle and there are jobs to process in the queue. This handler method receives the <code>job</code> object as its only argument. The value returned by the handler method is stored in the job object and can be accessed later on, for example in a listener for the completed event.</p>
+<p><code>Job</code> objects have multiple methods that allow you to interact with their state. For example, the above code uses the <code>progress()</code> method to update the job&#39;s progress. See <a rel='nofollow' target='_blank' href="https://api.docs.bullmq.io/classes/v4.Job.html">here</a> for the complete <code>Job</code> object API reference.</p>
+<p>In the older version, Bull, you could designate that a job handler method will handle <strong>only</strong> jobs of a certain type (jobs with a specific <code>name</code>) by passing that <code>name</code> to the <code>@Process()</code> decorator as shown below.</p>
+<blockquote class="
+warning "><strong>Warning</strong> This doesn&#39;t work with BullMQ, keep reading.
+</blockquote>
+<pre><code class="language-typescript">
+@Process(&#39;transcode&#39;)
+async transcode(job: Job&lt;unknown&gt;) &#123; ... &#125;
+</code></pre>
+<p>This behavior is not supported in BullMQ due to confusions it generated. Instead, you need switch cases to call different services or logic for each job name:</p>
+<pre><code class="language-typescript">
+import &#123; Processor, WorkerHost &#125; from &#39;@nestjs/bullmq&#39;;
+import &#123; Job &#125; from &#39;bullmq&#39;;
+
+@Processor(&#39;audio&#39;)
+export class AudioConsumer extends WorkerHost &#123;
+  async process(job: Job&lt;any, any, string&gt;): Promise&lt;any&gt; &#123;
+    switch (job.name) &#123;
+      case &#39;transcode&#39;: &#123;
+        let progress = 0;
+        for (i = 0; i &lt; 100; i++) &#123;
+          await doSomething(job.data);
+          progress += 1;
+          await job.progress(progress);
+        &#125;
+        return &#123;&#125;;
+      &#125;
+      case &#39;concatenate&#39;: &#123;
+        await doSomeLogic2();
+        break;
+      &#125;
+    &#125;
+  &#125;
+&#125;
+</code></pre>
+<p>This is covered in the <a rel='nofollow' target='_blank' href="https://docs.bullmq.io/patterns/named-processor">named processor</a> section of the BullMQ documentation.</p>
+<h4 appAnchor id="request-scoped-consumers"><span>Request-scoped consumers</span></h4>
+<p>When a consumer is flagged as request-scoped (learn more about the injection scopes <a href="/fundamentals/injection-scopes#provider-scope">here</a>), a new instance of the class will be created exclusively for each job. The instance will be garbage-collected after the job has completed.</p>
+<pre><code class="language-typescript">
+@Processor(&#123;
+  name: &#39;audio&#39;,
+  scope: Scope.REQUEST,
+&#125;)
+</code></pre>
+<p>Since request-scoped consumer classes are instantiated dynamically and scoped to a single job, you can inject a <code>JOB_REF</code> through the constructor using a standard approach.</p>
+<pre><code class="language-typescript">
+constructor(@Inject(JOB_REF) jobRef: Job) &#123;
+  console.log(jobRef);
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>JOB_REF</code> token is imported from the <code>@nestjs/bullmq</code> package.
+</blockquote>
+<h4 appAnchor id="event-listeners"><span>Event listeners</span></h4>
+<p>BullMQ generates a set of useful events when queue and/or job state changes occur. These events can be subscribed to at the Worker level using the <code>@OnWorkerEvent(event)</code> decorator, or at the Queue level with a dedicated listener class and the <code>@OnQueueEvent(event)</code> decorator.</p>
+<p>Worker events must be declared within a <a href="techniques/queues#consumers">consumer</a> class (i.e., within a class decorated with the <code>@Processor()</code> decorator). To listen for an event, use the <code>@OnWorkerEvent(event)</code> decorator with the event you want to be handled. For example, to listen to the event emitted when a job enters the active state in the <code>audio</code> queue, use the following construct:</p>
+<pre><code class="language-typescript">
+import &#123; Processor, Process, OnWorkerEvent &#125; from &#39;@nestjs/bullmq&#39;;
+import &#123; Job &#125; from &#39;bullmq&#39;;
+
+@Processor(&#39;audio&#39;)
+export class AudioConsumer &#123;
+  @OnWorkerEvent(&#39;active&#39;)
+  onActive(job: Job) &#123;
+    console.log(
+      `Processing job $&#123;job.id&#125; of type $&#123;job.name&#125; with data $&#123;job.data&#125;...`,
+    );
+  &#125;
+
+  // ...
+&#125;
+</code></pre>
+<p>You can see the complete list of events and their arguments as properties of WorkerListener <a rel='nofollow' target='_blank' href="https://api.docs.bullmq.io/interfaces/v4.WorkerListener.html">here</a>.</p>
+<p>QueueEvent listeners must use the <code>@QueueEventsListener(queue)</code> decorator and extend the <code>QueueEventsHost</code> class provided by <code>@nestjs/bullmq</code>. To listen for an event, use the <code>@OnQueueEvent(event)</code> decorator with the event you want to be handled. For example, to listen to the event emitted when a job enters the active state in the <code>audio</code> queue, use the following construct:</p>
+<pre><code class="language-typescript">
+import &#123; QueueEventsHost, QueueEventsListener, OnQueueEvent &#125; from &#39;@nestjs/bullmq&#39;;
+
+@QueueEventsListener(&#39;audio&#39;)
+export class AudioEventsListener extends QueueEventsHost &#123;
+  @OnQueueEvent(&#39;active&#39;)
+  onActive(job: &#123; jobId: string; prev?: string; &#125;) &#123;
+    console.log(
+      `Processing job $&#123;job.jobId&#125;...`,
+    );
+  &#125;
+
+  // ...
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> QueueEvent Listeners must be registered as <code>providers</code> so the <code>@nestjs/bullmq</code> package can pick them up.
+</blockquote>
+<p>You can see the complete list of events and their arguments as properties of QueueEventsListener <a rel='nofollow' target='_blank' href="https://api.docs.bullmq.io/interfaces/v4.QueueEventsListener.html">here</a>.</p>
+<h4 appAnchor id="queue-management"><span>Queue management</span></h4>
+<p>Queues have an API that allows you to perform management functions like pausing and resuming, retrieving the count of jobs in various states, and several more. You can find the full queue API <a rel='nofollow' target='_blank' href="https://api.docs.bullmq.io/classes/v4.Queue.html">here</a>. Invoke any of these methods directly on the <code>Queue</code> object, as shown below with the pause/resume examples.</p>
+<p>Pause a queue with the <code>pause()</code> method call. A paused queue will not process new jobs until resumed, but current jobs being processed will continue until they are finalized.</p>
+<pre><code class="language-typescript">
+await audioQueue.pause();
+</code></pre>
+<p>To resume a paused queue, use the <code>resume()</code> method, as follows:</p>
+<pre><code class="language-typescript">
+await audioQueue.resume();
+</code></pre>
+<h4 appAnchor id="separate-processes"><span>Separate processes</span></h4>
+<p>Job handlers can also be run in a separate (forked) process (<a rel='nofollow' target='_blank' href="https://docs.bullmq.io/guide/workers/sandboxed-processors">source</a>). This has several advantages:</p>
+<ul>
+<li>The process is sandboxed so if it crashes it does not affect the worker.</li>
+<li>You can run blocking code without affecting the queue (jobs will not stall).</li>
+<li>Much better utilization of multi-core CPUs.</li>
+<li>Less connections to redis.</li>
+</ul>
+
+<span class="filename">
+  {{ 'app.module' | extension: app152ce832ca75f44d7f949ecd694f874bc70d7775.isJsActive }}
+<app-tabs #app152ce832ca75f44d7f949ecd694f874bc70d7775></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; BullModule &#125; from &#39;@nestjs/bullmq&#39;;
+import &#123; join &#125; from &#39;path&#39;;
+
+@Module(&#123;
+  imports: [
+    BullModule.registerQueue(&#123;
+      name: &#39;audio&#39;,
+      processors: [join(__dirname, &#39;processor.js&#39;)],
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><blockquote class="
+warning "><strong>Warning</strong> Please note that because your function is being executed in a forked process, Dependency Injection (and IoC container) won&#39;t be available. That means that your processor function will need to contain (or create) all instances of external dependencies it needs.
+</blockquote>
+<h4 appAnchor id="async-configuration"><span>Async configuration</span></h4>
+<p>You may want to pass <code>bullmq</code> options asynchronously instead of statically. In this case, use the <code>forRootAsync()</code> method which provides several ways to deal with async configuration. Likewise, if you want to pass queue options asynchronously, use the <code>registerQueueAsync()</code> method.</p>
+<p>One approach is to use a factory function:</p>
+<pre><code class="language-typescript">
+BullModule.forRootAsync(&#123;
+  useFactory: () =&gt; (&#123;
+    connection: &#123;
+      host: &#39;localhost&#39;,
+      port: 6379,
+    &#125;,
+  &#125;),
+&#125;);
+</code></pre>
+<p>Our factory behaves like any other <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/fundamentals/async-providers">asynchronous provider</a> (e.g., it can be <code>async</code> and it&#39;s able to inject dependencies through <code>inject</code>).</p>
+<pre><code class="language-typescript">
+BullModule.forRootAsync(&#123;
+  imports: [ConfigModule],
+  useFactory: async (configService: ConfigService) =&gt; (&#123;
+    connection: &#123;
+      host: configService.get(&#39;QUEUE_HOST&#39;),
+      port: configService.get(&#39;QUEUE_PORT&#39;),
+    &#125;,
+  &#125;),
+  inject: [ConfigService],
+&#125;);
+</code></pre>
+<p>Alternatively, you can use the <code>useClass</code> syntax:</p>
+<pre><code class="language-typescript">
+BullModule.forRootAsync(&#123;
+  useClass: BullConfigService,
+&#125;);
+</code></pre>
+<p>The construction above will instantiate <code>BullConfigService</code> inside <code>BullModule</code> and use it to provide an options object by calling <code>createSharedConfiguration()</code>. Note that this means that the <code>BullConfigService</code> has to implement the <code>SharedBullConfigurationFactory</code> interface, as shown below:</p>
+<pre><code class="language-typescript">
+@Injectable()
+class BullConfigService implements SharedBullConfigurationFactory &#123;
+  createSharedConfiguration(): BullModuleOptions &#123;
+    return &#123;
+      connection: &#123;
+        host: &#39;localhost&#39;,
+        port: 6379,
+      &#125;,
+    &#125;;
+  &#125;
+&#125;
+</code></pre>
+<p>In order to prevent the creation of <code>BullConfigService</code> inside <code>BullModule</code> and use a provider imported from a different module, you can use the <code>useExisting</code> syntax.</p>
+<pre><code class="language-typescript">
+BullModule.forRootAsync(&#123;
+  imports: [ConfigModule],
+  useExisting: ConfigService,
+&#125;);
+</code></pre>
+<p>This construction works the same as <code>useClass</code> with one critical difference - <code>BullModule</code> will lookup imported modules to reuse an existing <code>ConfigService</code> instead of instantiating a new one.</p>
+<h4 appAnchor id="bull-installation"><span>Bull installation</span></h4>
+<blockquote class="
+warning "><strong>Note</strong> If you decided to use BullMQ, skip this section and the following chapters.
+</blockquote>
+<p>To begin using Bull, we first install the required dependencies.</p>
+<pre><code class="language-bash">
+$ npm install --save @nestjs/bull bull
+</code></pre>
+<p>Once the installation process is complete, we can import the <code>BullModule</code> into the root <code>AppModule</code>.</p>
+
+<span class="filename">
+  {{ 'app.module' | extension: app6fcb16a476145c568220a8b8dfb05b1d2ef3f5fc.isJsActive }}
+<app-tabs #app6fcb16a476145c568220a8b8dfb05b1d2ef3f5fc></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; BullModule &#125; from &#39;@nestjs/bull&#39;;
+
+@Module(&#123;
+  imports: [
+    BullModule.forRoot(&#123;
+      redis: &#123;
+        host: &#39;localhost&#39;,
+        port: 6379,
+      &#125;,
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><p>The <code>forRoot()</code> method is used to register a <code>bull</code> package configuration object that will be used by all queues registered in the application (unless specified otherwise). A configuration object consists of the following properties:</p>
+<ul>
+<li><code>limiter: RateLimiter</code> - Options to control the rate at which the queue&#39;s jobs are processed. See <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#queue">RateLimiter</a> for more information. Optional.</li>
+<li><code>redis: RedisOpts</code> - Options to configure the Redis connection. See <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#queue">RedisOpts</a> for more information. Optional.</li>
+<li><code>prefix: string</code> - Prefix for all queue keys. Optional.</li>
+<li><code>defaultJobOptions: JobOpts</code> - Options to control the default settings for new jobs. See <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#queueadd">JobOpts</a> for more information. Optional.</li>
+<li><code>settings: AdvancedSettings</code> - Advanced Queue configuration settings. These should usually not be changed. See <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#queue">AdvancedSettings</a> for more information. Optional.</li>
+</ul>
+<p>All the options are optional, providing detailed control over queue behavior. These are passed directly to the Bull <code>Queue</code> constructor. Read more about these options <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#queue">here</a>.</p>
+<p>To register a queue, import the <code>BullModule.registerQueue()</code> dynamic module, as follows:</p>
+<pre><code class="language-typescript">
+BullModule.registerQueue(&#123;
+  name: &#39;audio&#39;,
+&#125;);
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Create multiple queues by passing multiple comma-separated configuration objects to the <code>registerQueue()</code> method.
+</blockquote>
+<p>The <code>registerQueue()</code> method is used to instantiate and/or register queues. Queues are shared across modules and processes that connect to the same underlying Redis database with the same credentials. Each queue is unique by its name property. A queue name is used as both an injection token (for injecting the queue into controllers/providers), and as an argument to decorators to associate consumer classes and listeners with queues.</p>
+<p>You can also override some of the pre-configured options for a specific queue, as follows:</p>
+<pre><code class="language-typescript">
+BullModule.registerQueue(&#123;
+  name: &#39;audio&#39;,
+  redis: &#123;
+    port: 6380,
+  &#125;,
+&#125;);
+</code></pre>
+<p>Since jobs are persisted in Redis, each time a specific named queue is instantiated (e.g., when an app is started/restarted), it attempts to process any old jobs that may exist from a previous unfinished session.</p>
+<p>Each queue can have one or many producers, consumers, and listeners. Consumers retrieve jobs from the queue in a specific order: FIFO (the default), LIFO, or according to priorities. Controlling queue processing order is discussed <a href="techniques/queues#consumers">here</a>.</p>
+<p><app-banner-enterprise></app-banner-enterprise></p>
+<h4 appAnchor id="named-configurations-1"><span>Named configurations</span></h4>
+<p>If your queues connect to multiple Redis instances, you can use a technique called <strong>named configurations</strong>. This feature allows you to register several configurations under specified keys, which then you can refer to in the queue options.</p>
+<p>For example, assuming that you have an additional Redis instance (apart from the default one) used by a few queues registered in your application, you can register its configuration as follows:</p>
+<pre><code class="language-typescript">
+BullModule.forRoot(&#39;alternative-config&#39;, &#123;
+  redis: &#123;
+    port: 6381,
+  &#125;,
+&#125;);
+</code></pre>
+<p>In the example above, <code>&#39;alternative-config&#39;</code> is just a configuration key (it can be any arbitrary string).</p>
+<p>With this in place, you can now point to this configuration in the <code>registerQueue()</code> options object:</p>
+<pre><code class="language-typescript">
+BullModule.registerQueue(&#123;
+  configKey: &#39;alternative-config&#39;,
+  name: &#39;video&#39;,
+&#125;);
+</code></pre>
+<h4 appAnchor id="producers-1"><span>Producers</span></h4>
+<p>Job producers add jobs to queues. Producers are typically application services (Nest <a routerLink="/providers">providers</a>). To add jobs to a queue, first inject the queue into the service as follows:</p>
+<pre><code class="language-typescript">
+import &#123; Injectable &#125; from &#39;@nestjs/common&#39;;
+import &#123; Queue &#125; from &#39;bull&#39;;
+import &#123; InjectQueue &#125; from &#39;@nestjs/bull&#39;;
+
+@Injectable()
+export class AudioService &#123;
+  constructor(@InjectQueue(&#39;audio&#39;) private audioQueue: Queue) &#123;&#125;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>@InjectQueue()</code> decorator identifies the queue by its name, as provided in the <code>registerQueue()</code> method call (e.g., <code>&#39;audio&#39;</code>).
+</blockquote>
+<p>Now, add a job by calling the queue&#39;s <code>add()</code> method, passing a user-defined job object. Jobs are represented as serializable JavaScript objects (since that is how they are stored in the Redis database). The shape of the job you pass is arbitrary; use it to represent the semantics of your job object.</p>
+<pre><code class="language-typescript">
+const job = await this.audioQueue.add(&#123;
+  foo: &#39;bar&#39;,
+&#125;);
+</code></pre>
+<h4 appAnchor id="named-jobs"><span>Named jobs</span></h4>
+<p>Jobs may have unique names. This allows you to create specialized <a href="techniques/queues#consumers">consumers</a> that will only process jobs with a given name.</p>
+<pre><code class="language-typescript">
+const job = await this.audioQueue.add(&#39;transcode&#39;, &#123;
+  foo: &#39;bar&#39;,
+&#125;);
+</code></pre>
+<blockquote class="
+Warning "><strong>Warning</strong> When using named jobs, you must create processors for each unique name added to a queue, or the queue will complain that you are missing a processor for the given job. See <a href="techniques/queues#consumers">here</a> for more information on consuming named jobs.
+</blockquote>
+<h4 appAnchor id="job-options-1"><span>Job options</span></h4>
+<p>Jobs can have additional options associated with them. Pass an options object after the <code>job</code> argument in the <code>Queue.add()</code> method. Job options properties are:</p>
+<ul>
+<li><code>priority</code>: <code>number</code> - Optional priority value. Ranges from 1 (highest priority) to MAX_INT (lowest priority). Note that using priorities has a slight impact on performance, so use them with caution.</li>
+<li><code>delay</code>: <code>number</code> - An amount of time (milliseconds) to wait until this job can be processed. Note that for accurate delays, both server and clients should have their clocks synchronized.</li>
+<li><code>attempts</code>: <code>number</code> - The total number of attempts to try the job until it completes.</li>
+<li><code>repeat</code>: <code>RepeatOpts</code> - Repeat job according to a cron specification. See <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#queueadd">RepeatOpts</a>.</li>
+<li><code>backoff</code>: <code>number | BackoffOpts</code> - Backoff setting for automatic retries if the job fails. See <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#queueadd">BackoffOpts</a>.</li>
+<li><code>lifo</code>: <code>boolean</code> - If true, adds the job to the right end of the queue instead of the left (default false).</li>
+<li><code>timeout</code>: <code>number</code> - The number of milliseconds after which the job should fail with a timeout error.</li>
+<li><code>jobId</code>: <code>number</code> | <code>string</code> - Override the job ID - by default, the job ID is a unique
+integer, but you can use this setting to override it. If you use this option, it is up to you to ensure the jobId is unique. If you attempt to add a job with an id that already exists, it will not be added.</li>
+<li><code>removeOnComplete</code>: <code>boolean | number</code> - If true, removes the job when it successfully completes. A number specifies the amount of jobs to keep. Default behavior is to keep the job in the completed set.</li>
+<li><code>removeOnFail</code>: <code>boolean | number</code> - If true, removes the job when it fails after all attempts. A number specifies the amount of jobs to keep. Default behavior is to keep the job in the failed set.</li>
+<li><code>stackTraceLimit</code>: <code>number</code> - Limits the amount of stack trace lines that will be recorded in the stacktrace.</li>
+</ul>
+<p>Here are a few examples of customizing jobs with job options.</p>
+<p>To delay the start of a job, use the <code>delay</code> configuration property.</p>
+<pre><code class="language-typescript">
+const job = await this.audioQueue.add(
+  &#123;
+    foo: &#39;bar&#39;,
+  &#125;,
+  &#123; delay: 3000 &#125;, // 3 seconds delayed
+);
+</code></pre>
+<p>To add a job to the right end of the queue (process the job as <strong>LIFO</strong> (Last In First Out)), set the <code>lifo</code> property of the configuration object to <code>true</code>.</p>
+<pre><code class="language-typescript">
+const job = await this.audioQueue.add(
+  &#123;
+    foo: &#39;bar&#39;,
+  &#125;,
+  &#123; lifo: true &#125;,
+);
+</code></pre>
+<p>To prioritize a job, use the <code>priority</code> property.</p>
+<pre><code class="language-typescript">
+const job = await this.audioQueue.add(
+  &#123;
+    foo: &#39;bar&#39;,
+  &#125;,
+  &#123; priority: 2 &#125;,
+);
+</code></pre>
+<h4 appAnchor id="consumers-1"><span>Consumers</span></h4>
+<p>A consumer is a <strong>class</strong> defining methods that either process jobs added into the queue, or listen for events on the queue, or both. Declare a consumer class using the <code>@Processor()</code> decorator as follows:</p>
+<pre><code class="language-typescript">
+import &#123; Processor &#125; from &#39;@nestjs/bull&#39;;
+
+@Processor(&#39;audio&#39;)
+export class AudioConsumer &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Consumers must be registered as <code>providers</code> so the <code>@nestjs/bull</code> package can pick them up.
+</blockquote>
+<p>Where the decorator&#39;s string argument (e.g., <code>&#39;audio&#39;</code>) is the name of the queue to be associated with the class methods.</p>
+<p>Within a consumer class, declare job handlers by decorating handler methods with the <code>@Process()</code> decorator.</p>
+<pre><code class="language-typescript">
+import &#123; Processor, Process &#125; from &#39;@nestjs/bull&#39;;
+import &#123; Job &#125; from &#39;bull&#39;;
+
+@Processor(&#39;audio&#39;)
+export class AudioConsumer &#123;
+  @Process()
+  async transcode(job: Job&lt;unknown&gt;) &#123;
+    let progress = 0;
+    for (let i = 0; i &lt; 100; i++) &#123;
+      await doSomething(job.data);
+      progress += 1;
+      await job.progress(progress);
+    &#125;
+    return &#123;&#125;;
+  &#125;
+&#125;
+</code></pre>
+<p>The decorated method (e.g., <code>transcode()</code>) is called whenever the worker is idle and there are jobs to process in the queue. This handler method receives the <code>job</code> object as its only argument. The value returned by the handler method is stored in the job object and can be accessed later on, for example in a listener for the completed event.</p>
+<p><code>Job</code> objects have multiple methods that allow you to interact with their state. For example, the above code uses the <code>progress()</code> method to update the job&#39;s progress. See <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#job">here</a> for the complete <code>Job</code> object API reference.</p>
+<p>You can designate that a job handler method will handle <strong>only</strong> jobs of a certain type (jobs with a specific <code>name</code>) by passing that <code>name</code> to the <code>@Process()</code> decorator as shown below. You can have multiple <code>@Process()</code> handlers in a given consumer class, corresponding to each job type (<code>name</code>). When you use named jobs, be sure to have a handler corresponding to each name.</p>
+<pre><code class="language-typescript">
+@Process(&#39;transcode&#39;)
+async transcode(job: Job&lt;unknown&gt;) &#123; ... &#125;
+</code></pre>
+<blockquote class="
+warning "><strong>Warning</strong> When defining multiple consumers for the same queue, the <code>concurrency</code> option in <code>@Process({{ &#39;{&#39; }} concurrency: 1 {{ &#39;}&#39; }})</code> won&#39;t take effect. The minimum <code>concurrency</code> will match the number of consumers defined. This also applies even if <code>@Process()</code> handlers use a different <code>name</code> to handle named jobs.
+</blockquote>
+<h4 appAnchor id="request-scoped-consumers-1"><span>Request-scoped consumers</span></h4>
+<p>When a consumer is flagged as request-scoped (learn more about the injection scopes <a href="/fundamentals/injection-scopes#provider-scope">here</a>), a new instance of the class will be created exclusively for each job. The instance will be garbage-collected after the job has completed.</p>
+<pre><code class="language-typescript">
+@Processor(&#123;
+  name: &#39;audio&#39;,
+  scope: Scope.REQUEST,
+&#125;)
+</code></pre>
+<p>Since request-scoped consumer classes are instantiated dynamically and scoped to a single job, you can inject a <code>JOB_REF</code> through the constructor using a standard approach.</p>
+<pre><code class="language-typescript">
+constructor(@Inject(JOB_REF) jobRef: Job) &#123;
+  console.log(jobRef);
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>JOB_REF</code> token is imported from the <code>@nestjs/bull</code> package.
+</blockquote>
+<h4 appAnchor id="event-listeners-1"><span>Event listeners</span></h4>
+<p>Bull generates a set of useful events when queue and/or job state changes occur. Nest provides a set of decorators that allow subscribing to a core set of standard events. These are exported from the <code>@nestjs/bull</code> package.</p>
+<p>Event listeners must be declared within a <a href="techniques/queues#consumers">consumer</a> class (i.e., within a class decorated with the <code>@Processor()</code> decorator). To listen for an event, use one of the decorators in the table below to declare a handler for the event. For example, to listen to the event emitted when a job enters the active state in the <code>audio</code> queue, use the following construct:</p>
+<pre><code class="language-typescript">
+import &#123; Processor, Process, OnQueueActive &#125; from &#39;@nestjs/bull&#39;;
+import &#123; Job &#125; from &#39;bull&#39;;
+
+@Processor(&#39;audio&#39;)
+export class AudioConsumer &#123;
+
+  @OnQueueActive()
+  onActive(job: Job) &#123;
+    console.log(
+      `Processing job $&#123;job.id&#125; of type $&#123;job.name&#125; with data $&#123;job.data&#125;...`,
+    );
+  &#125;
+  ...
+</code></pre>
+<p>Since Bull operates in a distributed (multi-node) environment, it defines the concept of event locality. This concept recognizes that events may be triggered either entirely within a single process, or on shared queues from different processes. A <strong>local</strong> event is one that is produced when an action or state change is triggered on a queue in the local process. In other words, when your event producers and consumers are local to a single process, all events happening on queues are local.</p>
+<p>When a queue is shared across multiple processes, we encounter the possibility of <strong>global</strong> events. For a listener in one process to receive an event notification triggered by another process, it must register for a global event.</p>
+<p>Event handlers are invoked whenever their corresponding event is emitted. The handler is called with the signature shown in the table below, providing access to information relevant to the event. We discuss one key difference between local and global event handler signatures below.</p>
+<table>
+  <tr>
+    <th>Local event listeners</th>
+    <th>Global event listeners</th>
+    <th>Handler method signature / When fired</th>
+  </tr>
+  <tr>
+    <td><code>@OnQueueError()</code></td><td><code>@OnGlobalQueueError()</code></td><td><code>handler(error: Error)</code> - An error occurred. <code>error</code> contains the triggering error.</td>
+  </tr>
+  <tr>
+    <td><code>@OnQueueWaiting()</code></td><td><code>@OnGlobalQueueWaiting()</code></td><td><code>handler(jobId: number | string)</code> - A Job is waiting to be processed as soon as a worker is idling. <code>jobId</code> contains the id for the job that has entered this state.</td>
+  </tr>
+  <tr>
+    <td><code>@OnQueueActive()</code></td><td><code>@OnGlobalQueueActive()</code></td><td><code>handler(job: Job)</code> - Job <code>job</code>has started. </td>
+  </tr>
+  <tr>
+    <td><code>@OnQueueStalled()</code></td><td><code>@OnGlobalQueueStalled()</code></td><td><code>handler(job: Job)</code> - Job <code>job</code> has been marked as stalled. This is useful for debugging job workers that crash or pause the event loop.</td>
+  </tr>
+  <tr>
+    <td><code>@OnQueueProgress()</code></td><td><code>@OnGlobalQueueProgress()</code></td><td><code>handler(job: Job, progress: number)</code> - Job <code>job</code>'s progress was updated to value <code>progress</code>.</td>
+  </tr>
+  <tr>
+    <td><code>@OnQueueCompleted()</code></td><td><code>@OnGlobalQueueCompleted()</code></td><td><code>handler(job: Job, result: any)</code> Job <code>job</code> successfully completed with a result <code>result</code>.</td>
+  </tr>
+  <tr>
+    <td><code>@OnQueueFailed()</code></td><td><code>@OnGlobalQueueFailed()</code></td><td><code>handler(job: Job, err: Error)</code> Job <code>job</code> failed with reason <code>err</code>.</td>
+  </tr>
+  <tr>
+    <td><code>@OnQueuePaused()</code></td><td><code>@OnGlobalQueuePaused()</code></td><td><code>handler()</code> The queue has been paused.</td>
+  </tr>
+  <tr>
+    <td><code>@OnQueueResumed()</code></td><td><code>@OnGlobalQueueResumed()</code></td><td><code>handler(job: Job)</code> The queue has been resumed.</td>
+  </tr>
+  <tr>
+    <td><code>@OnQueueCleaned()</code></td><td><code>@OnGlobalQueueCleaned()</code></td><td><code>handler(jobs: Job[], type: string)</code> Old jobs have been cleaned from the queue. <code>jobs</code> is an array of cleaned jobs, and <code>type</code> is the type of jobs cleaned.</td>
+  </tr>
+  <tr>
+    <td><code>@OnQueueDrained()</code></td><td><code>@OnGlobalQueueDrained()</code></td><td><code>handler()</code> Emitted whenever the queue has processed all the waiting jobs (even if there can be some delayed jobs not yet processed).</td>
+  </tr>
+  <tr>
+    <td><code>@OnQueueRemoved()</code></td><td><code>@OnGlobalQueueRemoved()</code></td><td><code>handler(job: Job)</code> Job <code>job</code> was successfully removed.</td>
+  </tr>
+</table>
+
+<p>When listening for global events, the method signatures can be slightly different from their local counterpart. Specifically, any method signature that receives <code>job</code> objects in the local version, instead receives a <code>jobId</code> (<code>number</code>) in the global version. To get a reference to the actual <code>job</code> object in such a case, use the <code>Queue#getJob</code> method. This call should be awaited, and therefore the handler should be declared <code>async</code>. For example:</p>
+<pre><code class="language-typescript">
+@OnGlobalQueueCompleted()
+async onGlobalCompleted(jobId: number, result: any) &#123;
+  const job = await this.immediateQueue.getJob(jobId);
+  console.log(&#39;(Global) on completed: job &#39;, job.id, &#39; -&gt; result: &#39;, result);
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> To access the <code>Queue</code> object (to make a <code>getJob()</code> call), you must of course inject it. Also, the Queue must be registered in the module where you are injecting it.
+</blockquote>
+<p>In addition to the specific event listener decorators, you can also use the generic <code>@OnQueueEvent()</code> decorator in combination with either <code>BullQueueEvents</code> or <code>BullQueueGlobalEvents</code> enums. Read more about events <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#events">here</a>.</p>
+<h4 appAnchor id="queue-management-1"><span>Queue management</span></h4>
+<p>Queue&#39;s have an API that allows you to perform management functions like pausing and resuming, retrieving the count of jobs in various states, and several more. You can find the full queue API <a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull/blob/master/REFERENCE.md#queue">here</a>. Invoke any of these methods directly on the <code>Queue</code> object, as shown below with the pause/resume examples.</p>
+<p>Pause a queue with the <code>pause()</code> method call. A paused queue will not process new jobs until resumed, but current jobs being processed will continue until they are finalized.</p>
+<pre><code class="language-typescript">
+await audioQueue.pause();
+</code></pre>
+<p>To resume a paused queue, use the <code>resume()</code> method, as follows:</p>
+<pre><code class="language-typescript">
+await audioQueue.resume();
+</code></pre>
+<h4 appAnchor id="separate-processes-1"><span>Separate processes</span></h4>
+<p>Job handlers can also be run in a separate (forked) process (<a rel='nofollow' target='_blank' href="https://github.com/OptimalBits/bull#separate-processes">source</a>). This has several advantages:</p>
+<ul>
+<li>The process is sandboxed so if it crashes it does not affect the worker.</li>
+<li>You can run blocking code without affecting the queue (jobs will not stall).</li>
+<li>Much better utilization of multi-core CPUs.</li>
+<li>Less connections to redis.</li>
+</ul>
+
+<span class="filename">
+  {{ 'app.module' | extension: appaf808d958e2a73ca112974dac9650ebfcae317c6.isJsActive }}
+<app-tabs #appaf808d958e2a73ca112974dac9650ebfcae317c6></app-tabs>
+</span><pre><code class="language-ts">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; BullModule &#125; from &#39;@nestjs/bull&#39;;
+import &#123; join &#125; from &#39;path&#39;;
+
+@Module(&#123;
+  imports: [
+    BullModule.registerQueue(&#123;
+      name: &#39;audio&#39;,
+      processors: [join(__dirname, &#39;processor.js&#39;)],
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><p>Please note that because your function is being executed in a forked process, Dependency Injection (and IoC container) won&#39;t be available. That means that your processor function will need to contain (or create) all instances of external dependencies it needs.</p>
+
+<span class="filename">
+  {{ 'processor' | extension: appdf4f6523fc6c8b7ae91ee3d20b03d7e8bd181124.isJsActive }}
+<app-tabs #appdf4f6523fc6c8b7ae91ee3d20b03d7e8bd181124></app-tabs>
+</span><pre><code class="language-ts">
+import &#123; Job, DoneCallback &#125; from &#39;bull&#39;;
+
+export default function (job: Job, cb: DoneCallback) &#123;
+  console.log(`[$&#123;process.pid&#125;] $&#123;JSON.stringify(job.data)&#125;`);
+  cb(null, &#39;It works&#39;);
+&#125;
+</code></pre><h4 appAnchor id="async-configuration-1"><span>Async configuration</span></h4>
+<p>You may want to pass <code>bull</code> options asynchronously instead of statically. In this case, use the <code>forRootAsync()</code> method which provides several ways to deal with async configuration. Likewise, if you want to pass queue options asynchronously, use the <code>registerQueueAsync()</code> method.</p>
+<p>One approach is to use a factory function:</p>
+<pre><code class="language-typescript">
+BullModule.forRootAsync(&#123;
+  useFactory: () =&gt; (&#123;
+    redis: &#123;
+      host: &#39;localhost&#39;,
+      port: 6379,
+    &#125;,
+  &#125;),
+&#125;);
+</code></pre>
+<p>Our factory behaves like any other <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/fundamentals/async-providers">asynchronous provider</a> (e.g., it can be <code>async</code> and it&#39;s able to inject dependencies through <code>inject</code>).</p>
+<pre><code class="language-typescript">
+BullModule.forRootAsync(&#123;
+  imports: [ConfigModule],
+  useFactory: async (configService: ConfigService) =&gt; (&#123;
+    redis: &#123;
+      host: configService.get(&#39;QUEUE_HOST&#39;),
+      port: configService.get(&#39;QUEUE_PORT&#39;),
+    &#125;,
+  &#125;),
+  inject: [ConfigService],
+&#125;);
+</code></pre>
+<p>Alternatively, you can use the <code>useClass</code> syntax:</p>
+<pre><code class="language-typescript">
+BullModule.forRootAsync(&#123;
+  useClass: BullConfigService,
+&#125;);
+</code></pre>
+<p>The construction above will instantiate <code>BullConfigService</code> inside <code>BullModule</code> and use it to provide an options object by calling <code>createSharedConfiguration()</code>. Note that this means that the <code>BullConfigService</code> has to implement the <code>SharedBullConfigurationFactory</code> interface, as shown below:</p>
+<pre><code class="language-typescript">
+@Injectable()
+class BullConfigService implements SharedBullConfigurationFactory &#123;
+  createSharedConfiguration(): BullModuleOptions &#123;
+    return &#123;
+      redis: &#123;
+        host: &#39;localhost&#39;,
+        port: 6379,
+      &#125;,
+    &#125;;
+  &#125;
+&#125;
+</code></pre>
+<p>In order to prevent the creation of <code>BullConfigService</code> inside <code>BullModule</code> and use a provider imported from a different module, you can use the <code>useExisting</code> syntax.</p>
+<pre><code class="language-typescript">
+BullModule.forRootAsync(&#123;
+  imports: [ConfigModule],
+  useExisting: ConfigService,
+&#125;);
+</code></pre>
+<p>This construction works the same as <code>useClass</code> with one critical difference - <code>BullModule</code> will lookup imported modules to reuse an existing <code>ConfigService</code> instead of instantiating a new one.</p>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>A working example is available <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/tree/master/sample/26-queues">here</a>.</p>
+
+</div>
+

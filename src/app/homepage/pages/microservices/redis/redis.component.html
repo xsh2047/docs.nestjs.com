@@ -1,0 +1,116 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/microservices/redis.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="redis">Redis</h3>
+<p>The <a rel='nofollow' target='_blank' href="https://redis.io/">Redis</a> transporter implements the publish/subscribe messaging paradigm and leverages the <a rel='nofollow' target='_blank' href="https://redis.io/topics/pubsub">Pub/Sub</a> feature of Redis. Published messages are categorized in channels, without knowing what subscribers (if any) will eventually receive the message. Each microservice can subscribe to any number of channels. In addition, more than one channel can be subscribed to at a time. Messages exchanged through channels are <strong>fire-and-forget</strong>, which means that if a message is published and there are no subscribers interested in it, the message is removed and cannot be recovered. Thus, you don&#39;t have a guarantee that either messages or events will be handled by at least one service. A single message can be subscribed to (and received) by multiple subscribers.</p>
+<figure><img class="illustrative-image" src="/assets/Redis_1.png" /></figure>
+
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>To start building Redis-based microservices, first install the required package:</p>
+<pre><code class="language-bash">
+$ npm i --save ioredis
+</code></pre>
+<h4 appAnchor id="overview"><span>Overview</span></h4>
+<p>To use the Redis transporter, pass the following options object to the <code>createMicroservice()</code> method:</p>
+
+<span class="filename">
+  {{ 'main' | extension: appf484ab641760dae2debd146efc3f466ad5f51227.isJsActive }}
+<app-tabs #appf484ab641760dae2debd146efc3f466ad5f51227></app-tabs>
+</span><pre [class.hide]="appf484ab641760dae2debd146efc3f466ad5f51227.isJsActive"><code class="language-typescript">
+const app = await NestFactory.createMicroservice&lt;MicroserviceOptions&gt;(AppModule, &#123;
+  transport: Transport.REDIS,
+  options: &#123;
+    host: &#39;localhost&#39;,
+    port: 6379,
+  &#125;,
+&#125;);
+</code></pre>
+<pre [class.hide]="!appf484ab641760dae2debd146efc3f466ad5f51227.isJsActive"><code class="language-typescript">
+const app = await NestFactory.createMicroservice(AppModule, &#123;
+  transport: Transport.REDIS,
+  options: &#123;
+    host: &#39;localhost&#39;,
+    port: 6379,
+  &#125;,
+&#125;);
+</code></pre><blockquote class="
+info "><strong>Hint</strong> The <code>Transport</code> enum is imported from the <code>@nestjs/microservices</code> package.
+</blockquote>
+<h4 appAnchor id="options"><span>Options</span></h4>
+<p>The <code>options</code> property is specific to the chosen transporter. The <strong>Redis</strong> transporter exposes the properties described below.</p>
+<table>
+  <tr>
+    <td><code>host</code></td>
+    <td>Connection url</td>
+  </tr>
+  <tr>
+    <td><code>port</code></td>
+    <td>Connection port</td>
+  </tr>
+  <tr>
+    <td><code>retryAttempts</code></td>
+    <td>Number of times to retry message (default: <code>0</code>)</td>
+  </tr>
+  <tr>
+    <td><code>retryDelay</code></td>
+    <td>Delay between message retry attempts (ms) (default: <code>0</code>)</td>
+  </tr>
+   <tr>
+    <td><code>wildcards</code></td>
+    <td>Enables Redis wildcard subscriptions, instructing transporter to use <code>psubscribe</code>/<code>pmessage</code> under the hood. (default: <code>false</code>)</td>
+  </tr>
+</table>
+
+<p>All the properties supported by the official <a rel='nofollow' target='_blank' href="https://redis.github.io/ioredis/index.html#RedisOptions">ioredis</a> client are also supported by this transporter.</p>
+<h4 appAnchor id="client"><span>Client</span></h4>
+<p>Like other microservice transporters, you have <a href="https://docs.nestjs.com/microservices/basics#client">several options</a> for creating a Redis <code>ClientProxy</code> instance.</p>
+<p>One method for creating an instance is to use the <code>ClientsModule</code>. To create a client instance with the <code>ClientsModule</code>, import it and use the <code>register()</code> method to pass an options object with the same properties shown above in the <code>createMicroservice()</code> method, as well as a <code>name</code> property to be used as the injection token. Read more about <code>ClientsModule</code> <a href="https://docs.nestjs.com/microservices/basics#client">here</a>.</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    ClientsModule.register([
+      &#123;
+        name: &#39;MATH_SERVICE&#39;,
+        transport: Transport.REDIS,
+        options: &#123;
+          host: &#39;localhost&#39;,
+          port: 6379,
+        &#125;
+      &#125;,
+    ]),
+  ]
+  ...
+&#125;)
+</code></pre>
+<p>Other options to create a client (either <code>ClientProxyFactory</code> or <code>@Client()</code>) can be used as well. You can read about them <a href="https://docs.nestjs.com/microservices/basics#client">here</a>.</p>
+<h4 appAnchor id="context"><span>Context</span></h4>
+<p>In more sophisticated scenarios, you may want to access more information about the incoming request. When using the Redis transporter, you can access the <code>RedisContext</code> object.</p>
+
+<span class="filename">
+<app-tabs #app948f166ee2b65d108cb6e0c7e0fb1234b79afd62></app-tabs>
+</span><pre [class.hide]="app948f166ee2b65d108cb6e0c7e0fb1234b79afd62.isJsActive"><code class="language-typescript">
+@MessagePattern(&#39;notifications&#39;)
+getNotifications(@Payload() data: number[], @Ctx() context: RedisContext) &#123;
+  console.log(`Channel: $&#123;context.getChannel()&#125;`);
+&#125;
+</code></pre>
+<pre [class.hide]="!app948f166ee2b65d108cb6e0c7e0fb1234b79afd62.isJsActive"><code class="language-typescript">
+@Bind(Payload(), Ctx())
+@MessagePattern(&#39;notifications&#39;)
+getNotifications(data, context) &#123;
+  console.log(`Channel: $&#123;context.getChannel()&#125;`);
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> <code>@Payload()</code>, <code>@Ctx()</code> and <code>RedisContext</code> are imported from the <code>@nestjs/microservices</code> package.
+</blockquote>
+
+</div>
+

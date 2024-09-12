@@ -1,19 +1,7 @@
 # See http://help.github.com/ignore-files/ for more about ignoring files.
 
-# compiled output
-dist/*
-!/dist/v4
-!/dist/v5
-!/dist/v6
-!/dist/v7
-!/dist/v8
-!/dist/v9
-
 /tmp
 /out-tsc
-
-# dependencies
-/node_modules
 
 # IDEs and editors
 /.idea
@@ -41,7 +29,6 @@ dist/*
 /libpeerconnection.log
 npm-debug.log
 testem.log
-/typings
 .angular
 # e2e
 /e2e/*.js
@@ -50,9 +37,3 @@ testem.log
 # System Files
 .DS_Store
 Thumbs.db
-
-# Mock API
-/api/node_modules
-
-# compiled templates
-src/app/homepage/pages/**/*.html

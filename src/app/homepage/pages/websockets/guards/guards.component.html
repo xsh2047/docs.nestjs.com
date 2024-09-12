@@ -1,0 +1,39 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/websockets/guards.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="guards">Guards</h3>
+<p>There is no fundamental difference between web sockets guards and <a routerLink="/guards">regular HTTP application guards</a>. The only difference is that instead of throwing <code>HttpException</code>, you should use <code>WsException</code>.</p>
+<blockquote class="
+info "><strong>Hint</strong> The <code>WsException</code> class is exposed from <code>@nestjs/websockets</code> package.
+</blockquote>
+<h4 appAnchor id="binding-guards"><span>Binding guards</span></h4>
+<p>The following example uses a method-scoped guard. Just as with HTTP based applications, you can also use gateway-scoped guards (i.e., prefix the gateway class with a <code>@UseGuards()</code> decorator).</p>
+
+<span class="filename">
+<app-tabs #appce7edb6ce1c878539a83a00dbc9c7e5c1d5be623></app-tabs>
+</span><pre [class.hide]="appce7edb6ce1c878539a83a00dbc9c7e5c1d5be623.isJsActive"><code class="language-typescript">
+@UseGuards(AuthGuard)
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(client: Client, data: unknown): WsResponse&lt;unknown&gt; &#123;
+  const event = &#39;events&#39;;
+  return &#123; event, data &#125;;
+&#125;
+</code></pre>
+<pre [class.hide]="!appce7edb6ce1c878539a83a00dbc9c7e5c1d5be623.isJsActive"><code class="language-typescript">
+@UseGuards(AuthGuard)
+@SubscribeMessage(&#39;events&#39;)
+handleEvent(client, data) &#123;
+  const event = &#39;events&#39;;
+  return &#123; event, data &#125;;
+&#125;
+</code></pre>
+</div>
+

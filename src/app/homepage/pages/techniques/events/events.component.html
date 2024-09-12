@@ -1,0 +1,137 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/techniques/events.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="events">Events</h3>
+<p><a rel='nofollow' target='_blank' href="https://www.npmjs.com/package/@nestjs/event-emitter">Event Emitter</a> package (<code>@nestjs/event-emitter</code>) provides a simple observer implementation, allowing you to subscribe and listen for various events that occur in your application. Events serve as a great way to decouple various aspects of your application, since a single event can have multiple listeners that do not depend on each other.</p>
+<p><code>EventEmitterModule</code> internally uses the <a rel='nofollow' target='_blank' href="https://github.com/EventEmitter2/EventEmitter2">eventemitter2</a> package.</p>
+<h4 appAnchor id="getting-started"><span>Getting started</span></h4>
+<p>First install the required package:</p>
+<pre><code class="language-shell">
+$ npm i --save @nestjs/event-emitter
+</code></pre>
+<p>Once the installation is complete, import the <code>EventEmitterModule</code> into the root <code>AppModule</code> and run the <code>forRoot()</code> static method as shown below:</p>
+
+<span class="filename">
+  {{ 'app.module' | extension: app7560781a5ec46dc0215ca52c96efdbab557f1bb1.isJsActive }}
+<app-tabs #app7560781a5ec46dc0215ca52c96efdbab557f1bb1></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; EventEmitterModule &#125; from &#39;@nestjs/event-emitter&#39;;
+
+@Module(&#123;
+  imports: [
+    EventEmitterModule.forRoot()
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre><p>The <code>.forRoot()</code> call initializes the event emitter and registers any declarative event listeners that exist within your app. Registration occurs when the <code>onApplicationBootstrap</code> lifecycle hook occurs, ensuring that all modules have loaded and declared any scheduled jobs.</p>
+<p>To configure the underlying <code>EventEmitter</code> instance, pass the configuration object to the <code>.forRoot()</code> method, as follows:</p>
+<pre><code class="language-typescript">
+EventEmitterModule.forRoot(&#123;
+  // set this to `true` to use wildcards
+  wildcard: false,
+  // the delimiter used to segment namespaces
+  delimiter: &#39;.&#39;,
+  // set this to `true` if you want to emit the newListener event
+  newListener: false,
+  // set this to `true` if you want to emit the removeListener event
+  removeListener: false,
+  // the maximum amount of listeners that can be assigned to an event
+  maxListeners: 10,
+  // show event name in memory leak message when more than maximum amount of listeners is assigned
+  verboseMemoryLeak: false,
+  // disable throwing uncaughtException if an error event is emitted and it has no listeners
+  ignoreErrors: false,
+&#125;);
+</code></pre>
+<h4 appAnchor id="dispatching-events"><span>Dispatching Events</span></h4>
+<p>To dispatch (i.e., fire) an event, first inject <code>EventEmitter2</code> using standard constructor injection:</p>
+<pre><code class="language-typescript">
+constructor(private eventEmitter: EventEmitter2) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Import the <code>EventEmitter2</code> from the <code>@nestjs/event-emitter</code> package.
+</blockquote>
+<p>Then use it in a class as follows:</p>
+<pre><code class="language-typescript">
+this.eventEmitter.emit(
+  &#39;order.created&#39;,
+  new OrderCreatedEvent(&#123;
+    orderId: 1,
+    payload: &#123;&#125;,
+  &#125;),
+);
+</code></pre>
+<h4 appAnchor id="listening-to-events"><span>Listening to Events</span></h4>
+<p>To declare an event listener, decorate a method with the <code>@OnEvent()</code> decorator preceding the method definition containing the code to be executed, as follows:</p>
+<pre><code class="language-typescript">
+@OnEvent(&#39;order.created&#39;)
+handleOrderCreatedEvent(payload: OrderCreatedEvent) &#123;
+  // handle and process &quot;OrderCreatedEvent&quot; event
+&#125;
+</code></pre>
+<blockquote class="
+warning "><strong>Warning</strong> Event subscribers cannot be request-scoped.
+</blockquote>
+<p>The first argument can be a <code>string</code> or <code>symbol</code> for a simple event emitter and a <code>string | symbol | Array&lt;string | symbol&gt;</code> in a case of a wildcard emitter.  </p>
+<p>The second argument (optional) is a listener options object as follows:</p>
+<pre><code class="language-typescript">
+export type OnEventOptions = OnOptions &amp; &#123;
+  /**
+   * If &quot;true&quot;, prepends (instead of append) the given listener to the array of listeners.
+   *
+   * @see https://github.com/EventEmitter2/EventEmitter2#emitterprependlistenerevent-listener-options
+   *
+   * @default false
+   */
+  prependListener?: boolean;
+
+  /**
+   * If &quot;true&quot;, the onEvent callback will not throw an error while handling the event. Otherwise, if &quot;false&quot; it will throw an error.
+   * 
+   * @default true
+   */
+  suppressErrors?: boolean;
+&#125;;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Read more about the <code>OnOptions</code> options object from <a rel='nofollow' target='_blank' href="https://github.com/EventEmitter2/EventEmitter2#emitteronevent-listener-options-objectboolean"><code>eventemitter2</code></a>.
+</blockquote>
+<pre><code class="language-typescript">
+@OnEvent(&#39;order.created&#39;, &#123; async: true &#125;)
+handleOrderCreatedEvent(payload: OrderCreatedEvent) &#123;
+  // handle and process &quot;OrderCreatedEvent&quot; event
+&#125;
+</code></pre>
+<p>To use namespaces/wildcards, pass the <code>wildcard</code> option into the <code>EventEmitterModule#forRoot()</code> method. When namespaces/wildcards are enabled, events can either be strings (<code>foo.bar</code>) separated by a delimiter or arrays (<code>[&#39;foo&#39;, &#39;bar&#39;]</code>). The delimiter is also configurable as a configuration property (<code>delimiter</code>). With namespaces feature enabled, you can subscribe to events using a wildcard:</p>
+<pre><code class="language-typescript">
+@OnEvent(&#39;order.*&#39;)
+handleOrderEvents(payload: OrderCreatedEvent | OrderRemovedEvent | OrderUpdatedEvent) &#123;
+  // handle and process an event
+&#125;
+</code></pre>
+<p>Note that such a wildcard only applies to one block. The argument <code>order.*</code> will match, for example, the events <code>order.created</code> and <code>order.shipped</code> but not <code>order.delayed.out_of_stock</code>. In order to listen to such events,
+use the <code>multilevel wildcard</code> pattern (i.e, <code>**</code>), described in the <code>EventEmitter2</code> <a rel='nofollow' target='_blank' href="https://github.com/EventEmitter2/EventEmitter2#multi-level-wildcards">documentation</a>.</p>
+<p>With this pattern, you can, for example, create an event listener that catches all events.</p>
+<pre><code class="language-typescript">
+@OnEvent(&#39;**&#39;)
+handleEverything(payload: any) &#123;
+  // handle and process an event
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> <code>EventEmitter2</code> class provides several useful methods for interacting with events, like <code>waitFor</code> and <code>onAny</code>. You can read more about them <a rel='nofollow' target='_blank' href="https://github.com/EventEmitter2/EventEmitter2">here</a>.
+</blockquote>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>A working example is available <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/tree/master/sample/30-event-emitter">here</a>.</p>
+
+</div>
+

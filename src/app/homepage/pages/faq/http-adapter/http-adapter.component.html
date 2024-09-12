@@ -1,0 +1,55 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/faq/http-adapter.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="http-adapter">HTTP adapter</h3>
+<p>Occasionally, you may want to access the underlying HTTP server, either within the Nest application context or from the outside.</p>
+<p>Every native (platform-specific) HTTP server/library (e.g., Express and Fastify) instance is wrapped in an <strong>adapter</strong>. The adapter is registered as a globally available provider that can be retrieved from the application context, as well as injected into other providers.</p>
+<h4 appAnchor id="outside-application-context-strategy"><span>Outside application context strategy</span></h4>
+<p>To get a reference to the <code>HttpAdapter</code> from outside of the application context, call the <code>getHttpAdapter()</code> method.</p>
+
+<span class="filename">
+<app-tabs #app74afae285b096b2d7a9905c35dc31cfe3e815316></app-tabs>
+</span><pre><code class="language-typescript">
+const app = await NestFactory.create(AppModule);
+const httpAdapter = app.getHttpAdapter();
+</code></pre><h4 appAnchor id="in-context-strategy"><span>In-context strategy</span></h4>
+<p>To get a reference to the <code>HttpAdapterHost</code> from within the application context, inject it using the same technique as any other existing provider (e.g., using constructor injection).</p>
+
+<span class="filename">
+<app-tabs #app309596c5c94e203e8229bdfd396a618b6cacd3f8></app-tabs>
+</span><pre [class.hide]="app309596c5c94e203e8229bdfd396a618b6cacd3f8.isJsActive"><code class="language-typescript">
+export class CatsService &#123;
+  constructor(private adapterHost: HttpAdapterHost) &#123;&#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app309596c5c94e203e8229bdfd396a618b6cacd3f8.isJsActive"><code class="language-typescript">
+@Dependencies(HttpAdapterHost)
+export class CatsService &#123;
+  constructor(adapterHost) &#123;
+    this.adapterHost = adapterHost;
+  &#125;
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> The <code>HttpAdapterHost</code> is imported from the <code>@nestjs/core</code> package.
+</blockquote>
+<p>The <code>HttpAdapterHost</code> is <strong>not</strong> an actual <code>HttpAdapter</code>. To get the actual <code>HttpAdapter</code> instance, simply access the <code>httpAdapter</code> property.</p>
+<pre><code class="language-typescript">
+const adapterHost = app.get(HttpAdapterHost);
+const httpAdapter = adapterHost.httpAdapter;
+</code></pre>
+<p>The <code>httpAdapter</code> is the actual instance of the HTTP adapter used by the underlying framework. It is an instance of either <code>ExpressAdapter</code> or <code>FastifyAdapter</code> (both classes extend <code>AbstractHttpAdapter</code>).</p>
+<p>The adapter object exposes several useful methods to interact with the HTTP server. However, if you want to access the library instance (e.g., the Express instance) directly, call the <code>getInstance()</code> method.</p>
+<pre><code class="language-typescript">
+const instance = httpAdapter.getInstance();
+</code></pre>
+
+</div>
+

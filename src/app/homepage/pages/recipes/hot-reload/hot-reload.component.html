@@ -1,0 +1,162 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/recipes/hot-reload.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="hot-reload">Hot Reload</h3>
+<p>The highest impact on your application&#39;s bootstrapping process is <strong>TypeScript compilation</strong>. Fortunately, with <a rel='nofollow' target='_blank' href="https://github.com/webpack/webpack">webpack</a> HMR (Hot-Module Replacement), we don&#39;t need to recompile the entire project each time a change occurs. This significantly decreases the amount of time necessary to instantiate your application, and makes iterative development a lot easier.</p>
+<blockquote class="
+warning "><strong>Warning</strong> Note that <code>webpack</code> won&#39;t automatically copy your assets (e.g. <code>graphql</code> files) to the <code>dist</code> folder. Similarly, <code>webpack</code> is not compatible with glob static paths (e.g., the <code>entities</code> property in <code>TypeOrmModule</code>).
+</blockquote>
+<h3 id="with-cli">With CLI</h3>
+<p>If you are using the <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/cli/overview">Nest CLI</a>, the configuration process is pretty straightforward. The CLI wraps <code>webpack</code>, which allows use of the <code>HotModuleReplacementPlugin</code>.</p>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>First install the required packages:</p>
+<pre><code class="language-bash">
+$ npm i --save-dev webpack-node-externals run-script-webpack-plugin webpack
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> If you use <strong>Yarn Berry</strong> (not classic Yarn), install the <code>webpack-pnp-externals</code> package instead of the <code>webpack-node-externals</code>.
+</blockquote>
+<h4 appAnchor id="configuration"><span>Configuration</span></h4>
+<p>Once the installation is complete, create a <code>webpack-hmr.config.js</code> file in the root directory of your application.</p>
+<pre><code class="language-typescript">
+const nodeExternals = require(&#39;webpack-node-externals&#39;);
+const &#123; RunScriptWebpackPlugin &#125; = require(&#39;run-script-webpack-plugin&#39;);
+
+module.exports = function (options, webpack) &#123;
+  return &#123;
+    ...options,
+    entry: [&#39;webpack/hot/poll?100&#39;, options.entry],
+    externals: [
+      nodeExternals(&#123;
+        allowlist: [&#39;webpack/hot/poll?100&#39;],
+      &#125;),
+    ],
+    plugins: [
+      ...options.plugins,
+      new webpack.HotModuleReplacementPlugin(),
+      new webpack.WatchIgnorePlugin(&#123;
+        paths: [/\.js$/, /\.d\.ts$/],
+      &#125;),
+      new RunScriptWebpackPlugin(&#123; name: options.output.filename, autoRestart: false &#125;),
+    ],
+  &#125;;
+&#125;;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> With <strong>Yarn Berry</strong> (not classic Yarn), instead of using the <code>nodeExternals</code> in the <code>externals</code> configuration property, use the <code>WebpackPnpExternals</code> from <code>webpack-pnp-externals</code> package: <code>WebpackPnpExternals({{ &#39;{&#39; }} exclude: [&#39;webpack/hot/poll?100&#39;] {{ &#39;}&#39; }})</code>.
+</blockquote>
+<p>This function takes the original object containing the default webpack configuration as a first argument, and the reference to the underlying <code>webpack</code> package used by the Nest CLI as the second one. Also, it returns a modified webpack configuration with the <code>HotModuleReplacementPlugin</code>, <code>WatchIgnorePlugin</code>, and <code>RunScriptWebpackPlugin</code> plugins.</p>
+<h4 appAnchor id="hot-module-replacement"><span>Hot-Module Replacement</span></h4>
+<p>To enable <strong>HMR</strong>, open the application entry file (<code>main.ts</code>) and add the following webpack-related instructions:</p>
+<pre><code class="language-typescript">
+declare const module: any;
+
+async function bootstrap() &#123;
+  const app = await NestFactory.create(AppModule);
+  await app.listen(3000);
+
+  if (module.hot) &#123;
+    module.hot.accept();
+    module.hot.dispose(() =&gt; app.close());
+  &#125;
+&#125;
+bootstrap();
+</code></pre>
+<p>To simplify the execution process, add a script to your <code>package.json</code> file.</p>
+<pre><code class="language-json">
+&quot;start:dev&quot;: &quot;nest build --webpack --webpackPath webpack-hmr.config.js --watch&quot;
+</code></pre>
+<p>Now simply open your command line and run the following command:</p>
+<pre><code class="language-bash">
+$ npm run start:dev
+</code></pre>
+<h3 id="without-cli">Without CLI</h3>
+<p>If you are not using the <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/cli/overview">Nest CLI</a>, the configuration will be slightly more complex (will require more manual steps).</p>
+<h4 appAnchor id="installation-1"><span>Installation</span></h4>
+<p>First install the required packages:</p>
+<pre><code class="language-bash">
+$ npm i --save-dev webpack webpack-cli webpack-node-externals ts-loader run-script-webpack-plugin
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> If you use <strong>Yarn Berry</strong> (not classic Yarn), install the <code>webpack-pnp-externals</code> package instead of the <code>webpack-node-externals</code>.
+</blockquote>
+<h4 appAnchor id="configuration-1"><span>Configuration</span></h4>
+<p>Once the installation is complete, create a <code>webpack.config.js</code> file in the root directory of your application.</p>
+<pre><code class="language-typescript">
+const webpack = require(&#39;webpack&#39;);
+const path = require(&#39;path&#39;);
+const nodeExternals = require(&#39;webpack-node-externals&#39;);
+const &#123; RunScriptWebpackPlugin &#125; = require(&#39;run-script-webpack-plugin&#39;);
+
+module.exports = &#123;
+  entry: [&#39;webpack/hot/poll?100&#39;, &#39;./src/main.ts&#39;],
+  target: &#39;node&#39;,
+  externals: [
+    nodeExternals(&#123;
+      allowlist: [&#39;webpack/hot/poll?100&#39;],
+    &#125;),
+  ],
+  module: &#123;
+    rules: [
+      &#123;
+        test: /.tsx?$/,
+        use: &#39;ts-loader&#39;,
+        exclude: /node_modules/,
+      &#125;,
+    ],
+  &#125;,
+  mode: &#39;development&#39;,
+  resolve: &#123;
+    extensions: [&#39;.tsx&#39;, &#39;.ts&#39;, &#39;.js&#39;],
+  &#125;,
+  plugins: [
+    new webpack.HotModuleReplacementPlugin(),
+    new RunScriptWebpackPlugin(&#123; name: &#39;server.js&#39;, autoRestart: false &#125;),
+  ],
+  output: &#123;
+    path: path.join(__dirname, &#39;dist&#39;),
+    filename: &#39;server.js&#39;,
+  &#125;,
+&#125;;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> With <strong>Yarn Berry</strong> (not classic Yarn), instead of using the <code>nodeExternals</code> in the <code>externals</code> configuration property, use the <code>WebpackPnpExternals</code> from <code>webpack-pnp-externals</code> package: <code>WebpackPnpExternals({{ &#39;{&#39; }} exclude: [&#39;webpack/hot/poll?100&#39;] {{ &#39;}&#39; }})</code>.
+</blockquote>
+<p>This configuration tells webpack a few essential things about your application: location of the entry file, which directory should be used to hold <strong>compiled</strong> files, and what kind of loader we want to use to compile source files. Generally, you should be able to use this file as-is, even if you don&#39;t fully understand all of the options.</p>
+<h4 appAnchor id="hot-module-replacement-1"><span>Hot-Module Replacement</span></h4>
+<p>To enable <strong>HMR</strong>, open the application entry file (<code>main.ts</code>) and add the following webpack-related instructions:</p>
+<pre><code class="language-typescript">
+declare const module: any;
+
+async function bootstrap() &#123;
+  const app = await NestFactory.create(AppModule);
+  await app.listen(3000);
+
+  if (module.hot) &#123;
+    module.hot.accept();
+    module.hot.dispose(() =&gt; app.close());
+  &#125;
+&#125;
+bootstrap();
+</code></pre>
+<p>To simplify the execution process, add a script to your <code>package.json</code> file.</p>
+<pre><code class="language-json">
+&quot;start:dev&quot;: &quot;webpack --config webpack.config.js --watch&quot;
+</code></pre>
+<p>Now simply open your command line and run the following command:</p>
+<pre><code class="language-bash">
+$ npm run start:dev
+</code></pre>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>A working example is available <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/tree/master/sample/08-webpack">here</a>.</p>
+
+</div>
+

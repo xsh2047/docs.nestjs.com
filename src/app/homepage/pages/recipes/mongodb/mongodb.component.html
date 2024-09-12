@@ -1,0 +1,196 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/recipes/mongodb.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="mongodb-mongoose">MongoDB (Mongoose)</h3>
+<blockquote class="
+"><strong>Warning</strong> In this article, you&#39;ll learn how to create a <code>DatabaseModule</code> based on the <strong>Mongoose</strong> package from scratch using custom components. As a consequence, this solution contains a lot of overhead that you can omit using ready to use and available out-of-the-box dedicated <code>@nestjs/mongoose</code> package. To learn more, see <a routerLink="/techniques/mongodb">here</a>.
+</blockquote>
+<p><a rel='nofollow' target='_blank' href="https://mongoosejs.com">Mongoose</a> is the most popular <a rel='nofollow' target='_blank' href="https://www.mongodb.org/">MongoDB</a> object modeling tool.</p>
+<h4 appAnchor id="getting-started"><span>Getting started</span></h4>
+<p>To start the adventure with this library we have to install all required dependencies:</p>
+<pre><code class="language-typescript">
+$ npm install --save mongoose
+</code></pre>
+<p>The first step we need to do is to establish the connection with our database using <code>connect()</code> function. The <code>connect()</code> function returns a <code>Promise</code>, and therefore we have to create an <a routerLink="/fundamentals/async-components">async provider</a>.</p>
+
+<span class="filename">
+  {{ 'database.providers' | extension: appef381ebff90cfc5b7bf942d6b9715c1638367869.isJsActive }}
+<app-tabs #appef381ebff90cfc5b7bf942d6b9715c1638367869></app-tabs>
+</span><pre [class.hide]="appef381ebff90cfc5b7bf942d6b9715c1638367869.isJsActive"><code class="language-typescript">
+import * as mongoose from &#39;mongoose&#39;;
+
+export const databaseProviders = [
+  &#123;
+    provide: &#39;DATABASE_CONNECTION&#39;,
+    useFactory: (): Promise&lt;typeof mongoose&gt; =&gt;
+      mongoose.connect(&#39;mongodb://localhost/nest&#39;),
+  &#125;,
+];
+</code></pre>
+<pre [class.hide]="!appef381ebff90cfc5b7bf942d6b9715c1638367869.isJsActive"><code class="language-typescript">
+import * as mongoose from &#39;mongoose&#39;;
+
+export const databaseProviders = [
+  &#123;
+    provide: &#39;DATABASE_CONNECTION&#39;,
+    useFactory: () =&gt; mongoose.connect(&#39;mongodb://localhost/nest&#39;),
+  &#125;,
+];
+</code></pre><blockquote class="
+info "><strong>Hint</strong> Following best practices, we declared the custom provider in the separated file which has a <code>*.providers.ts</code> suffix.
+</blockquote>
+<p>Then, we need to export these providers to make them <strong>accessible</strong> for the rest part of the application.</p>
+
+<span class="filename">
+  {{ 'database.module' | extension: app6c858e1e18775b19fc967a505213f1b8ffd07b31.isJsActive }}
+<app-tabs #app6c858e1e18775b19fc967a505213f1b8ffd07b31></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; databaseProviders &#125; from &#39;./database.providers&#39;;
+
+@Module(&#123;
+  providers: [...databaseProviders],
+  exports: [...databaseProviders],
+&#125;)
+export class DatabaseModule &#123;&#125;
+</code></pre><p>Now we can inject the <code>Connection</code> object using <code>@Inject()</code> decorator. Each class that would depend on the <code>Connection</code> async provider will wait until a <code>Promise</code> is resolved.</p>
+<h4 appAnchor id="model-injection"><span>Model injection</span></h4>
+<p>With Mongoose, everything is derived from a <a rel='nofollow' target='_blank' href="https://mongoosejs.com/docs/guide.html">Schema</a>. Let&#39;s define the <code>CatSchema</code>:</p>
+
+<span class="filename">
+  {{ 'schemas/cat.schema' | extension: app0efff5f9ff81b82be24ed7e3f5fcd51e999dee7c.isJsActive }}
+<app-tabs #app0efff5f9ff81b82be24ed7e3f5fcd51e999dee7c></app-tabs>
+</span><pre><code class="language-typescript">
+import * as mongoose from &#39;mongoose&#39;;
+
+export const CatSchema = new mongoose.Schema(&#123;
+  name: String,
+  age: Number,
+  breed: String,
+&#125;);
+</code></pre><p>The <code>CatsSchema</code> belongs to the <code>cats</code> directory. This directory represents the <code>CatsModule</code>.</p>
+<p>Now it&#39;s time to create a <strong>Model</strong> provider:</p>
+
+<span class="filename">
+  {{ 'cats.providers' | extension: app7c009520407371433078b018c7dfe57033a73fca.isJsActive }}
+<app-tabs #app7c009520407371433078b018c7dfe57033a73fca></app-tabs>
+</span><pre [class.hide]="app7c009520407371433078b018c7dfe57033a73fca.isJsActive"><code class="language-typescript">
+import &#123; Connection &#125; from &#39;mongoose&#39;;
+import &#123; CatSchema &#125; from &#39;./schemas/cat.schema&#39;;
+
+export const catsProviders = [
+  &#123;
+    provide: &#39;CAT_MODEL&#39;,
+    useFactory: (connection: Connection) =&gt; connection.model(&#39;Cat&#39;, CatSchema),
+    inject: [&#39;DATABASE_CONNECTION&#39;],
+  &#125;,
+];
+</code></pre>
+<pre [class.hide]="!app7c009520407371433078b018c7dfe57033a73fca.isJsActive"><code class="language-typescript">
+import &#123; CatSchema &#125; from &#39;./schemas/cat.schema&#39;;
+
+export const catsProviders = [
+  &#123;
+    provide: &#39;CAT_MODEL&#39;,
+    useFactory: (connection) =&gt; connection.model(&#39;Cat&#39;, CatSchema),
+    inject: [&#39;DATABASE_CONNECTION&#39;],
+  &#125;,
+];
+</code></pre><blockquote class="
+warning "><strong>Warning</strong> In the real-world applications you should avoid <strong>magic strings</strong>. Both <code>CAT_MODEL</code> and <code>DATABASE_CONNECTION</code> should be kept in the separated <code>constants.ts</code> file.
+</blockquote>
+<p>Now we can inject the <code>CAT_MODEL</code> to the <code>CatsService</code> using the <code>@Inject()</code> decorator:</p>
+
+<span class="filename">
+  {{ 'cats.service' | extension: app6e5a5c142c9316f24f9e0e49a702d8fbae231af4.isJsActive }}
+<app-tabs #app6e5a5c142c9316f24f9e0e49a702d8fbae231af4></app-tabs>
+</span><pre [class.hide]="app6e5a5c142c9316f24f9e0e49a702d8fbae231af4.isJsActive"><code class="language-typescript">
+import &#123; Model &#125; from &#39;mongoose&#39;;
+import &#123; Injectable, Inject &#125; from &#39;@nestjs/common&#39;;
+import &#123; Cat &#125; from &#39;./interfaces/cat.interface&#39;;
+import &#123; CreateCatDto &#125; from &#39;./dto/create-cat.dto&#39;;
+
+@Injectable()
+export class CatsService &#123;
+  constructor(
+    @Inject(&#39;CAT_MODEL&#39;)
+    private catModel: Model&lt;Cat&gt;,
+  ) &#123;&#125;
+
+  async create(createCatDto: CreateCatDto): Promise&lt;Cat&gt; &#123;
+    const createdCat = new this.catModel(createCatDto);
+    return createdCat.save();
+  &#125;
+
+  async findAll(): Promise&lt;Cat[]&gt; &#123;
+    return this.catModel.find().exec();
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app6e5a5c142c9316f24f9e0e49a702d8fbae231af4.isJsActive"><code class="language-typescript">
+import &#123; Injectable, Dependencies &#125; from &#39;@nestjs/common&#39;;
+
+@Injectable()
+@Dependencies(&#39;CAT_MODEL&#39;)
+export class CatsService &#123;
+  constructor(catModel) &#123;
+    this.catModel = catModel;
+  &#125;
+
+  async create(createCatDto) &#123;
+    const createdCat = new this.catModel(createCatDto);
+    return createdCat.save();
+  &#125;
+
+  async findAll() &#123;
+    return this.catModel.find().exec();
+  &#125;
+&#125;
+</code></pre><p>In the above example we have used the <code>Cat</code> interface. This interface extends the <code>Document</code> from the mongoose package:</p>
+<pre><code class="language-typescript">
+import &#123; Document &#125; from &#39;mongoose&#39;;
+
+export interface Cat extends Document &#123;
+  readonly name: string;
+  readonly age: number;
+  readonly breed: string;
+&#125;
+</code></pre>
+<p>The database connection is <strong>asynchronous</strong>, but Nest makes this process completely invisible for the end-user. The <code>CatModel</code> class is waiting for the db connection, and the <code>CatsService</code> is delayed until model is ready to use. The entire application can start when each class is instantiated.</p>
+<p>Here is a final <code>CatsModule</code>:</p>
+
+<span class="filename">
+  {{ 'cats.module' | extension: app39496cb6e92f7b33b9697da57e566f277f4025d6.isJsActive }}
+<app-tabs #app39496cb6e92f7b33b9697da57e566f277f4025d6></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; CatsController &#125; from &#39;./cats.controller&#39;;
+import &#123; CatsService &#125; from &#39;./cats.service&#39;;
+import &#123; catsProviders &#125; from &#39;./cats.providers&#39;;
+import &#123; DatabaseModule &#125; from &#39;../database/database.module&#39;;
+
+@Module(&#123;
+  imports: [DatabaseModule],
+  controllers: [CatsController],
+  providers: [
+    CatsService,
+    ...catsProviders,
+  ],
+&#125;)
+export class CatsModule &#123;&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> Do not forget to import the <code>CatsModule</code> into the root <code>AppModule</code>.
+</blockquote>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>A working example is available <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/tree/master/sample/14-mongoose-base">here</a>.</p>
+
+</div>
+

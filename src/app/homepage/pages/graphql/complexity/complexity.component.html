@@ -1,0 +1,99 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/graphql/complexity.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="complexity">Complexity</h3>
+<blockquote class="
+warning "><strong>Warning</strong> This chapter applies only to the code first approach.
+</blockquote>
+<p>Query complexity allows you to define how complex certain fields are, and to restrict queries with a <strong>maximum complexity</strong>. The idea is to define how complex each field is by using a simple number. A common default is to give each field a complexity of <code>1</code>. In addition, the complexity calculation of a GraphQL query can be customized with so-called complexity estimators. A complexity estimator is a simple function that calculates the complexity for a field. You can add any number of complexity estimators to the rule, which are then executed one after another. The first estimator that returns a numeric complexity value determines the complexity for that field.</p>
+<p>The <code>@nestjs/graphql</code> package integrates very well with tools like <a rel='nofollow' target='_blank' href="https://github.com/slicknode/graphql-query-complexity">graphql-query-complexity</a> that provides a cost analysis-based solution. With this library, you can reject queries to your GraphQL server that are deemed too costly to execute.</p>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>To begin using it, we first install the required dependency.</p>
+<pre><code class="language-bash">
+$ npm install --save graphql-query-complexity
+</code></pre>
+<h4 appAnchor id="getting-started"><span>Getting started</span></h4>
+<p>Once the installation process is complete, we can define the <code>ComplexityPlugin</code> class:</p>
+<pre><code class="language-typescript">
+import &#123; GraphQLSchemaHost &#125; from &quot;@nestjs/graphql&quot;;
+import &#123; Plugin &#125; from &quot;@nestjs/apollo&quot;;
+import &#123;
+  ApolloServerPlugin,
+  GraphQLRequestListener,
+&#125; from &#39;apollo-server-plugin-base&#39;;
+import &#123; GraphQLError &#125; from &#39;graphql&#39;;
+import &#123;
+  fieldExtensionsEstimator,
+  getComplexity,
+  simpleEstimator,
+&#125; from &#39;graphql-query-complexity&#39;;
+
+@Plugin()
+export class ComplexityPlugin implements ApolloServerPlugin &#123;
+  constructor(private gqlSchemaHost: GraphQLSchemaHost) &#123;&#125;
+
+  async requestDidStart(): Promise&lt;GraphQLRequestListener&gt; &#123;
+    const maxComplexity = 20;
+    const &#123; schema &#125; = this.gqlSchemaHost;
+
+    return &#123;
+      async didResolveOperation(&#123; request, document &#125;) &#123;
+        const complexity = getComplexity(&#123;
+          schema,
+          operationName: request.operationName,
+          query: document,
+          variables: request.variables,
+          estimators: [
+            fieldExtensionsEstimator(),
+            simpleEstimator(&#123; defaultComplexity: 1 &#125;),
+          ],
+        &#125;);
+        if (complexity &gt; maxComplexity) &#123;
+          throw new GraphQLError(
+            `Query is too complex: $&#123;complexity&#125;. Maximum allowed complexity: $&#123;maxComplexity&#125;`,
+          );
+        &#125;
+        console.log(&#39;Query Complexity:&#39;, complexity);
+      &#125;,
+    &#125;;
+  &#125;
+&#125;
+</code></pre>
+<p>For demonstration purposes, we specified the maximum allowed complexity as <code>20</code>. In the example above, we used 2 estimators, the <code>simpleEstimator</code> and the <code>fieldExtensionsEstimator</code>.</p>
+<ul>
+<li><code>simpleEstimator</code>: the simple estimator returns a fixed complexity for each field</li>
+<li><code>fieldExtensionsEstimator</code>: the field extensions estimator extracts the complexity value for each field of your schema</li>
+</ul>
+<blockquote class="
+info "><strong>Hint</strong> Remember to add this class to the providers array in any module.
+</blockquote>
+<h4 appAnchor id="field-level-complexity"><span>Field-level complexity</span></h4>
+<p>With this plugin in place, we can now define the complexity for any field by specifying the <code>complexity</code> property in the options object passed into the <code>@Field()</code> decorator, as follows:</p>
+<pre><code class="language-typescript">
+@Field(&#123; complexity: 3 &#125;)
+title: string;
+</code></pre>
+<p>Alternatively, you can define the estimator function:</p>
+<pre><code class="language-typescript">
+@Field(&#123; complexity: (options: ComplexityEstimatorArgs) =&gt; ... &#125;)
+title: string;
+</code></pre>
+<h4 appAnchor id="querymutation-level-complexity"><span>Query/Mutation-level complexity</span></h4>
+<p>In addition, <code>@Query()</code> and <code>@Mutation()</code> decorators may have a <code>complexity</code> property specified like so:</p>
+<pre><code class="language-typescript">
+@Query(&#123; complexity: (options: ComplexityEstimatorArgs) =&gt; options.args.count * options.childComplexity &#125;)
+items(@Args(&#39;count&#39;) count: number) &#123;
+  return this.itemsService.getItems(&#123; count &#125;);
+&#125;
+</code></pre>
+
+</div>
+

@@ -1,0 +1,52 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/recipes/serve-static.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="serve-static">Serve Static</h3>
+<p>In order to serve static content like a Single Page Application (SPA) we can use the <code>ServeStaticModule</code> from the <a rel='nofollow' target='_blank' href="https://www.npmjs.com/package/@nestjs/serve-static"><code>@nestjs/serve-static</code></a> package.</p>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>First we need to install the required package:</p>
+<pre><code class="language-bash">
+$ npm install --save @nestjs/serve-static
+</code></pre>
+<h4 appAnchor id="bootstrap"><span>Bootstrap</span></h4>
+<p>Once the installation process is done, we can import the <code>ServeStaticModule</code> into the root <code>AppModule</code> and configure it by passing in a configuration object to the <code>forRoot()</code> method.</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; AppController &#125; from &#39;./app.controller&#39;;
+import &#123; AppService &#125; from &#39;./app.service&#39;;
+import &#123; ServeStaticModule &#125; from &#39;@nestjs/serve-static&#39;;
+import &#123; join &#125; from &#39;path&#39;;
+
+@Module(&#123;
+  imports: [
+    ServeStaticModule.forRoot(&#123;
+      rootPath: join(__dirname, &#39;..&#39;, &#39;client&#39;),
+    &#125;),
+  ],
+  controllers: [AppController],
+  providers: [AppService],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>With this in place, build the static website and place its content in the location specified by the <code>rootPath</code> property.</p>
+<h4 appAnchor id="configuration"><span>Configuration</span></h4>
+<p><a rel='nofollow' target='_blank' href="https://github.com/nestjs/serve-static">ServeStaticModule</a> can be configured with a variety of options to customize its behavior.
+You can set the path to render your static app, specify excluded paths, enable or disable setting Cache-Control response header, etc. See the full list of options <a rel='nofollow' target='_blank' href="https://github.com/nestjs/serve-static/blob/master/lib/interfaces/serve-static-options.interface.ts">here</a>.</p>
+<blockquote class="
+warning "><strong>Notice</strong> The default <code>renderPath</code> of the Static App is <code>*</code> (all paths), and the module will send &quot;index.html&quot; files in response.
+It lets you create Client-Side routing for your SPA. Paths, specified in your controllers will fallback to the server.
+You can change this behavior setting <code>serveRoot</code>, <code>renderPath</code> combining them with other options.
+</blockquote>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>A working example is available <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/tree/master/sample/24-serve-static">here</a>.</p>
+
+</div>
+

@@ -1,0 +1,407 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/security/authorization.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="authorization">Authorization</h3>
+<p><strong>Authorization</strong> refers to the process that determines what a user is able to do. For example, an administrative user is allowed to create, edit, and delete posts. A non-administrative user is only authorized to read the posts.</p>
+<p>Authorization is orthogonal and independent from authentication. However, authorization requires an authentication mechanism.</p>
+<p>There are many different approaches and strategies to handle authorization. The approach taken for any project depends on its particular application requirements. This chapter presents a few approaches to authorization that can be adapted to a variety of different requirements.</p>
+<h4 appAnchor id="basic-rbac-implementation"><span>Basic RBAC implementation</span></h4>
+<p>Role-based access control (<strong>RBAC</strong>) is a policy-neutral access-control mechanism defined around roles and privileges. In this section, we&#39;ll demonstrate how to implement a very basic RBAC mechanism using Nest <a routerLink="/guards">guards</a>.</p>
+<p>First, let&#39;s create a <code>Role</code> enum representing roles in the system:</p>
+
+<span class="filename">
+  {{ 'role.enum' | extension: app3c023c45abf7c0ca6b47f78ac748dd48736c5aff.isJsActive }}
+<app-tabs #app3c023c45abf7c0ca6b47f78ac748dd48736c5aff></app-tabs>
+</span><pre><code class="language-typescript">
+export enum Role &#123;
+  User = &#39;user&#39;,
+  Admin = &#39;admin&#39;,
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> In more sophisticated systems, you may store roles within a database, or pull them from the external authentication provider.
+</blockquote>
+<p>With this in place, we can create a <code>@Roles()</code> decorator. This decorator allows specifying what roles are required to access specific resources.</p>
+
+<span class="filename">
+  {{ 'roles.decorator' | extension: app74c36aade3439bfeaf44556fb744aa74430a2182.isJsActive }}
+<app-tabs #app74c36aade3439bfeaf44556fb744aa74430a2182></app-tabs>
+</span><pre [class.hide]="app74c36aade3439bfeaf44556fb744aa74430a2182.isJsActive"><code class="language-typescript">
+import &#123; SetMetadata &#125; from &#39;@nestjs/common&#39;;
+import &#123; Role &#125; from &#39;../enums/role.enum&#39;;
+
+export const ROLES_KEY = &#39;roles&#39;;
+export const Roles = (...roles: Role[]) =&gt; SetMetadata(ROLES_KEY, roles);
+</code></pre>
+<pre [class.hide]="!app74c36aade3439bfeaf44556fb744aa74430a2182.isJsActive"><code class="language-typescript">
+import &#123; SetMetadata &#125; from &#39;@nestjs/common&#39;;
+
+export const ROLES_KEY = &#39;roles&#39;;
+export const Roles = (...roles) =&gt; SetMetadata(ROLES_KEY, roles);
+</code></pre><p>Now that we have a custom <code>@Roles()</code> decorator, we can use it to decorate any route handler.</p>
+
+<span class="filename">
+  {{ 'cats.controller' | extension: appead4c0394fdc41ac2e26c17404a99d135814eb1b.isJsActive }}
+<app-tabs #appead4c0394fdc41ac2e26c17404a99d135814eb1b></app-tabs>
+</span><pre [class.hide]="appead4c0394fdc41ac2e26c17404a99d135814eb1b.isJsActive"><code class="language-typescript">
+@Post()
+@Roles(Role.Admin)
+create(@Body() createCatDto: CreateCatDto) &#123;
+  this.catsService.create(createCatDto);
+&#125;
+</code></pre>
+<pre [class.hide]="!appead4c0394fdc41ac2e26c17404a99d135814eb1b.isJsActive"><code class="language-typescript">
+@Post()
+@Roles(Role.Admin)
+@Bind(Body())
+create(createCatDto) &#123;
+  this.catsService.create(createCatDto);
+&#125;
+</code></pre><p>Finally, we create a <code>RolesGuard</code> class which will compare the roles assigned to the current user to the actual roles required by the current route being processed. In order to access the route&#39;s role(s) (custom metadata), we&#39;ll use the <code>Reflector</code> helper class, which is provided out of the box by the framework and exposed from the <code>@nestjs/core</code> package.</p>
+
+<span class="filename">
+  {{ 'roles.guard' | extension: app122b64dafa8a3c238861381ee4f5a84e08396374.isJsActive }}
+<app-tabs #app122b64dafa8a3c238861381ee4f5a84e08396374></app-tabs>
+</span><pre [class.hide]="app122b64dafa8a3c238861381ee4f5a84e08396374.isJsActive"><code class="language-typescript">
+import &#123; Injectable, CanActivate, ExecutionContext &#125; from &#39;@nestjs/common&#39;;
+import &#123; Reflector &#125; from &#39;@nestjs/core&#39;;
+
+@Injectable()
+export class RolesGuard implements CanActivate &#123;
+  constructor(private reflector: Reflector) &#123;&#125;
+
+  canActivate(context: ExecutionContext): boolean &#123;
+    const requiredRoles = this.reflector.getAllAndOverride&lt;Role[]&gt;(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!requiredRoles) &#123;
+      return true;
+    &#125;
+    const &#123; user &#125; = context.switchToHttp().getRequest();
+    return requiredRoles.some((role) =&gt; user.roles?.includes(role));
+  &#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app122b64dafa8a3c238861381ee4f5a84e08396374.isJsActive"><code class="language-typescript">
+import &#123; Injectable, Dependencies &#125; from &#39;@nestjs/common&#39;;
+import &#123; Reflector &#125; from &#39;@nestjs/core&#39;;
+
+@Injectable()
+@Dependencies(Reflector)
+export class RolesGuard &#123;
+  constructor(reflector) &#123;
+    this.reflector = reflector;
+  &#125;
+
+  canActivate(context) &#123;
+    const requiredRoles = this.reflector.getAllAndOverride(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!requiredRoles) &#123;
+      return true;
+    &#125;
+    const &#123; user &#125; = context.switchToHttp().getRequest();
+    return requiredRoles.some((role) =&gt; user.roles.includes(role));
+  &#125;
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> Refer to the <a href="/fundamentals/execution-context#reflection-and-metadata">Reflection and metadata</a> section of the Execution context chapter for more details on utilizing <code>Reflector</code> in a context-sensitive way.
+</blockquote>
+<blockquote class="
+warning "><strong>Notice</strong> This example is named &quot;<strong>basic</strong>&quot; as we only check for the presence of roles on the route handler level. In real-world applications, you may have endpoints/handlers that involve several operations, in which each of them requires a specific set of permissions. In this case, you&#39;ll have to provide a mechanism to check roles somewhere within your business-logic, making it somewhat harder to maintain as there will be no centralized place that associates permissions with specific actions.
+</blockquote>
+<p>In this example, we assumed that <code>request.user</code> contains the user instance and allowed roles (under the <code>roles</code> property). In your app, you will probably make that association in your custom <strong>authentication guard</strong> - see <a routerLink="/security/authentication">authentication</a> chapter for more details.</p>
+<p>To make sure this example works, your <code>User</code> class must look as follows:</p>
+<pre><code class="language-typescript">
+class User &#123;
+  // ...other properties
+  roles: Role[];
+&#125;
+</code></pre>
+<p>Lastly, make sure to register the <code>RolesGuard</code>, for example, at the controller level, or globally:</p>
+<pre><code class="language-typescript">
+providers: [
+  &#123;
+    provide: APP_GUARD,
+    useClass: RolesGuard,
+  &#125;,
+],
+</code></pre>
+<p>When a user with insufficient privileges requests an endpoint, Nest automatically returns the following response:</p>
+<pre><code class="language-typescript">
+&#123;
+  &quot;statusCode&quot;: 403,
+  &quot;message&quot;: &quot;Forbidden resource&quot;,
+  &quot;error&quot;: &quot;Forbidden&quot;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> If you want to return a different error response, you should throw your own specific exception instead of returning a boolean value.
+</blockquote>
+<p><app-banner-courses-auth></app-banner-courses-auth></p>
+<h4 appAnchor id="claims-based-authorization"><span>Claims-based authorization</span></h4>
+<p>When an identity is created it may be assigned one or more claims issued by a trusted party. A claim is a name-value pair that represents what the subject can do, not what the subject is.</p>
+<p>To implement a Claims-based authorization in Nest, you can follow the same steps we have shown above in the <a href="/security/authorization#basic-rbac-implementation">RBAC</a> section with one significant difference: instead of checking for specific roles, you should compare <strong>permissions</strong>. Every user would have a set of permissions assigned. Likewise, each resource/endpoint would define what permissions are required (for example, through a dedicated <code>@RequirePermissions()</code> decorator) to access them.</p>
+
+<span class="filename">
+  {{ 'cats.controller' | extension: app9237da377d96b44fb73144cec455231685170d73.isJsActive }}
+<app-tabs #app9237da377d96b44fb73144cec455231685170d73></app-tabs>
+</span><pre [class.hide]="app9237da377d96b44fb73144cec455231685170d73.isJsActive"><code class="language-typescript">
+@Post()
+@RequirePermissions(Permission.CREATE_CAT)
+create(@Body() createCatDto: CreateCatDto) &#123;
+  this.catsService.create(createCatDto);
+&#125;
+</code></pre>
+<pre [class.hide]="!app9237da377d96b44fb73144cec455231685170d73.isJsActive"><code class="language-typescript">
+@Post()
+@RequirePermissions(Permission.CREATE_CAT)
+@Bind(Body())
+create(createCatDto) &#123;
+  this.catsService.create(createCatDto);
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> In the example above, <code>Permission</code> (similar to <code>Role</code> we have shown in RBAC section) is a TypeScript enum that contains all the permissions available in your system.
+</blockquote>
+<h4 appAnchor id="integrating-casl"><span>Integrating CASL</span></h4>
+<p><a rel='nofollow' target='_blank' href="https://casl.js.org/">CASL</a> is an isomorphic authorization library which restricts what resources a given client is allowed to access. It&#39;s designed to be incrementally adoptable and can easily scale between a simple claim based and fully featured subject and attribute based authorization.</p>
+<p>To start, first install the <code>@casl/ability</code> package:</p>
+<pre><code class="language-bash">
+$ npm i @casl/ability
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> In this example, we chose CASL, but you can use any other library like <code>accesscontrol</code> or <code>acl</code>, depending on your preferences and project needs.
+</blockquote>
+<p>Once the installation is complete, for the sake of illustrating the mechanics of CASL, we&#39;ll define two entity classes: <code>User</code> and <code>Article</code>.</p>
+<pre><code class="language-typescript">
+class User &#123;
+  id: number;
+  isAdmin: boolean;
+&#125;
+</code></pre>
+<p><code>User</code> class consists of two properties, <code>id</code>, which is a unique user identifier, and <code>isAdmin</code>, indicating whether a user has administrator privileges.</p>
+<pre><code class="language-typescript">
+class Article &#123;
+  id: number;
+  isPublished: boolean;
+  authorId: number;
+&#125;
+</code></pre>
+<p><code>Article</code> class has three properties, respectively <code>id</code>, <code>isPublished</code>, and <code>authorId</code>. <code>id</code> is a unique article identifier, <code>isPublished</code> indicates whether an article was already published or not, and <code>authorId</code>, which is an ID of a user who wrote the article.</p>
+<p>Now let&#39;s review and refine our requirements for this example:</p>
+<ul>
+<li>Admins can manage (create/read/update/delete) all entities</li>
+<li>Users have read-only access to everything</li>
+<li>Users can update their articles (<code>article.authorId === userId</code>)</li>
+<li>Articles that are published already cannot be removed (<code>article.isPublished === true</code>)</li>
+</ul>
+<p>With this in mind, we can start off by creating an <code>Action</code> enum representing all possible actions that the users can perform with entities:</p>
+<pre><code class="language-typescript">
+export enum Action &#123;
+  Manage = &#39;manage&#39;,
+  Create = &#39;create&#39;,
+  Read = &#39;read&#39;,
+  Update = &#39;update&#39;,
+  Delete = &#39;delete&#39;,
+&#125;
+</code></pre>
+<blockquote class="
+warning "><strong>Notice</strong> <code>manage</code> is a special keyword in CASL which represents &quot;any&quot; action.
+</blockquote>
+<p>To encapsulate CASL library, let&#39;s generate the <code>CaslModule</code> and <code>CaslAbilityFactory</code> now.</p>
+<pre><code class="language-bash">
+$ nest g module casl
+$ nest g class casl/casl-ability.factory
+</code></pre>
+<p>With this in place, we can define the <code>createForUser()</code> method on the <code>CaslAbilityFactory</code>. This method will create the <code>Ability</code> object for a given user:</p>
+<pre><code class="language-typescript">
+type Subjects = InferSubjects&lt;typeof Article | typeof User&gt; | &#39;all&#39;;
+
+export type AppAbility = Ability&lt;[Action, Subjects]&gt;;
+
+@Injectable()
+export class CaslAbilityFactory &#123;
+  createForUser(user: User) &#123;
+    const &#123; can, cannot, build &#125; = new AbilityBuilder&lt;
+      Ability&lt;[Action, Subjects]&gt;
+    &gt;(Ability as AbilityClass&lt;AppAbility&gt;);
+
+    if (user.isAdmin) &#123;
+      can(Action.Manage, &#39;all&#39;); // read-write access to everything
+    &#125; else &#123;
+      can(Action.Read, &#39;all&#39;); // read-only access to everything
+    &#125;
+
+    can(Action.Update, Article, &#123; authorId: user.id &#125;);
+    cannot(Action.Delete, Article, &#123; isPublished: true &#125;);
+
+    return build(&#123;
+      // Read https://casl.js.org/v6/en/guide/subject-type-detection#use-classes-as-subject-types for details
+      detectSubjectType: (item) =&gt;
+        item.constructor as ExtractSubjectType&lt;Subjects&gt;,
+    &#125;);
+  &#125;
+&#125;
+</code></pre>
+<blockquote class="
+warning "><strong>Notice</strong> <code>all</code> is a special keyword in CASL that represents &quot;any subject&quot;.
+</blockquote>
+<blockquote class="
+info "><strong>Hint</strong> <code>Ability</code>, <code>AbilityBuilder</code>, <code>AbilityClass</code>, and <code>ExtractSubjectType</code> classes are exported from the <code>@casl/ability</code> package.
+</blockquote>
+<blockquote class="
+info "><strong>Hint</strong> <code>detectSubjectType</code> option let CASL understand how to get subject type out of an object. For more information read <a rel='nofollow' target='_blank' href="https://casl.js.org/v6/en/guide/subject-type-detection#use-classes-as-subject-types">CASL documentation</a> for details.
+</blockquote>
+<p>In the example above, we created the <code>Ability</code> instance using the <code>AbilityBuilder</code> class. As you probably guessed, <code>can</code> and <code>cannot</code> accept the same arguments but have different meanings, <code>can</code> allows to do an action on the specified subject and <code>cannot</code> forbids. Both may accept up to 4 arguments. To learn more about these functions, visit the official <a rel='nofollow' target='_blank' href="https://casl.js.org/v6/en/guide/intro">CASL documentation</a>.</p>
+<p>Lastly, make sure to add the <code>CaslAbilityFactory</code> to the <code>providers</code> and <code>exports</code> arrays in the <code>CaslModule</code> module definition:</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; CaslAbilityFactory &#125; from &#39;./casl-ability.factory&#39;;
+
+@Module(&#123;
+  providers: [CaslAbilityFactory],
+  exports: [CaslAbilityFactory],
+&#125;)
+export class CaslModule &#123;&#125;
+</code></pre>
+<p>With this in place, we can inject the <code>CaslAbilityFactory</code> to any class using standard constructor injection as long as the <code>CaslModule</code> is imported in the host context:</p>
+<pre><code class="language-typescript">
+constructor(private caslAbilityFactory: CaslAbilityFactory) &#123;&#125;
+</code></pre>
+<p>Then use it in a class as follows.</p>
+<pre><code class="language-typescript">
+const ability = this.caslAbilityFactory.createForUser(user);
+if (ability.can(Action.Read, &#39;all&#39;)) &#123;
+  // &quot;user&quot; has read access to everything
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Learn more about the <code>Ability</code> class in the official <a rel='nofollow' target='_blank' href="https://casl.js.org/v6/en/guide/intro">CASL documentation</a>.
+</blockquote>
+<p>For example, let&#39;s say we have a user who is not an admin. In this case, the user should be able to read articles, but creating new ones or removing the existing articles should be prohibited.</p>
+<pre><code class="language-typescript">
+const user = new User();
+user.isAdmin = false;
+
+const ability = this.caslAbilityFactory.createForUser(user);
+ability.can(Action.Read, Article); // true
+ability.can(Action.Delete, Article); // false
+ability.can(Action.Create, Article); // false
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Although both <code>Ability</code> and <code>AbilityBuilder</code> classes provide <code>can</code> and <code>cannot</code> methods, they have different purposes and accept slightly different arguments.
+</blockquote>
+<p>Also, as we have specified in our requirements, the user should be able to update its articles:</p>
+<pre><code class="language-typescript">
+const user = new User();
+user.id = 1;
+
+const article = new Article();
+article.authorId = user.id;
+
+const ability = this.caslAbilityFactory.createForUser(user);
+ability.can(Action.Update, article); // true
+
+article.authorId = 2;
+ability.can(Action.Update, article); // false
+</code></pre>
+<p>As you can see, <code>Ability</code> instance allows us to check permissions in pretty readable way. Likewise, <code>AbilityBuilder</code> allows us to define permissions (and specify various conditions) in a similar fashion. To find more examples, visit the official documentation.</p>
+<h4 appAnchor id="advanced-implementing-a-policiesguard"><span>Advanced: Implementing a <code>PoliciesGuard</code></span></h4>
+<p>In this section, we&#39;ll demonstrate how to build a somewhat more sophisticated guard, which checks if a user meets specific <strong>authorization policies</strong> that can be configured on the method-level (you can extend it to respect policies configured on the class-level too). In this example, we are going to use the CASL package just for illustration purposes, but using this library is not required. Also, we will use the <code>CaslAbilityFactory</code> provider that we&#39;ve created in the previous section.</p>
+<p>First, let&#39;s flesh out the requirements. The goal is to provide a mechanism that allows specifying policy checks per route handler. We will support both objects and functions (for simpler checks and for those who prefer more functional-style code).</p>
+<p>Let&#39;s start off by defining interfaces for policy handlers:</p>
+<pre><code class="language-typescript">
+import &#123; AppAbility &#125; from &#39;../casl/casl-ability.factory&#39;;
+
+interface IPolicyHandler &#123;
+  handle(ability: AppAbility): boolean;
+&#125;
+
+type PolicyHandlerCallback = (ability: AppAbility) =&gt; boolean;
+
+export type PolicyHandler = IPolicyHandler | PolicyHandlerCallback;
+</code></pre>
+<p>As mentioned above, we provided two possible ways of defining a policy handler, an object (instance of a class that implements the <code>IPolicyHandler</code> interface) and a function (which meets the <code>PolicyHandlerCallback</code> type).</p>
+<p>With this in place, we can create a <code>@CheckPolicies()</code> decorator. This decorator allows specifying what policies have to be met to access specific resources.</p>
+<pre><code class="language-typescript">
+export const CHECK_POLICIES_KEY = &#39;check_policy&#39;;
+export const CheckPolicies = (...handlers: PolicyHandler[]) =&gt;
+  SetMetadata(CHECK_POLICIES_KEY, handlers);
+</code></pre>
+<p>Now let&#39;s create a <code>PoliciesGuard</code> that will extract and execute all the policy handlers bound to a route handler.</p>
+<pre><code class="language-typescript">
+@Injectable()
+export class PoliciesGuard implements CanActivate &#123;
+  constructor(
+    private reflector: Reflector,
+    private caslAbilityFactory: CaslAbilityFactory,
+  ) &#123;&#125;
+
+  async canActivate(context: ExecutionContext): Promise&lt;boolean&gt; &#123;
+    const policyHandlers =
+      this.reflector.get&lt;PolicyHandler[]&gt;(
+        CHECK_POLICIES_KEY,
+        context.getHandler(),
+      ) || [];
+
+    const &#123; user &#125; = context.switchToHttp().getRequest();
+    const ability = this.caslAbilityFactory.createForUser(user);
+
+    return policyHandlers.every((handler) =&gt;
+      this.execPolicyHandler(handler, ability),
+    );
+  &#125;
+
+  private execPolicyHandler(handler: PolicyHandler, ability: AppAbility) &#123;
+    if (typeof handler === &#39;function&#39;) &#123;
+      return handler(ability);
+    &#125;
+    return handler.handle(ability);
+  &#125;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> In this example, we assumed that <code>request.user</code> contains the user instance. In your app, you will probably make that association in your custom <strong>authentication guard</strong> - see <a routerLink="/security/authentication">authentication</a> chapter for more details.
+</blockquote>
+<p>Let&#39;s break this example down. The <code>policyHandlers</code> is an array of handlers assigned to the method through the <code>@CheckPolicies()</code> decorator. Next, we use the <code>CaslAbilityFactory#create</code> method which constructs the <code>Ability</code> object, allowing us to verify whether a user has sufficient permissions to perform specific actions. We are passing this object to the policy handler which is either a function or an instance of a class that implements the <code>IPolicyHandler</code>, exposing the <code>handle()</code> method that returns a boolean. Lastly, we use the <code>Array#every</code> method to make sure that every handler returned <code>true</code> value.</p>
+<p>Finally, to test this guard, bind it to any route handler, and register an inline policy handler (functional approach), as follows:</p>
+<pre><code class="language-typescript">
+@Get()
+@UseGuards(PoliciesGuard)
+@CheckPolicies((ability: AppAbility) =&gt; ability.can(Action.Read, Article))
+findAll() &#123;
+  return this.articlesService.findAll();
+&#125;
+</code></pre>
+<p>Alternatively, we can define a class which implements the <code>IPolicyHandler</code> interface:</p>
+<pre><code class="language-typescript">
+export class ReadArticlePolicyHandler implements IPolicyHandler &#123;
+  handle(ability: AppAbility) &#123;
+    return ability.can(Action.Read, Article);
+  &#125;
+&#125;
+</code></pre>
+<p>And use it as follows:</p>
+<pre><code class="language-typescript">
+@Get()
+@UseGuards(PoliciesGuard)
+@CheckPolicies(new ReadArticlePolicyHandler())
+findAll() &#123;
+  return this.articlesService.findAll();
+&#125;
+</code></pre>
+<blockquote class="
+warning "><strong>Notice</strong> Since we must instantiate the policy handler in-place using the <code>new</code> keyword, <code>ReadArticlePolicyHandler</code> class cannot use the Dependency Injection. This can be addressed with the <code>ModuleRef#get</code> method (read more <a routerLink="/fundamentals/module-ref">here</a>). Basically, instead of registering functions and instances through the <code>@CheckPolicies()</code> decorator, you must allow passing a <code>Type&lt;IPolicyHandler&gt;</code>. Then, inside your guard, you could retrieve an instance using a type reference: <code>moduleRef.get(YOUR_HANDLER_TYPE)</code> or even dynamically instantiate it using the <code>ModuleRef#create</code> method.
+</blockquote>
+
+</div>
+

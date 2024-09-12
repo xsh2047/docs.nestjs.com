@@ -1,0 +1,112 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/fundamentals/lazy-loading-modules.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="lazy-loading-modules">Lazy loading modules</h3>
+<p>By default, modules are eagerly loaded, which means that as soon as the application loads, so do all the modules, whether or not they are immediately necessary. While this is fine for most applications, it may become a bottleneck for apps/workers running in the <strong>serverless environment</strong>, where the startup latency (&quot;cold start&quot;) is crucial.</p>
+<p>Lazy loading can help decrease bootstrap time by loading only modules required by the specific serverless function invocation. In addition, you could also load other modules asynchronously once the serverless function is &quot;warm&quot; to speed-up the bootstrap time for subsequent calls even further (deferred modules registration).</p>
+<blockquote class="
+info "><strong>Hint</strong> If you&#39;re familiar with the <strong><a rel='nofollow' target='_blank' href="https://angular.dev/">Angular</a></strong> framework, you might have seen the &quot;<a rel='nofollow' target='_blank' href="https://angular.dev/guide/ngmodules/lazy-loading#lazy-loading-basics">lazy-loading modules</a>&quot; term before. Be aware that this technique is <strong>functionally different</strong> in Nest and so think about this as an entirely different feature that shares similar naming conventions.
+</blockquote>
+<blockquote class="
+warning "><strong>Warning</strong> Do note that <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/fundamentals/lifecycle-events">lifecycle hooks methods</a> are not invoked in lazy loaded modules and services.
+</blockquote>
+<h4 appAnchor id="getting-started"><span>Getting started</span></h4>
+<p>To load modules on-demand, Nest provides the <code>LazyModuleLoader</code> class that can be injected into a class in the normal way:</p>
+
+<span class="filename">
+  {{ 'cats.service' | extension: app6b343f97c1bc6bdfcf829d1b64a63b5813052e30.isJsActive }}
+<app-tabs #app6b343f97c1bc6bdfcf829d1b64a63b5813052e30></app-tabs>
+</span><pre [class.hide]="app6b343f97c1bc6bdfcf829d1b64a63b5813052e30.isJsActive"><code class="language-typescript">
+@Injectable()
+export class CatsService &#123;
+  constructor(private lazyModuleLoader: LazyModuleLoader) &#123;&#125;
+&#125;
+</code></pre>
+<pre [class.hide]="!app6b343f97c1bc6bdfcf829d1b64a63b5813052e30.isJsActive"><code class="language-typescript">
+@Injectable()
+@Dependencies(LazyModuleLoader)
+export class CatsService &#123;
+  constructor(lazyModuleLoader) &#123;
+    this.lazyModuleLoader = lazyModuleLoader;
+  &#125;
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> The <code>LazyModuleLoader</code> class is imported from the <code>@nestjs/core</code> package.
+</blockquote>
+<p>Alternatively, you can obtain a reference to the <code>LazyModuleLoader</code> provider from within your application bootstrap file (<code>main.ts</code>), as follows:</p>
+<pre><code class="language-typescript">
+// &quot;app&quot; represents a Nest application instance
+const lazyModuleLoader = app.get(LazyModuleLoader);
+</code></pre>
+<p>With this in place, you can now load any module using the following construction:</p>
+<pre><code class="language-typescript">
+const &#123; LazyModule &#125; = await import(&#39;./lazy.module&#39;);
+const moduleRef = await this.lazyModuleLoader.load(() =&gt; LazyModule);
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> &quot;Lazy loaded&quot; modules are <strong>cached</strong> upon the first <code>LazyModuleLoader#load</code> method invocation. That means, each consecutive attempt to load <code>LazyModule</code> will be <strong>very fast</strong> and will return a cached instance, instead of loading the module again.
+<pre><code class="language-bash">
+Load &quot;LazyModule&quot; attempt: 1
+time: 2.379ms
+Load &quot;LazyModule&quot; attempt: 2
+time: 0.294ms
+Load &quot;LazyModule&quot; attempt: 3
+time: 0.303ms
+</code></pre>
+<p>Also, &quot;lazy loaded&quot; modules share the same modules graph as those eagerly loaded on the application bootstrap as well as any other lazy modules registered later in your app.</p>
+</blockquote>
+<p>Where <code>lazy.module.ts</code> is a TypeScript file that exports a <strong>regular Nest module</strong> (no extra changes are required).</p>
+<p>The <code>LazyModuleLoader#load</code> method returns the <a routerLink="/fundamentals/module-ref">module reference</a> (of <code>LazyModule</code>) that lets you navigate the internal list of providers and obtain a reference to any provider using its injection token as a lookup key.</p>
+<p>For example, let&#39;s say we have a <code>LazyModule</code> with the following definition:</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  providers: [LazyService],
+  exports: [LazyService],
+&#125;)
+export class LazyModule &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Lazy loaded modules cannot be registered as <strong>global modules</strong> as it simply makes no sense (since they are registered lazily, on-demand when all the statically registered modules have been already instantiated). Likewise, registered <strong>global enhancers</strong> (guards/interceptors/etc.) <strong>will not work</strong> properly either.
+</blockquote>
+<p>With this, we could obtain a reference to the <code>LazyService</code> provider, as follows:</p>
+<pre><code class="language-typescript">
+const &#123; LazyModule &#125; = await import(&#39;./lazy.module&#39;);
+const moduleRef = await this.lazyModuleLoader.load(() =&gt; LazyModule);
+
+const &#123; LazyService &#125; = await import(&#39;./lazy.service&#39;);
+const lazyService = moduleRef.get(LazyService);
+</code></pre>
+<blockquote class="
+warning "><strong>Warning</strong> If you use <strong>Webpack</strong>, make sure to update your <code>tsconfig.json</code> file - setting <code>compilerOptions.module</code> to <code>&quot;esnext&quot;</code> and adding <code>compilerOptions.moduleResolution</code> property with <code>&quot;node&quot;</code> as a value:
+<pre><code class="language-json">
+&#123;
+  &quot;compilerOptions&quot;: &#123;
+    &quot;module&quot;: &quot;esnext&quot;,
+    &quot;moduleResolution&quot;: &quot;node&quot;,
+    ...
+  &#125;
+&#125;
+</code></pre>
+<p>With these options set up, you&#39;ll be able to leverage the <a rel='nofollow' target='_blank' href="https://webpack.js.org/guides/code-splitting/">code splitting</a> feature.</p>
+</blockquote>
+<h4 appAnchor id="lazy-loading-controllers-gateways-and-resolvers"><span>Lazy loading controllers, gateways, and resolvers</span></h4>
+<p>Since controllers (or resolvers in GraphQL applications) in Nest represent sets of routes/paths/topics (or queries/mutations), you <strong>cannot lazy load them</strong> using the <code>LazyModuleLoader</code> class.</p>
+<blockquote class="
+error "><strong>Warning</strong> Controllers, <a routerLink="/graphql/resolvers">resolvers</a>, and <a routerLink="/websockets/gateways">gateways</a> registered inside lazy loaded modules will not behave as expected. Similarly, you cannot register middleware functions (by implementing the <code>MiddlewareConsumer</code> interface) on-demand.
+</blockquote>
+<p>For example, let&#39;s say you&#39;re building a REST API (HTTP application) with a Fastify driver under the hood (using the <code>@nestjs/platform-fastify</code> package). Fastify does not let you register routes after the application is ready/successfully listening to messages. That means even if we analyzed route mappings registered in the module&#39;s controllers, all lazy loaded routes wouldn&#39;t be accessible since there is no way to register them at runtime.</p>
+<p>Likewise, some transport strategies we provide as part of the <code>@nestjs/microservices</code> package (including Kafka, gRPC, or RabbitMQ) require to subscribe/listen to specific topics/channels before the connection is established. Once your application starts listening to messages, the framework would not be able to subscribe/listen to new topics.</p>
+<p>Lastly, the <code>@nestjs/graphql</code> package with the code first approach enabled automatically generates the GraphQL schema on-the-fly based on the metadata. That means, it requires all classes to be loaded beforehand. Otherwise, it would not be doable to create the appropriate, valid schema.</p>
+<h4 appAnchor id="common-use-cases"><span>Common use-cases</span></h4>
+<p>Most commonly, you will see lazy loaded modules in situations when your worker/cron job/lambda &amp; serverless function/webhook must trigger different services (different logic) based on the input arguments (route path/date/query parameters, etc.). On the other hand, lazy loading modules may not make too much sense for monolithic applications, where the startup time is rather irrelevant.</p>
+
+</div>
+

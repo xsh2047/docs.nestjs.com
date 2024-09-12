@@ -1,0 +1,204 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/recipes/automock.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="automock">Automock</h3>
+<p>Automock is a powerful standalone library designed for unit testing. It leverages the TypeScript Reflection API
+internally to generate mock objects, simplifying the process of testing by automatically mocking external dependencies
+of classes. Automock enables you to streamline test development and focus on writing robust and efficient unit tests.</p>
+<blockquote class="
+info "><strong>info</strong> <code>Automock</code> is a third party package and is not managed by the NestJS core team.
+Please, report any issues found with the library in the <a rel='nofollow' target='_blank' href="https://github.com/automock/automock">appropriate repository</a>
+</blockquote>
+<h4 appAnchor id="introduction"><span>Introduction</span></h4>
+<p>The Dependency Injection (DI) container is a foundational element of the Nest module system, integral to both application
+runtime and testing phases. In unit tests, mock dependencies are essential for isolating and assessing the behavior of
+specific components. However, the manual configuration and management of these mock objects can be intricate and prone to
+errors.</p>
+<p>Automock offers a streamlined solution. Rather than interacting with the actual Nest DI container, Automock introduces a
+virtual container where dependencies are automatically mocked. This approach bypasses the manual task of substituting each
+provider in the DI container with mock implementations. With Automock, the generation of mock objects for all dependencies
+is automated, simplifying the unit test setup process.</p>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>Automock support both Jest and Sinon. Just install the appropriate package for your testing framework of choice.
+Furthermore, you need to install the <code>@automock/adapters.nestjs</code> (as Automock supports other adapters).</p>
+<pre><code class="language-bash">
+$ npm i -D @automock/jest @automock/adapters.nestjs
+</code></pre>
+<p>Or, for Sinon:</p>
+<pre><code class="language-bash">
+$ npm i -D @automock/sinon @automock/adapters.nestjs
+</code></pre>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>The example provided here showcase the integration of Automock with Jest. However, the same principles
+and functionality applies for Sinon.</p>
+<p>Consider the following <code>CatService</code> class that depends on a <code>Database</code> class to fetch cats. We&#39;ll mock
+the <code>Database</code> class to test the <code>CatsService</code> class in isolation.</p>
+<pre><code class="language-typescript">
+@Injectable()
+export class Database &#123;
+  getCats(): Promise&lt;Cat[]&gt; &#123; ... &#125;
+&#125;
+
+@Injectable()
+class CatsService &#123;
+  constructor(private database: Database) &#123;&#125;
+
+  async getAllCats(): Promise&lt;Cat[]&gt; &#123;
+    return this.database.getCats();
+  &#125;
+&#125;
+</code></pre>
+<p>Let&#39;s set up a unit test for the <code>CatsService</code> class.</p>
+<p>We&#39;ll use the <code>TestBed</code> from the <code>@automock/jest</code> package to create our test environment.</p>
+<pre><code class="language-typescript">
+import &#123; TestBed &#125; from &#39;@automock/jest&#39;;
+
+describe(&#39;Cats Service Unit Test&#39;, () =&gt; &#123;
+  let catsService: CatsService;
+  let database: jest.Mocked&lt;Database&gt;;
+
+  beforeAll(() =&gt; &#123;
+    const &#123; unit, unitRef &#125; = TestBed.create(CatsService).compile();
+
+    catsService = unit;
+    database = unitRef.get(Database);
+  &#125;);
+
+  it(&#39;should retrieve cats from the database&#39;, async () =&gt; &#123;
+    const mockCats: Cat[] = [&#123; id: 1, name: &#39;Catty&#39; &#125;, &#123; id: 2, name: &#39;Mitzy&#39; &#125;];
+    database.getCats.mockResolvedValue(mockCats);
+
+    const cats = await catsService.getAllCats();
+
+    expect(database.getCats).toHaveBeenCalled();
+    expect(cats).toEqual(mockCats);
+  &#125;);
+&#125;);
+</code></pre>
+<p>In the test setup, we:</p>
+<ol>
+<li>Create a test environment for <code>CatsService</code> using <code>TestBed.create(CatsService).compile()</code>.</li>
+<li>Obtain the actual instance of <code>CatsService</code> and a mocked instance of <code>Database</code> using <code>unit</code>
+and <code>unitRef.get(Database)</code>, respectively.</li>
+<li>We mock the <code>getCats</code> method of the <code>Database</code> class to return a predefined list of cats.</li>
+<li>We then call the <code>getAllCats</code> method of <code>CatsService</code> and verify that it correctly interacts with the <code>Database</code>
+class and returns the expected cats.</li>
+</ol>
+<p><strong>Adding a Logger</strong></p>
+<p>Let&#39;s extend our example by adding a <code>Logger</code> interface and integrating it into the <code>CatsService</code> class.</p>
+<pre><code class="language-typescript">
+@Injectable()
+class Logger &#123;
+  log(message: string): void &#123; ... &#125;
+&#125;
+
+@Injectable()
+class CatsService &#123;
+  constructor(private database: Database, private logger: Logger) &#123;&#125;
+
+  async getAllCats(): Promise&lt;Cat[]&gt; &#123;
+    this.logger.log(&#39;Fetching all cats..&#39;);
+    return this.database.getCats();
+  &#125;
+&#125;
+</code></pre>
+<p>Now, when you set up your test, you&#39;ll also need to mock the <code>Logger</code> dependency:</p>
+<pre><code class="language-typescript">
+beforeAll(() =&gt; &#123;
+  let logger: jest.Mocked&lt;Logger&gt;;
+  const &#123; unit, unitRef &#125; = TestBed.create(CatsService).compile();
+
+  catsService = unit;
+  database = unitRef.get(Database);
+  logger = unitRef.get(Logger);
+&#125;);
+
+it(&#39;should log a message and retrieve cats from the database&#39;, async () =&gt; &#123;
+  const mockCats: Cat[] = [&#123; id: 1, name: &#39;Catty&#39; &#125;, &#123; id: 2, name: &#39;Mitzy&#39; &#125;];
+  database.getCats.mockResolvedValue(mockCats);
+
+  const cats = await catsService.getAllCats();
+
+  expect(logger.log).toHaveBeenCalledWith(&#39;Fetching all cats..&#39;);
+  expect(database.getCats).toHaveBeenCalled();
+  expect(cats).toEqual(mockCats);
+&#125;);
+</code></pre>
+<p><strong>Using <code>.mock().using()</code> for Mock Implementation</strong></p>
+<p>Automock provides a more declarative way to specify mock implementations using the <code>.mock().using()</code> method chain.
+This allows you to define the mock behavior directly when setting up the <code>TestBed</code>.</p>
+<p>Here&#39;s how you can modify the test setup to use this approach:</p>
+<pre><code class="language-typescript">
+beforeAll(() =&gt; &#123;
+  const mockCats: Cat[] = [&#123; id: 1, name: &#39;Catty&#39; &#125;, &#123; id: 2, name: &#39;Mitzy&#39; &#125;];
+
+  const &#123; unit, unitRef &#125; = TestBed.create(CatsService)
+    .mock(Database)
+    .using(&#123; getCats: async () =&gt; mockCats &#125;)
+    .compile();
+
+  catsService = unit;
+  database = unitRef.get(Database);
+&#125;);
+</code></pre>
+<p>In this approach, we&#39;ve eliminated the need to manually mock the <code>getCats</code> method in the test body.
+Instead, we&#39;ve defined the mock behavior directly in the test setup using <code>.mock().using()</code>.</p>
+<h4 appAnchor id="dependency-references-and-instance-access"><span>Dependency References and Instance Access</span></h4>
+<p>When utilizing <code>TestBed</code>, the <code>compile()</code> method returns an object with two important properties: <code>unit</code> and <code>unitRef</code>.
+These properties provide access to the instance of the class under test and references to its dependencies, respectively.</p>
+<p><code>unit</code> - The unit property represents the actual instance of the class under test. In our example, it corresponds to an
+instance of the <code>CatsService</code> class. This allows you to directly interact with the class and invoke its methods during
+your test scenarios.</p>
+<p><code>unitRef</code> - The unitRef property serves as a reference to the dependencies of the class under test. In our example, it
+refers to the <code>Logger</code> dependency used by the <code>CatsService</code>. By accessing <code>unitRef</code>, you can retrieve the automatically
+generated mock object for the dependency. This enables you to stub methods, define behaviors, and assert method
+invocations on the mock object.</p>
+<h4 appAnchor id="working-with-different-providers"><span>Working with Different Providers</span></h4>
+<p>Providers are one of the most important elements in Nest. You can think of many of the default Nest classes as
+providers, including services, repositories, factories, helpers, and so on. A provider&#39;s primary function is to take the
+form of an
+<code>Injectable</code> dependency.</p>
+<p>Consider the following <code>CatsService</code>, it takes one parameter, which is an instance of the following <code>Logger</code> interface:</p>
+<pre><code class="language-typescript">
+export interface Logger &#123;
+  log(message: string): void;
+&#125;
+
+@Injectable()
+export class CatsService &#123;
+  constructor(private logger: Logger) &#123;&#125;
+&#125;
+</code></pre>
+<p>TypeScript&#39;s Reflection API does not support interface reflection yet. Nest solves this issue with string/symbol-based
+injection tokens (see <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/fundamentals/custom-providers">Custom Providers</a>):</p>
+<pre><code class="language-typescript">
+export const MyLoggerProvider = &#123;
+  provide: &#39;LOGGER_TOKEN&#39;,
+  useValue: &#123; ... &#125;,
+&#125;
+
+@Injectable()
+export class CatsService &#123;
+  constructor(@Inject(&#39;LOGGER_TOKEN&#39;) readonly logger: Logger) &#123;&#125;
+&#125;
+</code></pre>
+<p>Automock follows this practice and lets you provide a string-based (or symbol-based) token instead of providing the actual
+class in the <code>unitRef.get()</code> method:</p>
+<pre><code class="language-typescript">
+const &#123; unit, unitRef &#125; = TestBed.create(CatsService).compile();
+
+let loggerMock: jest.Mocked&lt;Logger&gt; = unitRef.get(&#39;LOGGER_TOKEN&#39;);
+</code></pre>
+<h4 appAnchor id="more-information"><span>More Information</span></h4>
+<p>Visit <a rel='nofollow' target='_blank' href="https://github.com/automock/automock">Automock GitHub repository</a>, or <a rel='nofollow' target='_blank' href="https://automock.dev">Automock website</a> for more information.</p>
+
+</div>
+

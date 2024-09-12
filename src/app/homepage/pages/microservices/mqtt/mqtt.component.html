@@ -1,0 +1,201 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/microservices/mqtt.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="mqtt">MQTT</h3>
+<p><a rel='nofollow' target='_blank' href="https://mqtt.org/">MQTT</a> (Message Queuing Telemetry Transport) is an open source, lightweight messaging protocol, optimized for low latency. This protocol provides a scalable and cost-efficient way to connect devices using a <strong>publish/subscribe</strong> model. A communication system built on MQTT consists of the publishing server, a broker and one or more clients. It is designed for constrained devices and low-bandwidth, high-latency or unreliable networks.</p>
+<h4 appAnchor id="installation"><span>Installation</span></h4>
+<p>To start building MQTT-based microservices, first install the required package:</p>
+<pre><code class="language-bash">
+$ npm i --save mqtt
+</code></pre>
+<h4 appAnchor id="overview"><span>Overview</span></h4>
+<p>To use the MQTT transporter, pass the following options object to the <code>createMicroservice()</code> method:</p>
+
+<span class="filename">
+  {{ 'main' | extension: appf761a3280e754a3c318421fbfa8858729c5d11e3.isJsActive }}
+<app-tabs #appf761a3280e754a3c318421fbfa8858729c5d11e3></app-tabs>
+</span><pre [class.hide]="appf761a3280e754a3c318421fbfa8858729c5d11e3.isJsActive"><code class="language-typescript">
+const app = await NestFactory.createMicroservice&lt;MicroserviceOptions&gt;(AppModule, &#123;
+  transport: Transport.MQTT,
+  options: &#123;
+    url: &#39;mqtt://localhost:1883&#39;,
+  &#125;,
+&#125;);
+</code></pre>
+<pre [class.hide]="!appf761a3280e754a3c318421fbfa8858729c5d11e3.isJsActive"><code class="language-typescript">
+const app = await NestFactory.createMicroservice(AppModule, &#123;
+  transport: Transport.MQTT,
+  options: &#123;
+    url: &#39;mqtt://localhost:1883&#39;,
+  &#125;,
+&#125;);
+</code></pre><blockquote class="
+info "><strong>Hint</strong> The <code>Transport</code> enum is imported from the <code>@nestjs/microservices</code> package.
+</blockquote>
+<h4 appAnchor id="options"><span>Options</span></h4>
+<p>The <code>options</code> object is specific to the chosen transporter. The <strong>MQTT</strong> transporter exposes the properties described <a rel='nofollow' target='_blank' href="https://github.com/mqttjs/MQTT.js/#mqttclientstreambuilder-options">here</a>.</p>
+<h4 appAnchor id="client"><span>Client</span></h4>
+<p>Like other microservice transporters, you have <a href="https://docs.nestjs.com/microservices/basics#client">several options</a> for creating a MQTT <code>ClientProxy</code> instance.</p>
+<p>One method for creating an instance is to use use the <code>ClientsModule</code>. To create a client instance with the <code>ClientsModule</code>, import it and use the <code>register()</code> method to pass an options object with the same properties shown above in the <code>createMicroservice()</code> method, as well as a <code>name</code> property to be used as the injection token. Read more about <code>ClientsModule</code> <a href="https://docs.nestjs.com/microservices/basics#client">here</a>.</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    ClientsModule.register([
+      &#123;
+        name: &#39;MATH_SERVICE&#39;,
+        transport: Transport.MQTT,
+        options: &#123;
+          url: &#39;mqtt://localhost:1883&#39;,
+        &#125;
+      &#125;,
+    ]),
+  ]
+  ...
+&#125;)
+</code></pre>
+<p>Other options to create a client (either <code>ClientProxyFactory</code> or <code>@Client()</code>) can be used as well. You can read about them <a href="https://docs.nestjs.com/microservices/basics#client">here</a>.</p>
+<h4 appAnchor id="context"><span>Context</span></h4>
+<p>In more sophisticated scenarios, you may want to access more information about the incoming request. When using the MQTT transporter, you can access the <code>MqttContext</code> object.</p>
+
+<span class="filename">
+<app-tabs #app5b169c88920b26af0301b58e0864563f75dc575e></app-tabs>
+</span><pre [class.hide]="app5b169c88920b26af0301b58e0864563f75dc575e.isJsActive"><code class="language-typescript">
+@MessagePattern(&#39;notifications&#39;)
+getNotifications(@Payload() data: number[], @Ctx() context: MqttContext) &#123;
+  console.log(`Topic: $&#123;context.getTopic()&#125;`);
+&#125;
+</code></pre>
+<pre [class.hide]="!app5b169c88920b26af0301b58e0864563f75dc575e.isJsActive"><code class="language-typescript">
+@Bind(Payload(), Ctx())
+@MessagePattern(&#39;notifications&#39;)
+getNotifications(data, context) &#123;
+  console.log(`Topic: $&#123;context.getTopic()&#125;`);
+&#125;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> <code>@Payload()</code>, <code>@Ctx()</code> and <code>MqttContext</code> are imported from the <code>@nestjs/microservices</code> package.
+</blockquote>
+<p>To access the original mqtt <a rel='nofollow' target='_blank' href="https://github.com/mqttjs/mqtt-packet">packet</a>, use the <code>getPacket()</code> method of the <code>MqttContext</code> object, as follows:</p>
+
+<span class="filename">
+<app-tabs #app82093e369f55a640a5df4247e2a316f161217bd7></app-tabs>
+</span><pre [class.hide]="app82093e369f55a640a5df4247e2a316f161217bd7.isJsActive"><code class="language-typescript">
+@MessagePattern(&#39;notifications&#39;)
+getNotifications(@Payload() data: number[], @Ctx() context: MqttContext) &#123;
+  console.log(context.getPacket());
+&#125;
+</code></pre>
+<pre [class.hide]="!app82093e369f55a640a5df4247e2a316f161217bd7.isJsActive"><code class="language-typescript">
+@Bind(Payload(), Ctx())
+@MessagePattern(&#39;notifications&#39;)
+getNotifications(data, context) &#123;
+  console.log(context.getPacket());
+&#125;
+</code></pre><h4 appAnchor id="wildcards"><span>Wildcards</span></h4>
+<p>A subscription may be to an explicit topic, or it may include wildcards. Two wildcards are available, <code>+</code> and <code>#</code>. <code>+</code> is a single-level wildcard, while <code>#</code> is a multi-level wildcard which covers many topic levels.</p>
+
+<span class="filename">
+<app-tabs #app7ac6ee4c5e9e42bfa662206f9aa3e7a2ee3d6b9f></app-tabs>
+</span><pre [class.hide]="app7ac6ee4c5e9e42bfa662206f9aa3e7a2ee3d6b9f.isJsActive"><code class="language-typescript">
+@MessagePattern(&#39;sensors/+/temperature/+&#39;)
+getTemperature(@Ctx() context: MqttContext) &#123;
+  console.log(`Topic: $&#123;context.getTopic()&#125;`);
+&#125;
+</code></pre>
+<pre [class.hide]="!app7ac6ee4c5e9e42bfa662206f9aa3e7a2ee3d6b9f.isJsActive"><code class="language-typescript">
+@Bind(Ctx())
+@MessagePattern(&#39;sensors/+/temperature/+&#39;)
+getTemperature(context) &#123;
+  console.log(`Topic: $&#123;context.getTopic()&#125;`);
+&#125;
+</code></pre><h4 appAnchor id="quality-of-service-qos"><span>Quality of Service (QoS)</span></h4>
+<p>Any subscription created with <code>@MessagePattern</code> or <code>@EventPattern</code> decorators will subscribe with QoS 0. If a higher QoS is required, it can be set globally using the <code>subscribeOptions</code> block when establishing the connection as follows:</p>
+
+<span class="filename">
+  {{ 'main' | extension: app86cef77a9b46ff38dd3daad820fb22403672039d.isJsActive }}
+<app-tabs #app86cef77a9b46ff38dd3daad820fb22403672039d></app-tabs>
+</span><pre [class.hide]="app86cef77a9b46ff38dd3daad820fb22403672039d.isJsActive"><code class="language-typescript">
+const app = await NestFactory.createMicroservice&lt;MicroserviceOptions&gt;(AppModule, &#123;
+  transport: Transport.MQTT,
+  options: &#123;
+    url: &#39;mqtt://localhost:1883&#39;,
+    subscribeOptions: &#123;
+      qos: 2
+    &#125;,
+  &#125;,
+&#125;);
+</code></pre>
+<pre [class.hide]="!app86cef77a9b46ff38dd3daad820fb22403672039d.isJsActive"><code class="language-typescript">
+const app = await NestFactory.createMicroservice(AppModule, &#123;
+  transport: Transport.MQTT,
+  options: &#123;
+    url: &#39;mqtt://localhost:1883&#39;,
+    subscribeOptions: &#123;
+      qos: 2
+    &#125;,
+  &#125;,
+&#125;);
+</code></pre><p>If a topic specific QoS is required, consider creating a <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/microservices/custom-transport">Custom transporter</a>.</p>
+<h4 appAnchor id="record-builders"><span>Record builders</span></h4>
+<p>To configure message options (adjust the QoS level, set the Retain or DUP flags, or add additional properties to the payload), you can use the <code>MqttRecordBuilder</code> class. For example, to set <code>QoS</code> to <code>2</code> use the <code>setQoS</code> method, as follows:</p>
+<pre><code class="language-typescript">
+const userProperties = &#123; &#39;x-version&#39;: &#39;1.0.0&#39; &#125;;
+const record = new MqttRecordBuilder(&#39;:cat:&#39;)
+  .setProperties(&#123; userProperties &#125;)
+  .setQoS(1)
+  .build();
+client.send(&#39;replace-emoji&#39;, record).subscribe(...);
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> <code>MqttRecordBuilder</code> class is exported from the <code>@nestjs/microservices</code> package.
+</blockquote>
+<p>And you can read these options on the server-side as well, by accessing the <code>MqttContext</code>.</p>
+
+<span class="filename">
+<app-tabs #app42314a647ecca3744bdf201a1691bf50476fe6c5></app-tabs>
+</span><pre [class.hide]="app42314a647ecca3744bdf201a1691bf50476fe6c5.isJsActive"><code class="language-typescript">
+@MessagePattern(&#39;replace-emoji&#39;)
+replaceEmoji(@Payload() data: string, @Ctx() context: MqttContext): string &#123;
+  const &#123; properties: &#123; userProperties &#125; &#125; = context.getPacket();
+  return userProperties[&#39;x-version&#39;] === &#39;1.0.0&#39; ? &#39;🐱&#39; : &#39;🐈&#39;;
+&#125;
+</code></pre>
+<pre [class.hide]="!app42314a647ecca3744bdf201a1691bf50476fe6c5.isJsActive"><code class="language-typescript">
+@Bind(Payload(), Ctx())
+@MessagePattern(&#39;replace-emoji&#39;)
+replaceEmoji(data, context) &#123;
+  const &#123; properties: &#123; userProperties &#125; &#125; = context.getPacket();
+  return userProperties[&#39;x-version&#39;] === &#39;1.0.0&#39; ? &#39;🐱&#39; : &#39;🐈&#39;;
+&#125;
+</code></pre><p>In some cases you might want to configure user properties for multiple requests, you can pass these options to the <code>ClientProxyFactory</code>.</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; ClientProxyFactory, Transport &#125; from &#39;@nestjs/microservices&#39;;
+
+@Module(&#123;
+  providers: [
+    &#123;
+      provide: &#39;API_v1&#39;,
+      useFactory: () =&gt;
+        ClientProxyFactory.create(&#123;
+          transport: Transport.MQTT,
+          options: &#123;
+            url: &#39;mqtt://localhost:1833&#39;,
+            userProperties: &#123; &#39;x-version&#39;: &#39;1.0.0&#39; &#125;,
+          &#125;,
+        &#125;),
+    &#125;,
+  ],
+&#125;)
+export class ApiModule &#123;&#125;
+</code></pre>
+
+</div>
+

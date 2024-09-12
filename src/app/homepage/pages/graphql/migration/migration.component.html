@@ -1,0 +1,187 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/graphql/migration.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="migrating-to-v11-from-v10">Migrating to v11 from v10</h3>
+<p>This chapter provides a set of guidelines for migrating from <code>@nestjs/graphql</code> version 10 to version 11. As part of this major release, we updated the Apollo driver to be compatible with Apollo Server v4 (instead of v3). Note: there are several breaking changes in Apollo Server v4 (especially around plugins and ecosystem packages), so you&#39;ll have to update your codebase accordingly. For more information, see the <a rel='nofollow' target='_blank' href="https://www.apollographql.com/docs/apollo-server/migration/">Apollo Server v4 migration guide</a>.</p>
+<h4 appAnchor id="apollo-packages"><span>Apollo packages</span></h4>
+<p>Instead of installing the <code>apollo-server-express</code> package, you&#39;ll have to install <code>@apollo/server</code>:</p>
+<pre><code class="language-bash">
+$ npm uninstall apollo-server-express
+$ npm install @apollo/server
+</code></pre>
+<p>If you use the Fastify adapter, you&#39;ll have to install the <code>@as-integrations/fastify</code> package instead:</p>
+<pre><code class="language-bash">
+$ npm uninstall apollo-server-fastify
+$ npm install @apollo/server @as-integrations/fastify
+</code></pre>
+<h4 appAnchor id="mercurius-packages"><span>Mercurius packages</span></h4>
+<p>Mercurius gateway is no longer a part of the <code>mercurius</code> package. Instead, you&#39;ll have to install the <code>@mercuriusjs/gateway</code> package separately:</p>
+<pre><code class="language-bash">
+$ npm install @mercuriusjs/gateway
+</code></pre>
+<p>Similarly, for creating federated schemas, you&#39;ll have to install the <code>@mercuriusjs/federation</code> package:</p>
+<pre><code class="language-bash">
+$ npm install @mercuriusjs/federation
+</code></pre>
+<h3 id="migrating-to-v10-from-v9">Migrating to v10 from v9</h3>
+<p>This chapter provides a set of guidelines for migrating from <code>@nestjs/graphql</code> version 9 to version 10. The focus of this major-version release is to provide a lighter, platform-agnostic core library.</p>
+<h4 appAnchor id="introducing-driver-packages"><span>Introducing &quot;driver&quot; packages</span></h4>
+<p>In the latest version, we made a decision to break the <code>@nestjs/graphql</code> package up into a few separate libraries, letting you choose whether to use Apollo (<code>@nestjs/apollo</code>), Mercurius (<code>@nestjs/mercurius</code>), or another GraphQL library in your project.</p>
+<p>This implies that now you have to explicitly specify what driver your application will use.</p>
+<pre><code class="language-typescript">
+// Before
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; GraphQLModule &#125; from &#39;@nestjs/graphql&#39;;
+
+@Module(&#123;
+  imports: [
+    GraphQLModule.forRoot(&#123;
+      autoSchemaFile: &#39;schema.gql&#39;,
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+
+// After
+import &#123; ApolloDriver, ApolloDriverConfig &#125; from &#39;@nestjs/apollo&#39;;
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; GraphQLModule &#125; from &#39;@nestjs/graphql&#39;;
+
+@Module(&#123;
+  imports: [
+    GraphQLModule.forRoot&lt;ApolloDriverConfig&gt;(&#123;
+      driver: ApolloDriver,
+      autoSchemaFile: &#39;schema.gql&#39;,
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<h4 appAnchor id="plugins"><span>Plugins</span></h4>
+<p>Apollo Server plugins let you perform custom operations in response to certain events. Since this is an exclusive Apollo feature, we moved it from the <code>@nestjs/graphql</code> to the newly created <code>@nestjs/apollo</code> package so you&#39;ll have to update imports in your application.</p>
+<pre><code class="language-typescript">
+// Before
+import &#123; Plugin &#125; from &#39;@nestjs/graphql&#39;;
+
+// After
+import &#123; Plugin &#125; from &#39;@nestjs/apollo&#39;;
+</code></pre>
+<h4 appAnchor id="directives"><span>Directives</span></h4>
+<p><code>schemaDirectives</code> feature has been replaced with the new <a rel='nofollow' target='_blank' href="https://www.graphql-tools.com/docs/schema-directives">Schema directives API</a> in v8 of <code>@graphql-tools/schema</code> package.</p>
+<pre><code class="language-typescript">
+// Before
+import &#123; SchemaDirectiveVisitor &#125; from &#39;@graphql-tools/utils&#39;;
+import &#123; defaultFieldResolver, GraphQLField &#125; from &#39;graphql&#39;;
+
+export class UpperCaseDirective extends SchemaDirectiveVisitor &#123;
+  visitFieldDefinition(field: GraphQLField&lt;any, any&gt;) &#123;
+    const &#123; resolve = defaultFieldResolver &#125; = field;
+    field.resolve = async function (...args) &#123;
+      const result = await resolve.apply(this, args);
+      if (typeof result === &#39;string&#39;) &#123;
+        return result.toUpperCase();
+      &#125;
+      return result;
+    &#125;;
+  &#125;
+&#125;
+
+// After
+import &#123; getDirective, MapperKind, mapSchema &#125; from &#39;@graphql-tools/utils&#39;;
+import &#123; defaultFieldResolver, GraphQLSchema &#125; from &#39;graphql&#39;;
+
+export function upperDirectiveTransformer(
+  schema: GraphQLSchema,
+  directiveName: string,
+) &#123;
+  return mapSchema(schema, &#123;
+    [MapperKind.OBJECT_FIELD]: (fieldConfig) =&gt; &#123;
+      const upperDirective = getDirective(
+        schema,
+        fieldConfig,
+        directiveName,
+      )?.[0];
+
+      if (upperDirective) &#123;
+        const &#123; resolve = defaultFieldResolver &#125; = fieldConfig;
+
+        // Replace the original resolver with a function that *first* calls
+        // the original resolver, then converts its result to upper case
+        fieldConfig.resolve = async function (source, args, context, info) &#123;
+          const result = await resolve(source, args, context, info);
+          if (typeof result === &#39;string&#39;) &#123;
+            return result.toUpperCase();
+          &#125;
+          return result;
+        &#125;;
+        return fieldConfig;
+      &#125;
+    &#125;,
+  &#125;);
+&#125;
+</code></pre>
+<p>To apply this directive implementation to a schema that contains <code>@upper</code> directives, use the <code>transformSchema</code> function:</p>
+<pre><code class="language-typescript">
+GraphQLModule.forRoot&lt;ApolloDriverConfig&gt;(&#123;
+  ...
+  transformSchema: schema =&gt; upperDirectiveTransformer(schema, &#39;upper&#39;),
+&#125;)
+</code></pre>
+<h4 appAnchor id="federation"><span>Federation</span></h4>
+<p><code>GraphQLFederationModule</code> has been removed and replaced with the corresponding driver class:</p>
+<pre><code class="language-typescript">
+// Before
+GraphQLFederationModule.forRoot(&#123;
+  autoSchemaFile: true,
+&#125;);
+
+// After
+GraphQLModule.forRoot&lt;ApolloFederationDriverConfig&gt;(&#123;
+  driver: ApolloFederationDriver,
+  autoSchemaFile: true,
+&#125;);
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Both <code>ApolloFederationDriver</code> class and <code>ApolloFederationDriverConfig</code> are exported from the <code>@nestjs/apollo</code> package.
+</blockquote>
+<p>Likewise, instead of using a dedicated <code>GraphQLGatewayModule</code>, simply pass the appropriate <code>driver</code> class to your <code>GraphQLModule</code> settings:</p>
+<pre><code class="language-typescript">
+// Before
+GraphQLGatewayModule.forRoot(&#123;
+  gateway: &#123;
+    supergraphSdl: new IntrospectAndCompose(&#123;
+      subgraphs: [
+        &#123; name: &#39;users&#39;, url: &#39;http://localhost:3000/graphql&#39; &#125;,
+        &#123; name: &#39;posts&#39;, url: &#39;http://localhost:3001/graphql&#39; &#125;,
+      ],
+    &#125;),
+  &#125;,
+&#125;);
+
+// After
+GraphQLModule.forRoot&lt;ApolloGatewayDriverConfig&gt;(&#123;
+  driver: ApolloGatewayDriver,
+  gateway: &#123;
+    supergraphSdl: new IntrospectAndCompose(&#123;
+      subgraphs: [
+        &#123; name: &#39;users&#39;, url: &#39;http://localhost:3000/graphql&#39; &#125;,
+        &#123; name: &#39;posts&#39;, url: &#39;http://localhost:3001/graphql&#39; &#125;,
+      ],
+    &#125;),
+  &#125;,
+&#125;);
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Both <code>ApolloGatewayDriver</code> class and <code>ApolloGatewayDriverConfig</code> are exported from the <code>@nestjs/apollo</code> package.
+</blockquote>
+
+</div>
+

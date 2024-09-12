@@ -1,0 +1,354 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/faq/serverless.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="serverless">Serverless</h3>
+<p>Serverless computing is a cloud computing execution model in which the cloud provider allocates machine resources on-demand, taking care of the servers on behalf of their customers. When an app is not in use, there are no computing resources allocated to the app. Pricing is based on the actual amount of resources consumed by an application (<a rel='nofollow' target='_blank' href="https://en.wikipedia.org/wiki/Serverless_computing">source</a>).</p>
+<p>With a <strong>serverless architecture</strong>, you focus purely on the individual functions in your application code. Services such as AWS Lambda, Google Cloud Functions, and Microsoft Azure Functions take care of all the physical hardware, virtual machine operating system, and web server software management.</p>
+<blockquote class="
+info "><strong>Hint</strong> This chapter does not cover the pros and cons of serverless functions nor dives into the specifics of any cloud providers.
+</blockquote>
+<h4 appAnchor id="cold-start"><span>Cold start</span></h4>
+<p>A cold start is the first time your code has been executed in a while. Depending on a cloud provider you use, it may span several different operations, from downloading the code and bootstrapping the runtime to eventually running your code.
+This process adds <strong>significant latency</strong> depending on several factors, the language, the number of packages your application require, etc.</p>
+<p>The cold start is important and although there are things which are beyond our control, there&#39;s still a lot of things we can do on our side to make it as short as possible.</p>
+<p>While you can think of Nest as a fully-fledged framework designed to be used in complex, enterprise applications,
+it is also <strong>suitable for much &quot;simpler&quot; applications</strong> (or scripts). For example, with the use of <a routerLink="/standalone-applications">Standalone applications</a> feature, you can take advantage of Nest&#39;s DI system in simple workers, CRON jobs, CLIs, or serverless functions.</p>
+<h4 appAnchor id="benchmarks"><span>Benchmarks</span></h4>
+<p>To better understand what&#39;s the cost of using Nest or other, well-known libraries (like <code>express</code>) in the context of serverless functions, let&#39;s compare how much time Node runtime needs to run the following scripts:</p>
+<pre><code class="language-typescript">
+// #1 Express
+import * as express from &#39;express&#39;;
+
+async function bootstrap() &#123;
+  const app = express();
+  app.get(&#39;/&#39;, (req, res) =&gt; res.send(&#39;Hello world!&#39;));
+  await new Promise&lt;void&gt;((resolve) =&gt; app.listen(3000, resolve));
+&#125;
+bootstrap();
+
+// #2 Nest (with @nestjs/platform-express)
+import &#123; NestFactory &#125; from &#39;@nestjs/core&#39;;
+import &#123; AppModule &#125; from &#39;./app.module&#39;;
+
+async function bootstrap() &#123;
+  const app = await NestFactory.create(AppModule, &#123; logger: [&#39;error&#39;] &#125;);
+  await app.listen(3000);
+&#125;
+bootstrap();
+
+// #3 Nest as a Standalone application (no HTTP server)
+import &#123; NestFactory &#125; from &#39;@nestjs/core&#39;;
+import &#123; AppModule &#125; from &#39;./app.module&#39;;
+import &#123; AppService &#125; from &#39;./app.service&#39;;
+
+async function bootstrap() &#123;
+  const app = await NestFactory.createApplicationContext(AppModule, &#123;
+    logger: [&#39;error&#39;],
+  &#125;);
+  console.log(app.get(AppService).getHello());
+&#125;
+bootstrap();
+
+// #4 Raw Node.js script
+async function bootstrap() &#123;
+  console.log(&#39;Hello world!&#39;);
+&#125;
+bootstrap();
+</code></pre>
+<p>For all these scripts, we used the <code>tsc</code> (TypeScript) compiler and so the code remains unbundled (<code>webpack</code> isn&#39;t used).</p>
+<table>
+<thead>
+</thead>
+<tbody><tr>
+<td>Express</td>
+<td>0.0079s (7.9ms)</td>
+</tr>
+<tr>
+<td>Nest with <code>@nestjs/platform-express</code></td>
+<td>0.1974s (197.4ms)</td>
+</tr>
+<tr>
+<td>Nest (standalone application)</td>
+<td>0.1117s (111.7ms)</td>
+</tr>
+<tr>
+<td>Raw Node.js script</td>
+<td>0.0071s (7.1ms)</td>
+</tr>
+</tbody></table>
+<blockquote class="
+info "><strong>Note</strong> Machine: MacBook Pro Mid 2014, 2.5 GHz Quad-Core Intel Core i7, 16 GB 1600 MHz DDR3, SSD.
+</blockquote>
+<p>Now, let&#39;s repeat all benchmarks but this time, using <code>webpack</code> (if you have <a routerLink="/cli/overview">Nest CLI</a> installed, you can run <code>nest build --webpack</code>) to bundle our application into a single executable JavaScript file.
+However, instead of using the default <code>webpack</code> configuration that Nest CLI ships with, we&#39;ll make sure to bundle all dependencies (<code>node_modules</code>) together, as follows:</p>
+<pre><code class="language-javascript">
+module.exports = (options, webpack) =&gt; &#123;
+  const lazyImports = [
+    &#39;@nestjs/microservices/microservices-module&#39;,
+    &#39;@nestjs/websockets/socket-module&#39;,
+  ];
+
+  return &#123;
+    ...options,
+    externals: [],
+    plugins: [
+      ...options.plugins,
+      new webpack.IgnorePlugin(&#123;
+        checkResource(resource) &#123;
+          if (lazyImports.includes(resource)) &#123;
+            try &#123;
+              require.resolve(resource);
+            &#125; catch (err) &#123;
+              return true;
+            &#125;
+          &#125;
+          return false;
+        &#125;,
+      &#125;),
+    ],
+  &#125;;
+&#125;;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> To instruct Nest CLI to use this configuration, create a new <code>webpack.config.js</code> file in the root directory of your project.
+</blockquote>
+<p>With this configuration, we received the following results:</p>
+<table>
+<thead>
+</thead>
+<tbody><tr>
+<td>Express</td>
+<td>0.0068s (6.8ms)</td>
+</tr>
+<tr>
+<td>Nest with <code>@nestjs/platform-express</code></td>
+<td>0.0815s (81.5ms)</td>
+</tr>
+<tr>
+<td>Nest (standalone application)</td>
+<td>0.0319s (31.9ms)</td>
+</tr>
+<tr>
+<td>Raw Node.js script</td>
+<td>0.0066s (6.6ms)</td>
+</tr>
+</tbody></table>
+<blockquote class="
+info "><strong>Note</strong> Machine: MacBook Pro Mid 2014, 2.5 GHz Quad-Core Intel Core i7, 16 GB 1600 MHz DDR3, SSD.
+</blockquote>
+<blockquote class="
+info "><strong>Hint</strong> You could optimize it even further by applying additional code minification &amp; optimization techniques (using <code>webpack</code> plugins, etc.).
+</blockquote>
+<p>As you can see, the way you compile (and whether you bundle your code) is crucial and has a significant impact on the overall startup time. With <code>webpack</code>, you can get the bootstrap time of a standalone Nest application (starter project with one module, controller, and service) down to ~32ms on average, and down to ~81.5ms for a regular HTTP, express-based NestJS app.</p>
+<p>For more complicated Nest applications, for example, with 10 resources (generated through <code>$ nest g resource</code> schematic = 10 modules, 10 controllers, 10 services, 20 DTO classes, 50 HTTP endpoints + <code>AppModule</code>), the overall startup on MacBook Pro Mid 2014, 2.5 GHz Quad-Core Intel Core i7, 16 GB 1600 MHz DDR3, SSD is approximately 0.1298s (129.8ms). Running a monolithic application as a serverless function typically doesn&#39;t make too much sense anyway, so think of this benchmark more as an example of how the bootstrap time may potentially increase as your application grows.</p>
+<h4 appAnchor id="runtime-optimizations"><span>Runtime optimizations</span></h4>
+<p>Thus far we covered compile-time optimizations. These are unrelated to the way you define providers and load Nest modules in your application, and that plays an essential role as your application gets bigger.</p>
+<p>For example, imagine having a database connection defined as an <a routerLink="/fundamentals/async-providers">asynchronous provider</a>. Async providers are designed to delay the application start until one or more asynchronous tasks are completed.
+That means, if your serverless function on average requires 2s to connect to the database (on bootstrap), your endpoint will need at least two extra seconds (because it must wait till the connection is established) to send a response back (when it&#39;s a cold start and your application wasn&#39;t running already).</p>
+<p>As you can see, the way you structure your providers is somewhat different in a <strong>serverless environment</strong> where bootstrap time is important.
+Another good example is if you use Redis for caching, but only in certain scenarios. Perhaps, in this case, you should not define a Redis connection as an async provider, as it would slow down the bootstrap time, even if it&#39;s not required for this specific function invocation.</p>
+<p>Also, sometimes you could lazy load entire modules, using the <code>LazyModuleLoader</code> class, as described in <a routerLink="/fundamentals/lazy-loading-modules">this chapter</a>. Caching is a great example here too.
+Imagine that your application has, let&#39;s say, <code>CacheModule</code> which internally connects to Redis and also, exports the <code>CacheService</code> to interact with the Redis storage. If you don&#39;t need it for all potential function invocations,
+you can just load it on-demand, lazily. This way you&#39;ll get a faster startup time (when a cold start occurs) for all invocations that don&#39;t require caching.</p>
+<pre><code class="language-typescript">
+if (request.method === RequestMethod[RequestMethod.GET]) &#123;
+  const &#123; CacheModule &#125; = await import(&#39;./cache.module&#39;);
+  const moduleRef = await this.lazyModuleLoader.load(() =&gt; CacheModule);
+
+  const &#123; CacheService &#125; = await import(&#39;./cache.service&#39;);
+  const cacheService = moduleRef.get(CacheService);
+
+  return cacheService.get(ENDPOINT_KEY);
+&#125;
+</code></pre>
+<p>Another great example is a webhook or worker, which depending on some specific conditions (e.g., input arguments), may perform different operations.
+In such a case, you could specify a condition inside your route handler that lazily loads an appropriate module for the specific function invocation, and just load every other module lazily.</p>
+<pre><code class="language-typescript">
+if (workerType === WorkerType.A) &#123;
+  const &#123; WorkerAModule &#125; = await import(&#39;./worker-a.module&#39;);
+  const moduleRef = await this.lazyModuleLoader.load(() =&gt; WorkerAModule);
+  // ...
+&#125; else if (workerType === WorkerType.B) &#123;
+  const &#123; WorkerBModule &#125; = await import(&#39;./worker-b.module&#39;);
+  const moduleRef = await this.lazyModuleLoader.load(() =&gt; WorkerBModule);
+  // ...
+&#125;
+</code></pre>
+<h4 appAnchor id="example-integration"><span>Example integration</span></h4>
+<p>The way your application&#39;s entry file (typically <code>main.ts</code> file) is supposed to look like <strong>depends on several factors</strong> and so <strong>there&#39;s no single template</strong> that just works for every scenario.
+For example, the initialization file required to spin up your serverless function varies by cloud providers (AWS, Azure, GCP, etc.).
+Also, depending on whether you want to run a typical HTTP application with multiple routes/endpoints or just provide a single route (or execute a specific portion of code),
+your application&#39;s code will look different (for example, for the endpoint-per-function approach you could use the <code>NestFactory.createApplicationContext</code> instead of booting the HTTP server, setting up middleware, etc.).</p>
+<p>Just for illustration purposes, we&#39;ll integrate Nest (using <code>@nestjs/platform-express</code> and so spinning up the whole, fully functional HTTP router)
+with the <a rel='nofollow' target='_blank' href="https://www.serverless.com/">Serverless</a> framework (in this case, targeting AWS Lambda). As we&#39;ve mentioned earlier, your code will differ depending on the cloud provider you choose, and many other factors.</p>
+<p>First, let&#39;s install the required packages:</p>
+<pre><code class="language-bash">
+$ npm i @codegenie/serverless-express aws-lambda
+$ npm i -D @types/aws-lambda serverless-offline
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> To speed up development cycles, we install the <code>serverless-offline</code> plugin which emulates AWS λ and API Gateway.
+</blockquote>
+<p>Once the installation process is complete, let&#39;s create the <code>serverless.yml</code> file to configure the Serverless framework:</p>
+<pre><code class="language-yaml">
+service: serverless-example
+
+plugins:
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+
+functions:
+  main:
+    handler: dist/main.handler
+    events:
+      - http:
+          method: ANY
+          path: /
+      - http:
+          method: ANY
+          path: &#39;&#123;proxy+&#125;&#39;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> To learn more about the Serverless framework, visit the <a rel='nofollow' target='_blank' href="https://www.serverless.com/framework/docs/">official documentation</a>.
+</blockquote>
+<p>With this in place, we can now navigate to the <code>main.ts</code> file and update our bootstrap code with the required boilerplate:</p>
+<pre><code class="language-typescript">
+import &#123; NestFactory &#125; from &#39;@nestjs/core&#39;;
+import serverlessExpress from &#39;@codegenie/serverless-express&#39;;
+import &#123; Callback, Context, Handler &#125; from &#39;aws-lambda&#39;;
+import &#123; AppModule &#125; from &#39;./app.module&#39;;
+
+let server: Handler;
+
+async function bootstrap(): Promise&lt;Handler&gt; &#123;
+  const app = await NestFactory.create(AppModule);
+  await app.init();
+
+  const expressApp = app.getHttpAdapter().getInstance();
+  return serverlessExpress(&#123; app: expressApp &#125;);
+&#125;
+
+export const handler: Handler = async (
+  event: any,
+  context: Context,
+  callback: Callback,
+) =&gt; &#123;
+  server = server ?? (await bootstrap());
+  return server(event, context, callback);
+&#125;;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> For creating multiple serverless functions and sharing common modules between them, we recommend using the <a href="/cli/monorepo#monorepo-mode">CLI Monorepo mode</a>.
+</blockquote>
+<blockquote class="
+warning "><strong>Warning</strong> If you use <code>@nestjs/swagger</code> package, there are a few additional steps required to make it work properly in the context of serverless function. Check out this <a rel='nofollow' target='_blank' href="https://github.com/nestjs/swagger/issues/199">thread</a> for more information.
+</blockquote>
+<p>Next, open up the <code>tsconfig.json</code> file and make sure to enable the <code>esModuleInterop</code> option to make the <code>@codegenie/serverless-express</code> package load properly.</p>
+<pre><code class="language-json">
+&#123;
+  &quot;compilerOptions&quot;: &#123;
+    ...
+    &quot;esModuleInterop&quot;: true
+  &#125;
+&#125;
+</code></pre>
+<p>Now we can build our application (with <code>nest build</code> or <code>tsc</code>) and use the <code>serverless</code> CLI to start our lambda function locally:</p>
+<pre><code class="language-bash">
+$ npm run build
+$ npx serverless offline
+</code></pre>
+<p>Once the application is running, open your browser and navigate to <code>http://localhost:3000/dev/[ANY_ROUTE]</code> (where <code>[ANY_ROUTE]</code> is any endpoint registered in your application).</p>
+<p>In the sections above, we&#39;ve shown that using <code>webpack</code> and bundling your app can have significant impact on the overall bootstrap time.
+However, to make it work with our example, there are a few additional configurations you must add in your <code>webpack.config.js</code> file. Generally,
+to make sure our <code>handler</code> function will be picked up, we must change the <code>output.libraryTarget</code> property to <code>commonjs2</code>.</p>
+<pre><code class="language-javascript">
+return &#123;
+  ...options,
+  externals: [],
+  output: &#123;
+    ...options.output,
+    libraryTarget: &#39;commonjs2&#39;,
+  &#125;,
+  // ... the rest of the configuration
+&#125;;
+</code></pre>
+<p>With this in place, you can now use <code>$ nest build --webpack</code> to compile your function&#39;s code (and then <code>$ npx serverless offline</code> to test it).</p>
+<p>It&#39;s also recommended (but <strong>not required</strong> as it will slow down your build process) to install the <code>terser-webpack-plugin</code> package and override its configuration to keep classnames intact when minifying your production build. Not doing so can result in incorrect behavior when using <code>class-validator</code> within your application.</p>
+<pre><code class="language-javascript">
+const TerserPlugin = require(&#39;terser-webpack-plugin&#39;);
+
+return &#123;
+  ...options,
+  externals: [],
+  optimization: &#123;
+    minimizer: [
+      new TerserPlugin(&#123;
+        terserOptions: &#123;
+          keep_classnames: true,
+        &#125;,
+      &#125;),
+    ],
+  &#125;,
+  output: &#123;
+    ...options.output,
+    libraryTarget: &#39;commonjs2&#39;,
+  &#125;,
+  // ... the rest of the configuration
+&#125;;
+</code></pre>
+<h4 appAnchor id="using-standalone-application-feature"><span>Using standalone application feature</span></h4>
+<p>Alternatively, if you want to keep your function very lightweight and you don&#39;t need any HTTP-related features (routing, but also guards, interceptors, pipes, etc.),
+you can just use <code>NestFactory.createApplicationContext</code> (as mentioned earlier) instead of running the entire HTTP server (and <code>express</code> under the hood), as follows:</p>
+
+<span class="filename">
+  {{ 'main' | extension: apped41664f5f546dd4effc0fad3331b7a049c88821.isJsActive }}
+<app-tabs #apped41664f5f546dd4effc0fad3331b7a049c88821></app-tabs>
+</span><pre><code class="language-typescript">
+import &#123; HttpStatus &#125; from &#39;@nestjs/common&#39;;
+import &#123; NestFactory &#125; from &#39;@nestjs/core&#39;;
+import &#123; Callback, Context, Handler &#125; from &#39;aws-lambda&#39;;
+import &#123; AppModule &#125; from &#39;./app.module&#39;;
+import &#123; AppService &#125; from &#39;./app.service&#39;;
+
+export const handler: Handler = async (
+  event: any,
+  context: Context,
+  callback: Callback,
+) =&gt; &#123;
+  const appContext = await NestFactory.createApplicationContext(AppModule);
+  const appService = appContext.get(AppService);
+
+  return &#123;
+    body: appService.getHello(),
+    statusCode: HttpStatus.OK,
+  &#125;;
+&#125;;
+</code></pre><blockquote class="
+info "><strong>Hint</strong> Be aware that <code>NestFactory.createApplicationContext</code> does not wrap controller methods with enhancers (guard, interceptors, etc.). For this, you must use the <code>NestFactory.create</code> method.
+</blockquote>
+<p>You could also pass the <code>event</code> object down to, let&#39;s say, <code>EventsService</code> provider that could process it and return a corresponding value (depending on the input value and your business logic).</p>
+<pre><code class="language-typescript">
+export const handler: Handler = async (
+  event: any,
+  context: Context,
+  callback: Callback,
+) =&gt; &#123;
+  const appContext = await NestFactory.createApplicationContext(AppModule);
+  const eventsService = appContext.get(EventsService);
+  return eventsService.process(event);
+&#125;;
+</code></pre>
+
+</div>
+

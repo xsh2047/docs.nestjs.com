@@ -1,0 +1,92 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/openapi/other-features.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="other-features">Other features</h3>
+<p>This page lists all the other available features that you may find useful.</p>
+<h4 appAnchor id="global-prefix"><span>Global prefix</span></h4>
+<p>To ignore a global prefix for routes set through <code>setGlobalPrefix()</code>, use <code>ignoreGlobalPrefix</code>:</p>
+<pre><code class="language-typescript">
+const document = SwaggerModule.createDocument(app, options, &#123;
+  ignoreGlobalPrefix: true,
+&#125;);
+</code></pre>
+<h4 appAnchor id="global-parameters"><span>Global parameters</span></h4>
+<p>You can add parameter definitions to all routes using <code>DocumentBuilder</code>:</p>
+<pre><code class="language-typescript">
+const options = new DocumentBuilder().addGlobalParameters(&#123;
+  name: &#39;tenantId&#39;,
+  in: &#39;header&#39;,
+&#125;);
+</code></pre>
+<h4 appAnchor id="multiple-specifications"><span>Multiple specifications</span></h4>
+<p>The <code>SwaggerModule</code> provides a way to support multiple specifications. In other words, you can serve different documentation, with different UIs, on different endpoints.</p>
+<p>To support multiple specifications, your application must be written with a modular approach. The <code>createDocument()</code> method takes a 3rd argument, <code>extraOptions</code>, which is an object with a property named <code>include</code>. The <code>include</code> property takes a value which is an array of modules.</p>
+<p>You can setup multiple specifications support as shown below:</p>
+<pre><code class="language-typescript">
+import &#123; NestFactory &#125; from &#39;@nestjs/core&#39;;
+import &#123; SwaggerModule, DocumentBuilder &#125; from &#39;@nestjs/swagger&#39;;
+import &#123; AppModule &#125; from &#39;./app.module&#39;;
+import &#123; CatsModule &#125; from &#39;./cats/cats.module&#39;;
+import &#123; DogsModule &#125; from &#39;./dogs/dogs.module&#39;;
+
+async function bootstrap() &#123;
+  const app = await NestFactory.create(AppModule);
+
+  /**
+   * createDocument(application, configurationOptions, extraOptions);
+   *
+   * createDocument method takes an optional 3rd argument &quot;extraOptions&quot;
+   * which is an object with &quot;include&quot; property where you can pass an Array
+   * of Modules that you want to include in that Swagger Specification
+   * E.g: CatsModule and DogsModule will have two separate Swagger Specifications which
+   * will be exposed on two different SwaggerUI with two different endpoints.
+   */
+
+  const options = new DocumentBuilder()
+    .setTitle(&#39;Cats example&#39;)
+    .setDescription(&#39;The cats API description&#39;)
+    .setVersion(&#39;1.0&#39;)
+    .addTag(&#39;cats&#39;)
+    .build();
+
+  const catDocument = SwaggerModule.createDocument(app, options, &#123;
+    include: [CatsModule],
+  &#125;);
+  SwaggerModule.setup(&#39;api/cats&#39;, app, catDocument);
+
+  const secondOptions = new DocumentBuilder()
+    .setTitle(&#39;Dogs example&#39;)
+    .setDescription(&#39;The dogs API description&#39;)
+    .setVersion(&#39;1.0&#39;)
+    .addTag(&#39;dogs&#39;)
+    .build();
+
+  const dogDocument = SwaggerModule.createDocument(app, secondOptions, &#123;
+    include: [DogsModule],
+  &#125;);
+  SwaggerModule.setup(&#39;api/dogs&#39;, app, dogDocument);
+
+  await app.listen(3000);
+&#125;
+bootstrap();
+</code></pre>
+<p>Now you can start your server with the following command:</p>
+<pre><code class="language-bash">
+$ npm run start
+</code></pre>
+<p>Navigate to <code>http://localhost:3000/api/cats</code> to see the Swagger UI for cats:</p>
+<figure><img src="/assets/swagger-cats.png" /></figure>
+
+<p>In turn, <code>http://localhost:3000/api/dogs</code> will expose the Swagger UI for dogs:</p>
+<figure><img src="/assets/swagger-dogs.png" /></figure>
+
+</div>
+

@@ -1,0 +1,383 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/techniques/validation.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="validation">Validation</h3>
+<p>It is best practice to validate the correctness of any data sent into a web application. To automatically validate incoming requests, Nest provides several pipes available right out-of-the-box:</p>
+<ul>
+<li><code>ValidationPipe</code></li>
+<li><code>ParseIntPipe</code></li>
+<li><code>ParseBoolPipe</code></li>
+<li><code>ParseArrayPipe</code></li>
+<li><code>ParseUUIDPipe</code></li>
+</ul>
+<p>The <code>ValidationPipe</code> makes use of the powerful <a rel='nofollow' target='_blank' href="https://github.com/typestack/class-validator">class-validator</a> package and its declarative validation decorators. The <code>ValidationPipe</code> provides a convenient approach to enforce validation rules for all incoming client payloads, where the specific rules are declared with simple annotations in local class/DTO declarations in each module.</p>
+<h4 appAnchor id="overview"><span>Overview</span></h4>
+<p>In the <a routerLink="/pipes">Pipes</a> chapter, we went through the process of building simple pipes and binding them to controllers, methods or to the global app to demonstrate how the process works. Be sure to review that chapter to best understand the topics of this chapter. Here, we&#39;ll focus on various <strong>real world</strong> use cases of the <code>ValidationPipe</code>, and show how to use some of its advanced customization features.</p>
+<h4 appAnchor id="using-the-built-in-validationpipe"><span>Using the built-in ValidationPipe</span></h4>
+<p>To begin using it, we first install the required dependency.</p>
+<pre><code class="language-bash">
+$ npm i --save class-validator class-transformer
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>ValidationPipe</code> is exported from the <code>@nestjs/common</code> package.
+</blockquote>
+<p>Because this pipe uses the <a rel='nofollow' target='_blank' href="https://github.com/typestack/class-validator"><code>class-validator</code></a> and <a rel='nofollow' target='_blank' href="https://github.com/typestack/class-transformer"><code>class-transformer</code></a> libraries, there are many options available. You configure these settings via a configuration object passed to the pipe. Following are the built-in options:</p>
+<pre><code class="language-typescript">
+export interface ValidationPipeOptions extends ValidatorOptions &#123;
+  transform?: boolean;
+  disableErrorMessages?: boolean;
+  exceptionFactory?: (errors: ValidationError[]) =&gt; any;
+&#125;
+</code></pre>
+<p>In addition to these, all <code>class-validator</code> options (inherited from the <code>ValidatorOptions</code> interface) are available:</p>
+<table>
+  <tr>
+    <th>Option</th>
+    <th>Type</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>enableDebugMessages</code></td>
+    <td><code>boolean</code></td>
+    <td>If set to true, validator will print extra warning messages to the console when something is not right.</td>
+  </tr>
+  <tr>
+    <td><code>skipUndefinedProperties</code></td>
+    <td><code>boolean</code></td>
+    <td>If set to true then validator will skip validation of all properties that are undefined in the validating object.</td>
+  </tr>
+  <tr>
+    <td><code>skipNullProperties</code></td>
+    <td><code>boolean</code></td>
+    <td>If set to true then validator will skip validation of all properties that are null in the validating object.</td>
+  </tr>
+  <tr>
+    <td><code>skipMissingProperties</code></td>
+    <td><code>boolean</code></td>
+    <td>If set to true then validator will skip validation of all properties that are null or undefined in the validating object.</td>
+  </tr>
+  <tr>
+    <td><code>whitelist</code></td>
+    <td><code>boolean</code></td>
+    <td>If set to true, validator will strip validated (returned) object of any properties that do not use any validation decorators.</td>
+  </tr>
+  <tr>
+    <td><code>forbidNonWhitelisted</code></td>
+    <td><code>boolean</code></td>
+    <td>If set to true, instead of stripping non-whitelisted properties validator will throw an exception.</td>
+  </tr>
+  <tr>
+    <td><code>forbidUnknownValues</code></td>
+    <td><code>boolean</code></td>
+    <td>If set to true, attempts to validate unknown objects fail immediately.</td>
+  </tr>
+  <tr>
+    <td><code>disableErrorMessages</code></td>
+    <td><code>boolean</code></td>
+    <td>If set to true, validation errors will not be returned to the client.</td>
+  </tr>
+  <tr>
+    <td><code>errorHttpStatusCode</code></td>
+    <td><code>number</code></td>
+    <td>This setting allows you to specify which exception type will be used in case of an error. By default it throws <code>BadRequestException</code>.</td>
+  </tr>
+  <tr>
+    <td><code>exceptionFactory</code></td>
+    <td><code>Function</code></td>
+    <td>Takes an array of the validation errors and returns an exception object to be thrown.</td>
+  </tr>
+  <tr>
+    <td><code>groups</code></td>
+    <td><code>string[]</code></td>
+    <td>Groups to be used during validation of the object.</td>
+  </tr>
+  <tr>
+    <td><code>always</code></td>
+    <td><code>boolean</code></td>
+    <td>Set default for <code>always</code> option of decorators. Default can be overridden in decorator options</td>
+  </tr>
+
+  <tr>
+    <td><code>strictGroups</code></td>
+    <td><code>boolean</code></td>
+    <td>If <code>groups</code> is not given or is empty, ignore decorators with at least one group.</td>
+  </tr>
+  <tr>
+    <td><code>dismissDefaultMessages</code></td>
+    <td><code>boolean</code></td>
+    <td>If set to true, the validation will not use default messages. Error message always will be <code>undefined</code>        if
+      its not explicitly set.</td>
+  </tr>
+  <tr>
+    <td><code>validationError.target</code></td>
+    <td><code>boolean</code></td>
+    <td>Indicates if target should be exposed in <code>ValidationError</code>.</td>
+  </tr>
+  <tr>
+    <td><code>validationError.value</code></td>
+    <td><code>boolean</code></td>
+    <td>Indicates if validated value should be exposed in <code>ValidationError</code>.</td>
+  </tr>
+  <tr>
+    <td><code>stopAtFirstError</code></td>
+    <td><code>boolean</code></td>
+    <td>When set to true, validation of the given property will stop after encountering the first error. Defaults to false.</td>
+  </tr>
+</table>
+
+<blockquote class="
+info "><strong>Notice</strong> Find more information about the <code>class-validator</code> package in its <a rel='nofollow' target='_blank' href="https://github.com/typestack/class-validator">repository</a>.
+</blockquote>
+<h4 appAnchor id="auto-validation"><span>Auto-validation</span></h4>
+<p>We&#39;ll start by binding <code>ValidationPipe</code> at the application level, thus ensuring all endpoints are protected from receiving incorrect data.</p>
+<pre><code class="language-typescript">
+async function bootstrap() &#123;
+  const app = await NestFactory.create(AppModule);
+  app.useGlobalPipes(new ValidationPipe());
+  await app.listen(3000);
+&#125;
+bootstrap();
+</code></pre>
+<p>To test our pipe, let&#39;s create a basic endpoint.</p>
+<pre><code class="language-typescript">
+@Post()
+create(@Body() createUserDto: CreateUserDto) &#123;
+  return &#39;This action adds a new user&#39;;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Since TypeScript does not store metadata about <strong>generics or interfaces</strong>, when you use them in your DTOs, <code>ValidationPipe</code> may not be able to properly validate incoming data.  For this reason, consider using concrete classes in your DTOs.
+</blockquote>
+<blockquote class="
+info "><strong>Hint</strong> When importing your DTOs, you can&#39;t use a type-only import as that would be erased at runtime, i.e. remember to <code>import {{ &#39;{&#39; }} CreateUserDto {{ &#39;}&#39; }}</code> instead of <code>import type {{ &#39;{&#39; }} CreateUserDto {{ &#39;}&#39; }}</code>.
+</blockquote>
+<p>Now we can add a few validation rules in our <code>CreateUserDto</code>. We do this using decorators provided by the <code>class-validator</code> package, described in detail <a rel='nofollow' target='_blank' href="https://github.com/typestack/class-validator#validation-decorators">here</a>. In this fashion, any route that uses the <code>CreateUserDto</code> will automatically enforce these validation rules.</p>
+<pre><code class="language-typescript">
+import &#123; IsEmail, IsNotEmpty &#125; from &#39;class-validator&#39;;
+
+export class CreateUserDto &#123;
+  @IsEmail()
+  email: string;
+
+  @IsNotEmpty()
+  password: string;
+&#125;
+</code></pre>
+<p>With these rules in place, if a request hits our endpoint with an invalid <code>email</code> property in the request body, the application will automatically respond with a <code>400 Bad Request</code> code, along with the following response body:</p>
+<pre><code class="language-json">
+&#123;
+  &quot;statusCode&quot;: 400,
+  &quot;error&quot;: &quot;Bad Request&quot;,
+  &quot;message&quot;: [&quot;email must be an email&quot;]
+&#125;
+</code></pre>
+<p>In addition to validating request bodies, the <code>ValidationPipe</code> can be used with other request object properties as well. Imagine that we would like to accept <code>:id</code> in the endpoint path. To ensure that only numbers are accepted for this request parameter, we can use the following construct:</p>
+<pre><code class="language-typescript">
+@Get(&#39;:id&#39;)
+findOne(@Param() params: FindOneParams) &#123;
+  return &#39;This action returns a user&#39;;
+&#125;
+</code></pre>
+<p><code>FindOneParams</code>, like a DTO, is simply a class that defines validation rules using <code>class-validator</code>. It would look like this:</p>
+<pre><code class="language-typescript">
+import &#123; IsNumberString &#125; from &#39;class-validator&#39;;
+
+export class FindOneParams &#123;
+  @IsNumberString()
+  id: number;
+&#125;
+</code></pre>
+<h4 appAnchor id="disable-detailed-errors"><span>Disable detailed errors</span></h4>
+<p>Error messages can be helpful to explain what was incorrect in a request. However, some production environments prefer to disable detailed errors. Do this by passing an options object to the <code>ValidationPipe</code>:</p>
+<pre><code class="language-typescript">
+app.useGlobalPipes(
+  new ValidationPipe(&#123;
+    disableErrorMessages: true,
+  &#125;),
+);
+</code></pre>
+<p>As a result, detailed error messages won&#39;t be displayed in the response body.</p>
+<h4 appAnchor id="stripping-properties"><span>Stripping properties</span></h4>
+<p>Our <code>ValidationPipe</code> can also filter out properties that should not be received by the method handler. In this case, we can <strong>whitelist</strong> the acceptable properties, and any property not included in the whitelist is automatically stripped from the resulting object. For example, if our handler expects <code>email</code> and <code>password</code> properties, but a request also includes an <code>age</code> property, this property can be automatically removed from the resulting DTO. To enable such behavior, set <code>whitelist</code> to <code>true</code>.</p>
+<pre><code class="language-typescript">
+app.useGlobalPipes(
+  new ValidationPipe(&#123;
+    whitelist: true,
+  &#125;),
+);
+</code></pre>
+<p>When set to true, this will automatically remove non-whitelisted properties (those without any decorator in the validation class).</p>
+<p>Alternatively, you can stop the request from processing when non-whitelisted properties are present, and return an error response to the user. To enable this, set the <code>forbidNonWhitelisted</code> option property to <code>true</code>, in combination with setting <code>whitelist</code> to <code>true</code>.</p>
+<p><app-banner-courses></app-banner-courses></p>
+<h4 appAnchor id="transform-payload-objects"><span>Transform payload objects</span></h4>
+<p>Payloads coming in over the network are plain JavaScript objects. The <code>ValidationPipe</code> can automatically transform payloads to be objects typed according to their DTO classes. To enable auto-transformation, set <code>transform</code> to <code>true</code>.  This can be done at a method level:</p>
+
+<span class="filename">
+  {{ 'cats.controller' | extension: app0ec945bfa319487bf42f4e1fb6de6b704d964460.isJsActive }}
+<app-tabs #app0ec945bfa319487bf42f4e1fb6de6b704d964460></app-tabs>
+</span><pre><code class="language-typescript">
+@Post()
+@UsePipes(new ValidationPipe(&#123; transform: true &#125;))
+async create(@Body() createCatDto: CreateCatDto) &#123;
+  this.catsService.create(createCatDto);
+&#125;
+</code></pre><p>To enable this behavior globally, set the option on a global pipe:</p>
+<pre><code class="language-typescript">
+app.useGlobalPipes(
+  new ValidationPipe(&#123;
+    transform: true,
+  &#125;),
+);
+</code></pre>
+<p>With the auto-transformation option enabled, the <code>ValidationPipe</code> will also perform conversion of primitive types. In the following example, the <code>findOne()</code> method takes one argument which represents an extracted <code>id</code> path parameter:</p>
+<pre><code class="language-typescript">
+@Get(&#39;:id&#39;)
+findOne(@Param(&#39;id&#39;) id: number) &#123;
+  console.log(typeof id === &#39;number&#39;); // true
+  return &#39;This action returns a user&#39;;
+&#125;
+</code></pre>
+<p>By default, every path parameter and query parameter comes over the network as a <code>string</code>. In the above example, we specified the <code>id</code> type as a <code>number</code> (in the method signature). Therefore, the <code>ValidationPipe</code> will try to automatically convert a string identifier to a number.</p>
+<h4 appAnchor id="explicit-conversion"><span>Explicit conversion</span></h4>
+<p>In the above section, we showed how the <code>ValidationPipe</code> can implicitly transform query and path parameters based on the expected type. However, this feature requires having auto-transformation enabled.</p>
+<p>Alternatively (with auto-transformation disabled), you can explicitly cast values using the <code>ParseIntPipe</code> or <code>ParseBoolPipe</code> (note that <code>ParseStringPipe</code> is not needed because, as mentioned earlier, every path parameter and query parameter comes over the network as a <code>string</code> by default).</p>
+<pre><code class="language-typescript">
+@Get(&#39;:id&#39;)
+findOne(
+  @Param(&#39;id&#39;, ParseIntPipe) id: number,
+  @Query(&#39;sort&#39;, ParseBoolPipe) sort: boolean,
+) &#123;
+  console.log(typeof id === &#39;number&#39;); // true
+  console.log(typeof sort === &#39;boolean&#39;); // true
+  return &#39;This action returns a user&#39;;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>ParseIntPipe</code> and <code>ParseBoolPipe</code> are exported from the <code>@nestjs/common</code> package.
+</blockquote>
+<h4 appAnchor id="mapped-types"><span>Mapped types</span></h4>
+<p>As you build out features like <strong>CRUD</strong> (Create/Read/Update/Delete) it&#39;s often useful to construct variants on a base entity type. Nest provides several utility functions that perform type transformations to make this task more convenient.</p>
+<blockquote class="
+"><strong>Warning</strong> If your application uses the <code>@nestjs/swagger</code> package, see <a routerLink="/openapi/mapped-types">this chapter</a> for more information about Mapped Types. Likewise, if you use the <code>@nestjs/graphql</code> package see <a routerLink="/graphql/mapped-types">this chapter</a>. Both packages heavily rely on types and so they require a different import to be used. Therefore, if you used <code>@nestjs/mapped-types</code> (instead of an appropriate one, either <code>@nestjs/swagger</code> or <code>@nestjs/graphql</code> depending on the type of your app), you may face various, undocumented side-effects.
+</blockquote>
+<p>When building input validation types (also called DTOs), it&#39;s often useful to build <strong>create</strong> and <strong>update</strong> variations on the same type. For example, the <strong>create</strong> variant may require all fields, while the <strong>update</strong> variant may make all fields optional.</p>
+<p>Nest provides the <code>PartialType()</code> utility function to make this task easier and minimize boilerplate.</p>
+<p>The <code>PartialType()</code> function returns a type (class) with all the properties of the input type set to optional. For example, suppose we have a <strong>create</strong> type as follows:</p>
+<pre><code class="language-typescript">
+export class CreateCatDto &#123;
+  name: string;
+  age: number;
+  breed: string;
+&#125;
+</code></pre>
+<p>By default, all of these fields are required. To create a type with the same fields, but with each one optional, use <code>PartialType()</code> passing the class reference (<code>CreateCatDto</code>) as an argument:</p>
+<pre><code class="language-typescript">
+export class UpdateCatDto extends PartialType(CreateCatDto) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>PartialType()</code> function is imported from the <code>@nestjs/mapped-types</code> package.
+</blockquote>
+<p>The <code>PickType()</code> function constructs a new type (class) by picking a set of properties from an input type. For example, suppose we start with a type like:</p>
+<pre><code class="language-typescript">
+export class CreateCatDto &#123;
+  name: string;
+  age: number;
+  breed: string;
+&#125;
+</code></pre>
+<p>We can pick a set of properties from this class using the <code>PickType()</code> utility function:</p>
+<pre><code class="language-typescript">
+export class UpdateCatAgeDto extends PickType(CreateCatDto, [&#39;age&#39;] as const) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>PickType()</code> function is imported from the <code>@nestjs/mapped-types</code> package.
+</blockquote>
+<p>The <code>OmitType()</code> function constructs a type by picking all properties from an input type and then removing a particular set of keys. For example, suppose we start with a type like:</p>
+<pre><code class="language-typescript">
+export class CreateCatDto &#123;
+  name: string;
+  age: number;
+  breed: string;
+&#125;
+</code></pre>
+<p>We can generate a derived type that has every property <strong>except</strong> <code>name</code> as shown below. In this construct, the second argument to <code>OmitType</code> is an array of property names.</p>
+<pre><code class="language-typescript">
+export class UpdateCatDto extends OmitType(CreateCatDto, [&#39;name&#39;] as const) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>OmitType()</code> function is imported from the <code>@nestjs/mapped-types</code> package.
+</blockquote>
+<p>The <code>IntersectionType()</code> function combines two types into one new type (class). For example, suppose we start with two types like:</p>
+<pre><code class="language-typescript">
+export class CreateCatDto &#123;
+  name: string;
+  breed: string;
+&#125;
+
+export class AdditionalCatInfo &#123;
+  color: string;
+&#125;
+</code></pre>
+<p>We can generate a new type that combines all properties in both types.</p>
+<pre><code class="language-typescript">
+export class UpdateCatDto extends IntersectionType(
+  CreateCatDto,
+  AdditionalCatInfo,
+) &#123;&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>IntersectionType()</code> function is imported from the <code>@nestjs/mapped-types</code> package.
+</blockquote>
+<p>The type mapping utility functions are composable. For example, the following will produce a type (class) that has all of the properties of the <code>CreateCatDto</code> type except for <code>name</code>, and those properties will be set to optional:</p>
+<pre><code class="language-typescript">
+export class UpdateCatDto extends PartialType(
+  OmitType(CreateCatDto, [&#39;name&#39;] as const),
+) &#123;&#125;
+</code></pre>
+<h4 appAnchor id="parsing-and-validating-arrays"><span>Parsing and validating arrays</span></h4>
+<p>TypeScript does not store metadata about generics or interfaces, so when you use them in your DTOs, <code>ValidationPipe</code> may not be able to properly validate incoming data. For instance, in the following code, <code>createUserDtos</code> won&#39;t be correctly validated:</p>
+<pre><code class="language-typescript">
+@Post()
+createBulk(@Body() createUserDtos: CreateUserDto[]) &#123;
+  return &#39;This action adds new users&#39;;
+&#125;
+</code></pre>
+<p>To validate the array, create a dedicated class which contains a property that wraps the array, or use the <code>ParseArrayPipe</code>.</p>
+<pre><code class="language-typescript">
+@Post()
+createBulk(
+  @Body(new ParseArrayPipe(&#123; items: CreateUserDto &#125;))
+  createUserDtos: CreateUserDto[],
+) &#123;
+  return &#39;This action adds new users&#39;;
+&#125;
+</code></pre>
+<p>In addition, the <code>ParseArrayPipe</code> may come in handy when parsing query parameters. Let&#39;s consider a <code>findByIds()</code> method that returns users based on identifiers passed as query parameters.</p>
+<pre><code class="language-typescript">
+@Get()
+findByIds(
+  @Query(&#39;ids&#39;, new ParseArrayPipe(&#123; items: Number, separator: &#39;,&#39; &#125;))
+  ids: number[],
+) &#123;
+  return &#39;This action returns users by ids&#39;;
+&#125;
+</code></pre>
+<p>This construction validates the incoming query parameters from an HTTP <code>GET</code> request like the following:</p>
+<pre><code class="language-bash">
+GET /?ids=1,2,3
+</code></pre>
+<h4 appAnchor id="websockets-and-microservices"><span>WebSockets and Microservices</span></h4>
+<p>While this chapter shows examples using HTTP style applications (e.g., Express or Fastify), the <code>ValidationPipe</code> works the same for WebSockets and microservices, regardless of the transport method that is used.</p>
+<h4 appAnchor id="learn-more"><span>Learn more</span></h4>
+<p>Read more about custom validators, error messages, and available decorators as provided by the <code>class-validator</code> package <a rel='nofollow' target='_blank' href="https://github.com/typestack/class-validator">here</a>.</p>
+
+</div>
+

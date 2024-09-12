@@ -1,0 +1,448 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/fundamentals/dynamic-modules.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="dynamic-modules">Dynamic modules</h3>
+<p>The <a routerLink="/modules">Modules chapter</a> covers the basics of Nest modules, and includes a brief introduction to <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/modules#dynamic-modules">dynamic modules</a>. This chapter expands on the subject of dynamic modules. Upon completion, you should have a good grasp of what they are and how and when to use them.</p>
+<h4 appAnchor id="introduction"><span>Introduction</span></h4>
+<p>Most application code examples in the <strong>Overview</strong> section of the documentation make use of regular, or static, modules. Modules define groups of components like <a routerLink="/providers">providers</a> and <a routerLink="/controllers">controllers</a> that fit together as a modular part of an overall application. They provide an execution context, or scope, for these components. For example, providers defined in a module are visible to other members of the module without the need to export them. When a provider needs to be visible outside of a module, it is first exported from its host module, and then imported into its consuming module.</p>
+<p>Let&#39;s walk through a familiar example.</p>
+<p>First, we&#39;ll define a <code>UsersModule</code> to provide and export a <code>UsersService</code>. <code>UsersModule</code> is the <strong>host</strong> module for <code>UsersService</code>.</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; UsersService &#125; from &#39;./users.service&#39;;
+
+@Module(&#123;
+  providers: [UsersService],
+  exports: [UsersService],
+&#125;)
+export class UsersModule &#123;&#125;
+</code></pre>
+<p>Next, we&#39;ll define an <code>AuthModule</code>, which imports <code>UsersModule</code>, making <code>UsersModule</code>&#39;s exported providers available inside <code>AuthModule</code>:</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; AuthService &#125; from &#39;./auth.service&#39;;
+import &#123; UsersModule &#125; from &#39;../users/users.module&#39;;
+
+@Module(&#123;
+  imports: [UsersModule],
+  providers: [AuthService],
+  exports: [AuthService],
+&#125;)
+export class AuthModule &#123;&#125;
+</code></pre>
+<p>These constructs allow us to inject <code>UsersService</code> in, for example, the <code>AuthService</code> that is hosted in <code>AuthModule</code>:</p>
+<pre><code class="language-typescript">
+import &#123; Injectable &#125; from &#39;@nestjs/common&#39;;
+import &#123; UsersService &#125; from &#39;../users/users.service&#39;;
+
+@Injectable()
+export class AuthService &#123;
+  constructor(private usersService: UsersService) &#123;&#125;
+  /*
+    Implementation that makes use of this.usersService
+  */
+&#125;
+</code></pre>
+<p>We&#39;ll refer to this as <strong>static</strong> module binding. All the information Nest needs to wire together the modules has already been declared in the host and consuming modules. Let&#39;s unpack what&#39;s happening during this process. Nest makes <code>UsersService</code> available inside <code>AuthModule</code> by:</p>
+<ol>
+<li>Instantiating <code>UsersModule</code>, including transitively importing other modules that <code>UsersModule</code> itself consumes, and transitively resolving any dependencies (see <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/fundamentals/custom-providers">Custom providers</a>).</li>
+<li>Instantiating <code>AuthModule</code>, and making <code>UsersModule</code>&#39;s exported providers available to components in <code>AuthModule</code> (just as if they had been declared in <code>AuthModule</code>).</li>
+<li>Injecting an instance of <code>UsersService</code> in <code>AuthService</code>.</li>
+</ol>
+<h4 appAnchor id="dynamic-module-use-case"><span>Dynamic module use case</span></h4>
+<p>With static module binding, there&#39;s no opportunity for the consuming module to <strong>influence</strong> how providers from the host module are configured. Why does this matter? Consider the case where we have a general purpose module that needs to behave differently in different use cases. This is analogous to the concept of a &quot;plugin&quot; in many systems, where a generic facility requires some configuration before it can be used by a consumer.</p>
+<p>A good example with Nest is a <strong>configuration module</strong>. Many applications find it useful to externalize configuration details by using a configuration module. This makes it easy to dynamically change the application settings in different deployments: e.g., a development database for developers, a staging database for the staging/testing environment, etc. By delegating the management of configuration parameters to a configuration module, the application source code remains independent of configuration parameters.</p>
+<p>The challenge is that the configuration module itself, since it&#39;s generic (similar to a &quot;plugin&quot;), needs to be customized by its consuming module. This is where <em>dynamic modules</em> come into play. Using dynamic module features, we can make our configuration module <strong>dynamic</strong> so that the consuming module can use an API to control how the configuration module is customized at the time it is imported.</p>
+<p>In other words, dynamic modules provide an API for importing one module into another, and customizing the properties and behavior of that module when it is imported, as opposed to using the static bindings we&#39;ve seen so far.</p>
+<p><app-banner-devtools></app-banner-devtools></p>
+<h4 appAnchor id="config-module-example"><span>Config module example</span></h4>
+<p>We&#39;ll be using the basic version of the example code from the <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/techniques/configuration#service">configuration chapter</a> for this section. The completed version as of the end of this chapter is available as a working <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/tree/master/sample/25-dynamic-modules">example here</a>.</p>
+<p>Our requirement is to make <code>ConfigModule</code> accept an <code>options</code> object to customize it. Here&#39;s the feature we want to support. The basic sample hard-codes the location of the <code>.env</code> file to be in the project root folder. Let&#39;s suppose we want to make that configurable, such that you can manage your <code>.env</code> files in any folder of your choosing. For example, imagine you want to store your various <code>.env</code> files in a folder under the project root called <code>config</code> (i.e., a sibling folder to <code>src</code>). You&#39;d like to be able to choose different folders when using the <code>ConfigModule</code> in different projects.</p>
+<p>Dynamic modules give us the ability to pass parameters into the module being imported so we can change its behavior. Let&#39;s see how this works. It&#39;s helpful if we start from the end-goal of how this might look from the consuming module&#39;s perspective, and then work backwards. First, let&#39;s quickly review the example of <em>statically</em> importing the <code>ConfigModule</code> (i.e., an approach which has no ability to influence the behavior of the imported module). Pay close attention to the <code>imports</code> array in the <code>@Module()</code> decorator:</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; AppController &#125; from &#39;./app.controller&#39;;
+import &#123; AppService &#125; from &#39;./app.service&#39;;
+import &#123; ConfigModule &#125; from &#39;./config/config.module&#39;;
+
+@Module(&#123;
+  imports: [ConfigModule],
+  controllers: [AppController],
+  providers: [AppService],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>Let&#39;s consider what a <em>dynamic module</em> import, where we&#39;re passing in a configuration object, might look like. Compare the difference in the <code>imports</code> array between these two examples:</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; AppController &#125; from &#39;./app.controller&#39;;
+import &#123; AppService &#125; from &#39;./app.service&#39;;
+import &#123; ConfigModule &#125; from &#39;./config/config.module&#39;;
+
+@Module(&#123;
+  imports: [ConfigModule.register(&#123; folder: &#39;./config&#39; &#125;)],
+  controllers: [AppController],
+  providers: [AppService],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>Let&#39;s see what&#39;s happening in the dynamic example above. What are the moving parts?</p>
+<ol>
+<li><code>ConfigModule</code> is a normal class, so we can infer that it must have a <strong>static method</strong> called <code>register()</code>. We know it&#39;s static because we&#39;re calling it on the <code>ConfigModule</code> class, not on an <strong>instance</strong> of the class. Note: this method, which we will create soon, can have any arbitrary name, but by convention we should call it either <code>forRoot()</code> or <code>register()</code>.</li>
+<li>The <code>register()</code> method is defined by us, so we can accept any input arguments we like. In this case, we&#39;re going to accept a simple <code>options</code> object with suitable properties, which is the typical case.</li>
+<li>We can infer that the <code>register()</code> method must return something like a <code>module</code> since its return value appears in the familiar <code>imports</code> list, which we&#39;ve seen so far includes a list of modules.</li>
+</ol>
+<p>In fact, what our <code>register()</code> method will return is a <code>DynamicModule</code>. A dynamic module is nothing more than a module created at run-time, with the same exact properties as a static module, plus one additional property called <code>module</code>. Let&#39;s quickly review a sample static module declaration, paying close attention to the module options passed in to the decorator:</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [DogsModule],
+  controllers: [CatsController],
+  providers: [CatsService],
+  exports: [CatsService]
+&#125;)
+</code></pre>
+<p>Dynamic modules must return an object with the exact same interface, plus one additional property called <code>module</code>. The <code>module</code> property serves as the name of the module, and should be the same as the class name of the module, as shown in the example below.</p>
+<blockquote class="
+info "><strong>Hint</strong> For a dynamic module, all properties of the module options object are optional <strong>except</strong> <code>module</code>.
+</blockquote>
+<p>What about the static <code>register()</code> method? We can now see that its job is to return an object that has the <code>DynamicModule</code> interface. When we call it, we are effectively providing a module to the <code>imports</code> list, similar to the way we would do so in the static case by listing a module class name. In other words, the dynamic module API simply returns a module, but rather than fix the properties in the <code>@Module</code> decorator, we specify them programmatically.</p>
+<p>There are still a couple of details to cover to help make the picture complete:</p>
+<ol>
+<li>We can now state that the <code>@Module()</code> decorator&#39;s <code>imports</code> property can take not only a module class name (e.g., <code>imports: [UsersModule]</code>), but also a function <strong>returning</strong> a dynamic module (e.g., <code>imports: [ConfigModule.register(...)]</code>).</li>
+<li>A dynamic module can itself import other modules. We won&#39;t do so in this example, but if the dynamic module depends on providers from other modules, you would import them using the optional <code>imports</code> property. Again, this is exactly analogous to the way you&#39;d declare metadata for a static module using the <code>@Module()</code> decorator.</li>
+</ol>
+<p>Armed with this understanding, we can now look at what our dynamic <code>ConfigModule</code> declaration must look like. Let&#39;s take a crack at it.</p>
+<pre><code class="language-typescript">
+import &#123; DynamicModule, Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; ConfigService &#125; from &#39;./config.service&#39;;
+
+@Module(&#123;&#125;)
+export class ConfigModule &#123;
+  static register(): DynamicModule &#123;
+    return &#123;
+      module: ConfigModule,
+      providers: [ConfigService],
+      exports: [ConfigService],
+    &#125;;
+  &#125;
+&#125;
+</code></pre>
+<p>It should now be clear how the pieces tie together. Calling <code>ConfigModule.register(...)</code> returns a <code>DynamicModule</code> object with properties which are essentially the same as those that, until now, we&#39;ve provided as metadata via the <code>@Module()</code> decorator.</p>
+<blockquote class="
+info "><strong>Hint</strong> Import <code>DynamicModule</code> from <code>@nestjs/common</code>.
+</blockquote>
+<p>Our dynamic module isn&#39;t very interesting yet, however, as we haven&#39;t introduced any capability to <strong>configure</strong> it as we said we would like to do. Let&#39;s address that next.</p>
+<h4 appAnchor id="module-configuration"><span>Module configuration</span></h4>
+<p>The obvious solution for customizing the behavior of the <code>ConfigModule</code> is to pass it an <code>options</code> object in the static <code>register()</code> method, as we guessed above. Let&#39;s look once again at our consuming module&#39;s <code>imports</code> property:</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; AppController &#125; from &#39;./app.controller&#39;;
+import &#123; AppService &#125; from &#39;./app.service&#39;;
+import &#123; ConfigModule &#125; from &#39;./config/config.module&#39;;
+
+@Module(&#123;
+  imports: [ConfigModule.register(&#123; folder: &#39;./config&#39; &#125;)],
+  controllers: [AppController],
+  providers: [AppService],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>That nicely handles passing an <code>options</code> object to our dynamic module. How do we then use that <code>options</code> object in the <code>ConfigModule</code>? Let&#39;s consider that for a minute. We know that our <code>ConfigModule</code> is basically a host for providing and exporting an injectable service - the <code>ConfigService</code> - for use by other providers. It&#39;s actually our <code>ConfigService</code> that needs to read the <code>options</code> object to customize its behavior. Let&#39;s assume for the moment that we know how to somehow get the <code>options</code> from the <code>register()</code> method into the <code>ConfigService</code>. With that assumption, we can make a few changes to the service to customize its behavior based on the properties from the <code>options</code> object. (<strong>Note</strong>: for the time being, since we <em>haven&#39;t</em> actually determined how to pass it in, we&#39;ll just hard-code <code>options</code>. We&#39;ll fix this in a minute).</p>
+<pre><code class="language-typescript">
+import &#123; Injectable &#125; from &#39;@nestjs/common&#39;;
+import * as dotenv from &#39;dotenv&#39;;
+import * as fs from &#39;fs&#39;;
+import * as path from &#39;path&#39;;
+import &#123; EnvConfig &#125; from &#39;./interfaces&#39;;
+
+@Injectable()
+export class ConfigService &#123;
+  private readonly envConfig: EnvConfig;
+
+  constructor() &#123;
+    const options = &#123; folder: &#39;./config&#39; &#125;;
+
+    const filePath = `$&#123;process.env.NODE_ENV || &#39;development&#39;&#125;.env`;
+    const envFile = path.resolve(__dirname, &#39;../../&#39;, options.folder, filePath);
+    this.envConfig = dotenv.parse(fs.readFileSync(envFile));
+  &#125;
+
+  get(key: string): string &#123;
+    return this.envConfig[key];
+  &#125;
+&#125;
+</code></pre>
+<p>Now our <code>ConfigService</code> knows how to find the <code>.env</code> file in the folder we&#39;ve specified in <code>options</code>.</p>
+<p>Our remaining task is to somehow inject the <code>options</code> object from the <code>register()</code> step into our <code>ConfigService</code>. And of course, we&#39;ll use <em>dependency injection</em> to do it. This is a key point, so make sure you understand it. Our <code>ConfigModule</code> is providing <code>ConfigService</code>. <code>ConfigService</code> in turn depends on the <code>options</code> object that is only supplied at run-time. So, at run-time, we&#39;ll need to first bind the <code>options</code> object to the Nest IoC container, and then have Nest inject it into our <code>ConfigService</code>. Remember from the <strong>Custom providers</strong> chapter that providers can <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/fundamentals/custom-providers#non-service-based-providers">include any value</a> not just services, so we&#39;re fine using dependency injection to handle a simple <code>options</code> object.</p>
+<p>Let&#39;s tackle binding the options object to the IoC container first. We do this in our static <code>register()</code> method. Remember that we are dynamically constructing a module, and one of the properties of a module is its list of providers. So what we need to do is define our options object as a provider. This will make it injectable into the <code>ConfigService</code>, which we&#39;ll take advantage of in the next step. In the code below, pay attention to the <code>providers</code> array:</p>
+<pre><code class="language-typescript">
+import &#123; DynamicModule, Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; ConfigService &#125; from &#39;./config.service&#39;;
+
+@Module(&#123;&#125;)
+export class ConfigModule &#123;
+  static register(options: Record&lt;string, any&gt;): DynamicModule &#123;
+    return &#123;
+      module: ConfigModule,
+      providers: [
+        &#123;
+          provide: &#39;CONFIG_OPTIONS&#39;,
+          useValue: options,
+        &#125;,
+        ConfigService,
+      ],
+      exports: [ConfigService],
+    &#125;;
+  &#125;
+&#125;
+</code></pre>
+<p>Now we can complete the process by injecting the <code>&#39;CONFIG_OPTIONS&#39;</code> provider into the <code>ConfigService</code>. Recall that when we define a provider using a non-class token we need to use the <code>@Inject()</code> decorator <a rel='nofollow' target='_blank' href="https://docs.nestjs.com/fundamentals/custom-providers#non-class-based-provider-tokens">as described here</a>.</p>
+<pre><code class="language-typescript">
+import * as dotenv from &#39;dotenv&#39;;
+import * as fs from &#39;fs&#39;;
+import * as path from &#39;path&#39;;
+import &#123; Injectable, Inject &#125; from &#39;@nestjs/common&#39;;
+import &#123; EnvConfig &#125; from &#39;./interfaces&#39;;
+
+@Injectable()
+export class ConfigService &#123;
+  private readonly envConfig: EnvConfig;
+
+  constructor(@Inject(&#39;CONFIG_OPTIONS&#39;) private options: Record&lt;string, any&gt;) &#123;
+    const filePath = `$&#123;process.env.NODE_ENV || &#39;development&#39;&#125;.env`;
+    const envFile = path.resolve(__dirname, &#39;../../&#39;, options.folder, filePath);
+    this.envConfig = dotenv.parse(fs.readFileSync(envFile));
+  &#125;
+
+  get(key: string): string &#123;
+    return this.envConfig[key];
+  &#125;
+&#125;
+</code></pre>
+<p>One final note: for simplicity we used a string-based injection token (<code>&#39;CONFIG_OPTIONS&#39;</code>) above, but best practice is to define it as a constant (or <code>Symbol</code>) in a separate file, and import that file. For example:</p>
+<pre><code class="language-typescript">
+export const CONFIG_OPTIONS = &#39;CONFIG_OPTIONS&#39;;
+</code></pre>
+<h4 appAnchor id="example"><span>Example</span></h4>
+<p>A full example of the code in this chapter can be found <a rel='nofollow' target='_blank' href="https://github.com/nestjs/nest/tree/master/sample/25-dynamic-modules">here</a>.</p>
+<h4 appAnchor id="community-guidelines"><span>Community guidelines</span></h4>
+<p>You may have seen the use for methods like <code>forRoot</code>, <code>register</code>, and <code>forFeature</code> around some of the <code>@nestjs/</code> packages and may be wondering what the difference for all of these methods are. There is no hard rule about this, but the <code>@nestjs/</code> packages try to follow these guidelines:</p>
+<p>When creating a module with:</p>
+<ul>
+<li><p><code>register</code>, you are expecting to configure a dynamic module with a specific configuration for use only by the calling module. For example, with Nest&#39;s <code>@nestjs/axios</code>: <code>HttpModule.register({{ &#39;{&#39; }} baseUrl: &#39;someUrl&#39; {{ &#39;}&#39; }})</code>. If, in another module you use <code>HttpModule.register({{ &#39;{&#39; }} baseUrl: &#39;somewhere else&#39; {{ &#39;}&#39; }})</code>, it will have the different configuration. You can do this for as many modules as you want.</p>
+</li>
+<li><p><code>forRoot</code>, you are expecting to configure a dynamic module once and reuse that configuration in multiple places (though possibly unknowingly as it&#39;s abstracted away). This is why you have one <code>GraphQLModule.forRoot()</code>, one <code>TypeOrmModule.forRoot()</code>, etc.</p>
+</li>
+<li><p><code>forFeature</code>, you are expecting to use the configuration of a dynamic module&#39;s <code>forRoot</code> but need to modify some configuration specific to the calling module&#39;s needs (i.e. which repository this module should have access to, or the context that a logger should use.)</p>
+</li>
+</ul>
+<p>All of these, usually, have their <code>async</code> counterparts as well, <code>registerAsync</code>, <code>forRootAsync</code>, and <code>forFeatureAsync</code>, that mean the same thing, but use Nest&#39;s Dependency Injection for the configuration as well.</p>
+<h4 appAnchor id="configurable-module-builder"><span>Configurable module builder</span></h4>
+<p>As manually creating highly configurable, dynamic modules that expose <code>async</code> methods (<code>registerAsync</code>, <code>forRootAsync</code>, etc.) is quite complicated, especially for newcomers, Nest exposes the <code>ConfigurableModuleBuilder</code> class that facilitates this process and lets you construct a module &quot;blueprint&quot; in just a few lines of code.</p>
+<p>For example, let&#39;s take the example we used above (<code>ConfigModule</code>) and convert it to use the <code>ConfigurableModuleBuilder</code>. Before we start, let&#39;s make sure we create a dedicated interface that represents what options our <code>ConfigModule</code> takes in.</p>
+<pre><code class="language-typescript">
+export interface ConfigModuleOptions &#123;
+  folder: string;
+&#125;
+</code></pre>
+<p>With this in place, create a new dedicated file (alongside the existing <code>config.module.ts</code> file) and name it <code>config.module-definition.ts</code>. In this file, let&#39;s utilize the <code>ConfigurableModuleBuilder</code> to construct <code>ConfigModule</code> definition.</p>
+
+<span class="filename">
+  {{ 'config.module-definition' | extension: app1952ddb2bdc6ece41574de64060e4904a3448fe7.isJsActive }}
+<app-tabs #app1952ddb2bdc6ece41574de64060e4904a3448fe7></app-tabs>
+</span><pre [class.hide]="app1952ddb2bdc6ece41574de64060e4904a3448fe7.isJsActive"><code class="language-typescript">
+import &#123; ConfigurableModuleBuilder &#125; from &#39;@nestjs/common&#39;;
+import &#123; ConfigModuleOptions &#125; from &#39;./interfaces/config-module-options.interface&#39;;
+
+export const &#123; ConfigurableModuleClass, MODULE_OPTIONS_TOKEN &#125; =
+  new ConfigurableModuleBuilder&lt;ConfigModuleOptions&gt;().build();
+</code></pre>
+<pre [class.hide]="!app1952ddb2bdc6ece41574de64060e4904a3448fe7.isJsActive"><code class="language-typescript">
+import &#123; ConfigurableModuleBuilder &#125; from &#39;@nestjs/common&#39;;
+
+export const &#123; ConfigurableModuleClass, MODULE_OPTIONS_TOKEN &#125; =
+  new ConfigurableModuleBuilder().build();
+</code></pre><p>Now let&#39;s open up the <code>config.module.ts</code> file and modify its implementation to leverage the auto-generated <code>ConfigurableModuleClass</code>:</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; ConfigService &#125; from &#39;./config.service&#39;;
+import &#123; ConfigurableModuleClass &#125; from &#39;./config.module-definition&#39;;
+
+@Module(&#123;
+  providers: [ConfigService],
+  exports: [ConfigService],
+&#125;)
+export class ConfigModule extends ConfigurableModuleClass &#123;&#125;
+</code></pre>
+<p>Extending the <code>ConfigurableModuleClass</code> means that <code>ConfigModule</code> provides now not only the <code>register</code> method (as previously with the custom implementation), but also the <code>registerAsync</code> method which allows consumers asynchronously configure that module, for example, by supplying async factories:</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    ConfigModule.register(&#123; folder: &#39;./config&#39; &#125;),
+    // or alternatively:
+    // ConfigModule.registerAsync(&#123;
+    //   useFactory: () =&gt; &#123;
+    //     return &#123;
+    //       folder: &#39;./config&#39;,
+    //     &#125;
+    //   &#125;,
+    //   inject: [...any extra dependencies...]
+    // &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>Lastly, let&#39;s update the <code>ConfigService</code> class to inject the generated module options&#39; provider instead of the <code>&#39;CONFIG_OPTIONS&#39;</code> that we used so far.</p>
+<pre><code class="language-typescript">
+@Injectable()
+export class ConfigService &#123;
+  constructor(@Inject(MODULE_OPTIONS_TOKEN) private options: ConfigModuleOptions) &#123; ... &#125;
+&#125;
+</code></pre>
+<h4 appAnchor id="custom-method-key"><span>Custom method key</span></h4>
+<p><code>ConfigurableModuleClass</code> by default provides the <code>register</code> and its counterpart <code>registerAsync</code> methods. To use a different method name, use the <code>ConfigurableModuleBuilder#setClassMethodName</code> method, as follows:</p>
+
+<span class="filename">
+  {{ 'config.module-definition' | extension: app24deaf55f6b88672f79e22cd3752c2bb8ee735da.isJsActive }}
+<app-tabs #app24deaf55f6b88672f79e22cd3752c2bb8ee735da></app-tabs>
+</span><pre [class.hide]="app24deaf55f6b88672f79e22cd3752c2bb8ee735da.isJsActive"><code class="language-typescript">
+export const &#123; ConfigurableModuleClass, MODULE_OPTIONS_TOKEN &#125; =
+  new ConfigurableModuleBuilder&lt;ConfigModuleOptions&gt;().setClassMethodName(&#39;forRoot&#39;).build();
+</code></pre>
+<pre [class.hide]="!app24deaf55f6b88672f79e22cd3752c2bb8ee735da.isJsActive"><code class="language-typescript">
+export const &#123; ConfigurableModuleClass, MODULE_OPTIONS_TOKEN &#125; =
+  new ConfigurableModuleBuilder().setClassMethodName(&#39;forRoot&#39;).build();
+</code></pre><p>This construction will instruct <code>ConfigurableModuleBuilder</code> to generate a class that exposes <code>forRoot</code> and <code>forRootAsync</code> instead. Example:</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    ConfigModule.forRoot(&#123; folder: &#39;./config&#39; &#125;), // &lt;-- note the use of &quot;forRoot&quot; instead of &quot;register&quot;
+    // or alternatively:
+    // ConfigModule.forRootAsync(&#123;
+    //   useFactory: () =&gt; &#123;
+    //     return &#123;
+    //       folder: &#39;./config&#39;,
+    //     &#125;
+    //   &#125;,
+    //   inject: [...any extra dependencies...]
+    // &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<h4 appAnchor id="custom-options-factory-class"><span>Custom options factory class</span></h4>
+<p>Since the <code>registerAsync</code> method (or <code>forRootAsync</code> or any other name, depending on the configuration) lets consumer pass a provider definition that resolves to the module configuration, a library consumer could potentially supply a class to be used to construct the configuration object.</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    ConfigModule.registerAsync(&#123;
+      useClass: ConfigModuleOptionsFactory,
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>This class, by default, must provide the <code>create()</code> method that returns a module configuration object. However, if your library follows a different naming convention, you can change that behavior and instruct <code>ConfigurableModuleBuilder</code> to expect a different method, for example, <code>createConfigOptions</code>, using the <code>ConfigurableModuleBuilder#setFactoryMethodName</code> method:</p>
+
+<span class="filename">
+  {{ 'config.module-definition' | extension: app962c5c452f00f89f8fff28015f8ea9052c57fd3c.isJsActive }}
+<app-tabs #app962c5c452f00f89f8fff28015f8ea9052c57fd3c></app-tabs>
+</span><pre [class.hide]="app962c5c452f00f89f8fff28015f8ea9052c57fd3c.isJsActive"><code class="language-typescript">
+export const &#123; ConfigurableModuleClass, MODULE_OPTIONS_TOKEN &#125; =
+  new ConfigurableModuleBuilder&lt;ConfigModuleOptions&gt;().setFactoryMethodName(&#39;createConfigOptions&#39;).build();
+</code></pre>
+<pre [class.hide]="!app962c5c452f00f89f8fff28015f8ea9052c57fd3c.isJsActive"><code class="language-typescript">
+export const &#123; ConfigurableModuleClass, MODULE_OPTIONS_TOKEN &#125; =
+  new ConfigurableModuleBuilder().setFactoryMethodName(&#39;createConfigOptions&#39;).build();
+</code></pre><p>Now, <code>ConfigModuleOptionsFactory</code> class must expose the <code>createConfigOptions</code> method (instead of <code>create</code>):</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    ConfigModule.registerAsync(&#123;
+      useClass: ConfigModuleOptionsFactory, // &lt;-- this class must provide the &quot;createConfigOptions&quot; method
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<h4 appAnchor id="extra-options"><span>Extra options</span></h4>
+<p>There are edge-cases when your module may need to take extra options that determine how it is supposed to behave (a nice example of such an option is the <code>isGlobal</code> flag - or just <code>global</code>) that at the same time, shouldn&#39;t be included in the <code>MODULE_OPTIONS_TOKEN</code> provider (as they are irrelevant to services/providers registered within that module, for example, <code>ConfigService</code> does not need to know whether its host module is registered as a global module).</p>
+<p>In such cases, the <code>ConfigurableModuleBuilder#setExtras</code> method can be used. See the following example:</p>
+<pre><code class="language-typescript">
+export const &#123; ConfigurableModuleClass, MODULE_OPTIONS_TOKEN &#125; = new ConfigurableModuleBuilder&lt;ConfigModuleOptions&gt;()
+  .setExtras(
+    &#123;
+      isGlobal: true,
+    &#125;,
+    (definition, extras) =&gt; (&#123;
+      ...definition,
+      global: extras.isGlobal,
+    &#125;),
+  )
+  .build();
+</code></pre>
+<p>In the example above, the first argument passed into the <code>setExtras</code> method is an object containing default values for the &quot;extra&quot; properties. The second argument is a function that takes an auto-generated module definitions (with <code>provider</code>, <code>exports</code>, etc.) and <code>extras</code> object which represents extra properties (either specified by the consumer or defaults). The returned value of this function is a modified module definition. In this specific example, we&#39;re taking the <code>extras.isGlobal</code> property and assigning it to the <code>global</code> property of the module definition (which in turn determines whether a module is global or not, read more <a href="/modules#dynamic-modules">here</a>).</p>
+<p>Now when consuming this module, the additional <code>isGlobal</code> flag can be passed in, as follows:</p>
+<pre><code class="language-typescript">
+@Module(&#123;
+  imports: [
+    ConfigModule.register(&#123;
+      isGlobal: true,
+      folder: &#39;./config&#39;,
+    &#125;),
+  ],
+&#125;)
+export class AppModule &#123;&#125;
+</code></pre>
+<p>However, since <code>isGlobal</code> is declared as an &quot;extra&quot; property, it won&#39;t be available in the <code>MODULE_OPTIONS_TOKEN</code> provider:</p>
+<pre><code class="language-typescript">
+@Injectable()
+export class ConfigService &#123;
+  constructor(@Inject(MODULE_OPTIONS_TOKEN) private options: ConfigModuleOptions) &#123;
+    // &quot;options&quot; object will not have the &quot;isGlobal&quot; property
+    // ...
+  &#125;
+&#125;
+</code></pre>
+<h4 appAnchor id="extending-auto-generated-methods"><span>Extending auto-generated methods</span></h4>
+<p>The auto-generated static methods (<code>register</code>, <code>registerAsync</code>, etc.) can be extended if needed, as follows:</p>
+<pre><code class="language-typescript">
+import &#123; Module &#125; from &#39;@nestjs/common&#39;;
+import &#123; ConfigService &#125; from &#39;./config.service&#39;;
+import &#123; ConfigurableModuleClass, ASYNC_OPTIONS_TYPE, OPTIONS_TYPE &#125; from &#39;./config.module-definition&#39;;
+
+@Module(&#123;
+  providers: [ConfigService],
+  exports: [ConfigService],
+&#125;)
+export class ConfigModule extends ConfigurableModuleClass &#123;
+  static register(options: typeof OPTIONS_TYPE): DynamicModule &#123;
+    return &#123;
+      // your custom logic here
+      ...super.register(options),
+    &#125;;
+  &#125;
+
+  static registerAsync(options: typeof ASYNC_OPTIONS_TYPE): DynamicModule &#123;
+    return &#123;
+      // your custom logic here
+      ...super.registerAsync(options),
+    &#125;;
+  &#125;
+&#125;
+</code></pre>
+<p>Note the use of <code>OPTIONS_TYPE</code> and <code>ASYNC_OPTIONS_TYPE</code> types that must be exported from the module definition file:</p>
+<pre><code class="language-typescript">
+export const &#123; ConfigurableModuleClass, MODULE_OPTIONS_TOKEN, OPTIONS_TYPE, ASYNC_OPTIONS_TYPE &#125; = new ConfigurableModuleBuilder&lt;ConfigModuleOptions&gt;().build();
+</code></pre>
+
+</div>
+

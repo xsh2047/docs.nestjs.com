@@ -1,0 +1,213 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/fundamentals/provider-scopes.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="injection-scopes">Injection scopes</h3>
+<p>For people coming from different programming language backgrounds, it might be unexpected to learn that in Nest, almost everything is shared across incoming requests. We have a connection pool to the database, singleton services with global state, etc. Remember that Node.js doesn&#39;t follow the request/response Multi-Threaded Stateless Model in which every request is processed by a separate thread. Hence, using singleton instances is fully <strong>safe</strong> for our applications.</p>
+<p>However, there are edge cases when request-based lifetime may be the desired behavior, for instance, per-request caching in GraphQL applications, request tracking, and multi-tenancy. Injection scopes provide a mechanism to obtain the desired provider lifetime behavior.</p>
+<h4 appAnchor id="provider-scope"><span>Provider scope</span></h4>
+<p>A provider can have any of the following scopes:</p>
+<table>
+  <tr>
+    <td><code>DEFAULT</code></td>
+    <td>A single instance of the provider is shared across the entire application. The instance lifetime is tied directly to the application lifecycle. Once the application has bootstrapped, all singleton providers have been instantiated. Singleton scope is used by default.</td>
+  </tr>
+  <tr>
+    <td><code>REQUEST</code></td>
+    <td>A new instance of the provider is created exclusively for each incoming <strong>request</strong>.  The instance is garbage-collected after the request has completed processing.</td>
+  </tr>
+  <tr>
+    <td><code>TRANSIENT</code></td>
+    <td>Transient providers are not shared across consumers. Each consumer that injects a transient provider will receive a new, dedicated instance.</td>
+  </tr>
+</table>
+
+<blockquote class="
+info "><strong>Hint</strong> Using singleton scope is <strong>recommended</strong> for most use cases. Sharing providers across consumers and across requests means that an instance can be cached and its initialization occurs only once, during application startup.
+</blockquote>
+<h4 appAnchor id="usage"><span>Usage</span></h4>
+<p>Specify injection scope by passing the <code>scope</code> property to the <code>@Injectable()</code> decorator options object:</p>
+<pre><code class="language-typescript">
+import &#123; Injectable, Scope &#125; from &#39;@nestjs/common&#39;;
+
+@Injectable(&#123; scope: Scope.REQUEST &#125;)
+export class CatsService &#123;&#125;
+</code></pre>
+<p>Similarly, for <a routerLink="/fundamentals/custom-providers">custom providers</a>, set the <code>scope</code> property in the long-hand form for a provider registration:</p>
+<pre><code class="language-typescript">
+&#123;
+  provide: &#39;CACHE_MANAGER&#39;,
+  useClass: CacheManager,
+  scope: Scope.TRANSIENT,
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Import the <code>Scope</code> enum from <code>@nestjs/common</code>
+</blockquote>
+<p>Singleton scope is used by default and does not need be declared. If you do want to declare a provider as singleton scoped, use the <code>Scope.DEFAULT</code> value for the <code>scope</code> property.</p>
+<blockquote class="
+warning "><strong>Notice</strong> Websocket Gateways should not use request-scoped providers because they must act as singletons. Each gateway encapsulates a real socket and cannot be instantiated multiple times. The limitation also applies to some other providers, like <a href="../security/authentication#request-scoped-strategies"><em>Passport strategies</em></a> or <em>Cron controllers</em>.
+</blockquote>
+<h4 appAnchor id="controller-scope"><span>Controller scope</span></h4>
+<p>Controllers can also have scope, which applies to all request method handlers declared in that controller. Like provider scope, the scope of a controller declares its lifetime. For a request-scoped controller, a new instance is created for each inbound request, and garbage-collected when the request has completed processing.</p>
+<p>Declare controller scope with the <code>scope</code> property of the <code>ControllerOptions</code> object:</p>
+<pre><code class="language-typescript">
+@Controller(&#123;
+  path: &#39;cats&#39;,
+  scope: Scope.REQUEST,
+&#125;)
+export class CatsController &#123;&#125;
+</code></pre>
+<h4 appAnchor id="scope-hierarchy"><span>Scope hierarchy</span></h4>
+<p>The <code>REQUEST</code> scope bubbles up the injection chain. A controller that depends on a request-scoped provider will, itself, be request-scoped.</p>
+<p>Imagine the following dependency graph: <code>CatsController &lt;- CatsService &lt;- CatsRepository</code>. If <code>CatsService</code> is request-scoped (and the others are default singletons), the <code>CatsController</code> will become request-scoped as it is dependent on the injected service. The <code>CatsRepository</code>, which is not dependent, would remain singleton-scoped.</p>
+<p>Transient-scoped dependencies don&#39;t follow that pattern. If a singleton-scoped <code>DogsService</code> injects a transient <code>LoggerService</code> provider, it will receive a fresh instance of it. However, <code>DogsService</code> will stay singleton-scoped, so injecting it anywhere would <em>not</em> resolve to a new instance of <code>DogsService</code>. In case it&#39;s desired behavior, <code>DogsService</code> must be explicitly marked as <code>TRANSIENT</code> as well.</p>
+<p><app-banner-courses></app-banner-courses></p>
+<h4 appAnchor id="request-provider"><span>Request provider</span></h4>
+<p>In an HTTP server-based application (e.g., using <code>@nestjs/platform-express</code> or <code>@nestjs/platform-fastify</code>), you may want to access a reference to the original request object when using request-scoped providers. You can do this by injecting the <code>REQUEST</code> object.</p>
+<p>The <code>REQUEST</code> provider is request-scoped, so you don&#39;t need to explicitly use the <code>REQUEST</code> scope in this case.</p>
+<pre><code class="language-typescript">
+import &#123; Injectable, Scope, Inject &#125; from &#39;@nestjs/common&#39;;
+import &#123; REQUEST &#125; from &#39;@nestjs/core&#39;;
+import &#123; Request &#125; from &#39;express&#39;;
+
+@Injectable(&#123; scope: Scope.REQUEST &#125;)
+export class CatsService &#123;
+  constructor(@Inject(REQUEST) private request: Request) &#123;&#125;
+&#125;
+</code></pre>
+<p>Because of underlying platform/protocol differences, you access the inbound request slightly differently for Microservice or GraphQL applications. In <a routerLink="/graphql/quick-start">GraphQL</a> applications, you inject <code>CONTEXT</code> instead of <code>REQUEST</code>:</p>
+<pre><code class="language-typescript">
+import &#123; Injectable, Scope, Inject &#125; from &#39;@nestjs/common&#39;;
+import &#123; CONTEXT &#125; from &#39;@nestjs/graphql&#39;;
+
+@Injectable(&#123; scope: Scope.REQUEST &#125;)
+export class CatsService &#123;
+  constructor(@Inject(CONTEXT) private context) &#123;&#125;
+&#125;
+</code></pre>
+<p>You then configure your <code>context</code> value (in the <code>GraphQLModule</code>) to contain <code>request</code> as its property.</p>
+<h4 appAnchor id="inquirer-provider"><span>Inquirer provider</span></h4>
+<p>If you want to get the class where a provider was constructed, for instance in logging or metrics providers, you can inject the <code>INQUIRER</code> token.</p>
+<pre><code class="language-typescript">
+import &#123; Inject, Injectable, Scope &#125; from &#39;@nestjs/common&#39;;
+import &#123; INQUIRER &#125; from &#39;@nestjs/core&#39;;
+
+@Injectable(&#123; scope: Scope.TRANSIENT &#125;)
+export class HelloService &#123;
+  constructor(@Inject(INQUIRER) private parentClass: object) &#123;&#125;
+
+  sayHello(message: string) &#123;
+    console.log(`$&#123;this.parentClass?.constructor?.name&#125;: $&#123;message&#125;`);
+  &#125;
+&#125;
+</code></pre>
+<p>And then use it as follows:</p>
+<pre><code class="language-typescript">
+import &#123; Injectable &#125; from &#39;@nestjs/common&#39;;
+import &#123; HelloService &#125; from &#39;./hello.service&#39;;
+
+@Injectable()
+export class AppService &#123;
+  constructor(private helloService: HelloService) &#123;&#125;
+
+  getRoot(): string &#123;
+    this.helloService.sayHello(&#39;My name is getRoot&#39;);
+
+    return &#39;Hello world!&#39;;
+  &#125;
+&#125;
+</code></pre>
+<p>In the example above when <code>AppService#getRoot</code> is called, <code>&quot;AppService: My name is getRoot&quot;</code> will be logged to the console.</p>
+<h4 appAnchor id="performance"><span>Performance</span></h4>
+<p>Using request-scoped providers will have an impact on application performance. While Nest tries to cache as much metadata as possible, it will still have to create an instance of your class on each request. Hence, it will slow down your average response time and overall benchmarking result. Unless a provider must be request-scoped, it is strongly recommended that you use the default singleton scope.</p>
+<blockquote class="
+info "><strong>Hint</strong> Although it all sounds quite intimidating, a properly designed application that leverages request-scoped providers should not slow down by more than ~5% latency-wise.
+</blockquote>
+<h4 appAnchor id="durable-providers"><span>Durable providers</span></h4>
+<p>Request-scoped providers, as mentioned in the section above, may lead to increased latency since having at least 1 request-scoped provider (injected into the controller instance, or deeper - injected into one of its providers) makes the controller request-scoped as well. That means it must be recreated (instantiated) per each individual request (and garbage collected afterward). Now, that also means, that for let&#39;s say 30k requests in parallel, there will be 30k ephemeral instances of the controller (and its request-scoped providers).</p>
+<p>Having a common provider that most providers depend on (think of a database connection, or a logger service), automatically converts all those providers to request-scoped providers as well. This can pose a challenge in <strong>multi-tenant applications</strong>, especially for those that have a central request-scoped &quot;data source&quot; provider that grabs headers/token from the request object and based on its values, retrieves the corresponding database connection/schema (specific to that tenant).</p>
+<p>For instance, let&#39;s say you have an application alternately used by 10 different customers. Each customer has its <strong>own dedicated data source</strong>, and you want to make sure customer A will never be able to reach customer B&#39;s database. One way to achieve this could be to declare a request-scoped &quot;data source&quot; provider that - based on the request object - determines what&#39;s the &quot;current customer&quot; and retrieves its corresponding database. With this approach, you can turn your application into a multi-tenant application in just a few minutes. But, a major downside to this approach is that since most likely a large chunk of your application&#39; components rely on the &quot;data source&quot; provider, they will implicitly become &quot;request-scoped&quot;, and therefore you will undoubtedly see an impact in your apps performance.</p>
+<p>But what if we had a better solution? Since we only have 10 customers, couldn&#39;t we have 10 individual <a href="/fundamentals/module-ref#resolving-scoped-providers">DI sub-trees</a> per customer (instead of recreating each tree per request)? If your providers don&#39;t rely on any property that&#39;s truly unique for each consecutive request (e.g., request UUID) but instead there&#39;re some specific attributes that let us aggregate (classify) them, there&#39;s no reason to <em>recreate DI sub-tree</em> on every incoming request.</p>
+<p>And that&#39;s exactly when the <strong>durable providers</strong> come in handy.</p>
+<p>Before we start flagging providers as durable, we must first register a <strong>strategy</strong> that instructs Nest what are those &quot;common request attributes&quot;, provide logic that groups requests - associates them with their corresponding DI sub-trees.</p>
+<pre><code class="language-typescript">
+import &#123;
+  HostComponentInfo,
+  ContextId,
+  ContextIdFactory,
+  ContextIdStrategy,
+&#125; from &#39;@nestjs/core&#39;;
+import &#123; Request &#125; from &#39;express&#39;;
+
+const tenants = new Map&lt;string, ContextId&gt;();
+
+export class AggregateByTenantContextIdStrategy implements ContextIdStrategy &#123;
+  attach(contextId: ContextId, request: Request) &#123;
+    const tenantId = request.headers[&#39;x-tenant-id&#39;] as string;
+    let tenantSubTreeId: ContextId;
+
+    if (tenants.has(tenantId)) &#123;
+      tenantSubTreeId = tenants.get(tenantId);
+    &#125; else &#123;
+      tenantSubTreeId = ContextIdFactory.create();
+      tenants.set(tenantId, tenantSubTreeId);
+    &#125;
+
+    // If tree is not durable, return the original &quot;contextId&quot; object
+    return (info: HostComponentInfo) =&gt;
+      info.isTreeDurable ? tenantSubTreeId : contextId;
+  &#125;
+&#125;
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> Similar to the request scope, durability bubbles up the injection chain. That means if A depends on B which is flagged as <code>durable</code>, A implicitly becomes durable too (unless <code>durable</code> is explicitly set to <code>false</code> for A provider).
+</blockquote>
+<blockquote class="
+warning "><strong>Warning</strong> Note this strategy is not ideal for applications operating with a large number of tenants.
+</blockquote>
+<p>The value returned from the <code>attach</code> method instructs Nest what context identifier should be used for a given host. In this case, we specified that the <code>tenantSubTreeId</code> should be used instead of the original, auto-generated <code>contextId</code> object, when the host component (e.g., request-scoped controller) is flagged as durable (you can learn how to mark providers as durable below). Also, in the above example, <strong>no payload</strong> would be registered (where payload = <code>REQUEST</code>/<code>CONTEXT</code> provider that represents the &quot;root&quot; - parent of the sub-tree).</p>
+<p>If you want to register the payload for a durable tree, use the following construction instead:</p>
+<pre><code class="language-typescript">
+// The return of `AggregateByTenantContextIdStrategy#attach` method:
+return &#123;
+  resolve: (info: HostComponentInfo) =&gt;
+    info.isTreeDurable ? tenantSubTreeId : contextId,
+  payload: &#123; tenantId &#125;,
+&#125;
+</code></pre>
+<p>Now whenever you inject the <code>REQUEST</code> provider (or <code>CONTEXT</code> for GraphQL applications) using the <code>@Inject(REQUEST)</code>/<code>@Inject(CONTEXT)</code>, the <code>payload</code> object would be injected (consisting of a single property - <code>tenantId</code> in this case).</p>
+<p>Alright so with this strategy in place, you can register it somewhere in your code (as it applies globally anyway), so for example, you could place it in the <code>main.ts</code> file:</p>
+<pre><code class="language-typescript">
+ContextIdFactory.apply(new AggregateByTenantContextIdStrategy());
+</code></pre>
+<blockquote class="
+info "><strong>Hint</strong> The <code>ContextIdFactory</code> class is imported from the <code>@nestjs/core</code> package.
+</blockquote>
+<p>As long as the registration occurs before any request hits your application, everything will work as intended.</p>
+<p>Lastly, to turn a regular provider into a durable provider, simply set the <code>durable</code> flag to <code>true</code> and change its scope to <code>Scope.REQUEST</code> (not needed if the REQUEST scope is in the injection chain already):</p>
+<pre><code class="language-typescript">
+import &#123; Injectable, Scope &#125; from &#39;@nestjs/common&#39;;
+
+@Injectable(&#123; scope: Scope.REQUEST, durable: true &#125;)
+export class CatsService &#123;&#125;
+</code></pre>
+<p>Similarly, for <a routerLink="/fundamentals/custom-providers">custom providers</a>, set the <code>durable</code> property in the long-hand form for a provider registration:</p>
+<pre><code class="language-typescript">
+&#123;
+  provide: &#39;foobar&#39;,
+  useFactory: () =&gt; &#123; ... &#125;,
+  scope: Scope.REQUEST,
+  durable: true,
+&#125;
+</code></pre>
+
+</div>
+

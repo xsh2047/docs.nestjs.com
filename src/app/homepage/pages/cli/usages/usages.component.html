@@ -1,0 +1,407 @@
+
+<div class="content" #contentReference>
+  <div class="github-links">
+    <a
+      href="https://github.com/nestjs/docs.nestjs.com/edit/master/content/cli/usages.md"
+      aria-label="Suggest Edits"
+      title="Suggest Edits"
+    >
+      <i class="fas fa-edit"></i>
+    </a>
+  </div>
+  <h3 id="cli-command-reference">CLI command reference</h3>
+<h4 appAnchor id="nest-new"><span>nest new</span></h4>
+<p>Creates a new (standard mode) Nest project.</p>
+<pre><code class="language-bash">
+$ nest new &lt;name&gt; [options]
+$ nest n &lt;name&gt; [options]
+</code></pre>
+<h5 id="description">Description</h5>
+<p>Creates and initializes a new Nest project. Prompts for package manager.</p>
+<ul>
+<li>Creates a folder with the given <code>&lt;name&gt;</code></li>
+<li>Populates the folder with configuration files</li>
+<li>Creates sub-folders for source code (<code>/src</code>) and end-to-end tests (<code>/test</code>)</li>
+<li>Populates the sub-folders with default files for app components and tests</li>
+</ul>
+<h5 id="arguments">Arguments</h5>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&lt;name&gt;</code></td>
+<td>The name of the new project</td>
+</tr>
+</tbody></table>
+<h5 id="options">Options</h5>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--dry-run</code></td>
+<td>Reports changes that would be made, but does not change the filesystem.<br/> Alias: <code>-d</code></td>
+</tr>
+<tr>
+<td><code>--skip-git</code></td>
+<td>Skip git repository initialization.<br/> Alias: <code>-g</code></td>
+</tr>
+<tr>
+<td><code>--skip-install</code></td>
+<td>Skip package installation.<br/> Alias: <code>-s</code></td>
+</tr>
+<tr>
+<td><code>--package-manager [package-manager]</code></td>
+<td>Specify package manager. Use <code>npm</code>, <code>yarn</code>, or <code>pnpm</code>. Package manager must be installed globally.<br/> Alias: <code>-p</code></td>
+</tr>
+<tr>
+<td><code>--language [language]</code></td>
+<td>Specify programming language (<code>TS</code> or <code>JS</code>).<br/> Alias: <code>-l</code></td>
+</tr>
+<tr>
+<td><code>--collection [collectionName]</code></td>
+<td>Specify schematics collection. Use package name of installed npm package containing schematic.<br/> Alias: <code>-c</code></td>
+</tr>
+<tr>
+<td><code>--strict</code></td>
+<td>Start the project with the following TypeScript compiler flags enabled: <code>strictNullChecks</code>, <code>noImplicitAny</code>, <code>strictBindCallApply</code>, <code>forceConsistentCasingInFileNames</code>, <code>noFallthroughCasesInSwitch</code></td>
+</tr>
+</tbody></table>
+<h4 appAnchor id="nest-generate"><span>nest generate</span></h4>
+<p>Generates and/or modifies files based on a schematic</p>
+<pre><code class="language-bash">
+$ nest generate &lt;schematic&gt; &lt;name&gt; [options]
+$ nest g &lt;schematic&gt; &lt;name&gt; [options]
+</code></pre>
+<h5 id="arguments-1">Arguments</h5>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&lt;schematic&gt;</code></td>
+<td>The <code>schematic</code> or <code>collection:schematic</code> to generate. See the table below for the available schematics.</td>
+</tr>
+<tr>
+<td><code>&lt;name&gt;</code></td>
+<td>The name of the generated component.</td>
+</tr>
+</tbody></table>
+<h5 id="schematics">Schematics</h5>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Alias</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>app</code></td>
+<td></td>
+<td>Generate a new application within a monorepo (converting to monorepo if it&#39;s a standard structure).</td>
+</tr>
+<tr>
+<td><code>library</code></td>
+<td><code>lib</code></td>
+<td>Generate a new library within a monorepo (converting to monorepo if it&#39;s a standard structure).</td>
+</tr>
+<tr>
+<td><code>class</code></td>
+<td><code>cl</code></td>
+<td>Generate a new class.</td>
+</tr>
+<tr>
+<td><code>controller</code></td>
+<td><code>co</code></td>
+<td>Generate a controller declaration.</td>
+</tr>
+<tr>
+<td><code>decorator</code></td>
+<td><code>d</code></td>
+<td>Generate a custom decorator.</td>
+</tr>
+<tr>
+<td><code>filter</code></td>
+<td><code>f</code></td>
+<td>Generate a filter declaration.</td>
+</tr>
+<tr>
+<td><code>gateway</code></td>
+<td><code>ga</code></td>
+<td>Generate a gateway declaration.</td>
+</tr>
+<tr>
+<td><code>guard</code></td>
+<td><code>gu</code></td>
+<td>Generate a guard declaration.</td>
+</tr>
+<tr>
+<td><code>interface</code></td>
+<td><code>itf</code></td>
+<td>Generate an interface.</td>
+</tr>
+<tr>
+<td><code>interceptor</code></td>
+<td><code>itc</code></td>
+<td>Generate an interceptor declaration.</td>
+</tr>
+<tr>
+<td><code>middleware</code></td>
+<td><code>mi</code></td>
+<td>Generate a middleware declaration.</td>
+</tr>
+<tr>
+<td><code>module</code></td>
+<td><code>mo</code></td>
+<td>Generate a module declaration.</td>
+</tr>
+<tr>
+<td><code>pipe</code></td>
+<td><code>pi</code></td>
+<td>Generate a pipe declaration.</td>
+</tr>
+<tr>
+<td><code>provider</code></td>
+<td><code>pr</code></td>
+<td>Generate a provider declaration.</td>
+</tr>
+<tr>
+<td><code>resolver</code></td>
+<td><code>r</code></td>
+<td>Generate a resolver declaration.</td>
+</tr>
+<tr>
+<td><code>resource</code></td>
+<td><code>res</code></td>
+<td>Generate a new CRUD resource. See the <a routerLink="/recipes/crud-generator">CRUD (resource) generator</a> for more details. (TS only)</td>
+</tr>
+<tr>
+<td><code>service</code></td>
+<td><code>s</code></td>
+<td>Generate a service declaration.</td>
+</tr>
+</tbody></table>
+<h5 id="options-1">Options</h5>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--dry-run</code></td>
+<td>Reports changes that would be made, but does not change the filesystem.<br/> Alias: <code>-d</code></td>
+</tr>
+<tr>
+<td><code>--project [project]</code></td>
+<td>Project that element should be added to.<br/> Alias: <code>-p</code></td>
+</tr>
+<tr>
+<td><code>--flat</code></td>
+<td>Do not generate a folder for the element.</td>
+</tr>
+<tr>
+<td><code>--collection [collectionName]</code></td>
+<td>Specify schematics collection. Use package name of installed npm package containing schematic.<br/> Alias: <code>-c</code></td>
+</tr>
+<tr>
+<td><code>--spec</code></td>
+<td>Enforce spec files generation (default)</td>
+</tr>
+<tr>
+<td><code>--no-spec</code></td>
+<td>Disable spec files generation</td>
+</tr>
+</tbody></table>
+<h4 appAnchor id="nest-build"><span>nest build</span></h4>
+<p>Compiles an application or workspace into an output folder.</p>
+<p>Also, the <code>build</code> command is responsible for:</p>
+<ul>
+<li>mapping paths (if using path aliases) via <code>tsconfig-paths</code></li>
+<li>annotating DTOs with OpenAPI decorators (if <code>@nestjs/swagger</code> CLI plugin is enabled)</li>
+<li>annotating DTOs with GraphQL decorators (if <code>@nestjs/graphql</code> CLI plugin is enabled)</li>
+</ul>
+<pre><code class="language-bash">
+$ nest build &lt;name&gt; [options]
+</code></pre>
+<h5 id="arguments-2">Arguments</h5>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&lt;name&gt;</code></td>
+<td>The name of the project to build.</td>
+</tr>
+</tbody></table>
+<h5 id="options-2">Options</h5>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--path [path]</code></td>
+<td>Path to <code>tsconfig</code> file. <br/>Alias <code>-p</code></td>
+</tr>
+<tr>
+<td><code>--config [path]</code></td>
+<td>Path to <code>nest-cli</code> configuration file. <br/>Alias <code>-c</code></td>
+</tr>
+<tr>
+<td><code>--watch</code></td>
+<td>Run in watch mode (live-reload).<br /> If you&#39;re using <code>tsc</code> for compilation, you can type <code>rs</code> to restart the application (when <code>manualRestart</code> option is set to <code>true</code>). <br/>Alias <code>-w</code></td>
+</tr>
+<tr>
+<td><code>--builder [name]</code></td>
+<td>Specify the builder to use for compilation (<code>tsc</code>, <code>swc</code>, or <code>webpack</code>). <br/>Alias <code>-b</code></td>
+</tr>
+<tr>
+<td><code>--webpack</code></td>
+<td>Use webpack for compilation (deprecated: use <code>--builder webpack</code> instead).</td>
+</tr>
+<tr>
+<td><code>--webpackPath</code></td>
+<td>Path to webpack configuration.</td>
+</tr>
+<tr>
+<td><code>--tsc</code></td>
+<td>Force use <code>tsc</code> for compilation.</td>
+</tr>
+</tbody></table>
+<h4 appAnchor id="nest-start"><span>nest start</span></h4>
+<p>Compiles and runs an application (or default project in a workspace).</p>
+<pre><code class="language-bash">
+$ nest start &lt;name&gt; [options]
+</code></pre>
+<h5 id="arguments-3">Arguments</h5>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&lt;name&gt;</code></td>
+<td>The name of the project to run.</td>
+</tr>
+</tbody></table>
+<h5 id="options-3">Options</h5>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--path [path]</code></td>
+<td>Path to <code>tsconfig</code> file. <br/>Alias <code>-p</code></td>
+</tr>
+<tr>
+<td><code>--config [path]</code></td>
+<td>Path to <code>nest-cli</code> configuration file. <br/>Alias <code>-c</code></td>
+</tr>
+<tr>
+<td><code>--watch</code></td>
+<td>Run in watch mode (live-reload) <br/>Alias <code>-w</code></td>
+</tr>
+<tr>
+<td><code>--builder [name]</code></td>
+<td>Specify the builder to use for compilation (<code>tsc</code>, <code>swc</code>, or <code>webpack</code>). <br/>Alias <code>-b</code></td>
+</tr>
+<tr>
+<td><code>--preserveWatchOutput</code></td>
+<td>Keep outdated console output in watch mode instead of clearing the screen. (<code>tsc</code> watch mode only)</td>
+</tr>
+<tr>
+<td><code>--watchAssets</code></td>
+<td>Run in watch mode (live-reload), watching non-TS files (assets). See <a href="cli/monorepo#assets">Assets</a> for more details.</td>
+</tr>
+<tr>
+<td><code>--debug [hostport]</code></td>
+<td>Run in debug mode (with --inspect flag) <br/>Alias <code>-d</code></td>
+</tr>
+<tr>
+<td><code>--webpack</code></td>
+<td>Use webpack for compilation. (deprecated: use <code>--builder webpack</code> instead)</td>
+</tr>
+<tr>
+<td><code>--webpackPath</code></td>
+<td>Path to webpack configuration.</td>
+</tr>
+<tr>
+<td><code>--tsc</code></td>
+<td>Force use <code>tsc</code> for compilation.</td>
+</tr>
+<tr>
+<td><code>--exec [binary]</code></td>
+<td>Binary to run (default: <code>node</code>). <br/>Alias <code>-e</code></td>
+</tr>
+<tr>
+<td><code>-- [key=value]</code></td>
+<td>Command-line arguments that can be referenced with <code>process.argv</code>.</td>
+</tr>
+</tbody></table>
+<h4 appAnchor id="nest-add"><span>nest add</span></h4>
+<p>Imports a library that has been packaged as a <strong>nest library</strong>, running its install schematic.</p>
+<pre><code class="language-bash">
+$ nest add &lt;name&gt; [options]
+</code></pre>
+<h5 id="arguments-4">Arguments</h5>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&lt;name&gt;</code></td>
+<td>The name of the library to import.</td>
+</tr>
+</tbody></table>
+<h4 appAnchor id="nest-info"><span>nest info</span></h4>
+<p>Displays information about installed nest packages and other helpful system info. For example:</p>
+<pre><code class="language-bash">
+$ nest info
+</code></pre>
+<pre><code class="language-bash">
+ _   _             _      ___  _____  _____  _     _____
+| \ | |           | |    |_  |/  ___|/  __ \| |   |_   _|
+|  \| |  ___  ___ | |_     | |\ `--. | /  \/| |     | |
+| . ` | / _ \/ __|| __|    | | `--. \| |    | |     | |
+| |\  ||  __/\__ \| |_ /\__/ //\__/ /| \__/\| |_____| |_
+\_| \_/ \___||___/ \__|\____/ \____/  \____/\_____/\___/
+
+[System Information]
+OS Version : macOS High Sierra
+NodeJS Version : v16.18.0
+[Nest Information]
+microservices version : 10.0.0
+websockets version : 10.0.0
+testing version : 10.0.0
+common version : 10.0.0
+core version : 10.0.0
+</code></pre>
+
+</div>
+
